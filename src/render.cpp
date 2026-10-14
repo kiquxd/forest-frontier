@@ -17,6 +17,7 @@
 #include "adventure.hpp"
 #include "input.hpp"
 #include "json.hpp"
+#include "settlement_system.hpp"
 #include "vessels.hpp"
 
 namespace frontier {
@@ -553,6 +554,8 @@ size_t Renderer::DrawWorld(const World& world, const Save& save,
           continue;
         }
         auto t = chunk.tiles[y * kChunkTiles + x];
+        Vec tile_world = Unproject(position);
+        t.path = t.path || (!save.submerged && RoadAt(save, tile_world));
         if (save.submerged && t.terrain != Terrain::kDeep &&
             t.terrain != Terrain::kShallow) {
           continue;
@@ -560,6 +563,9 @@ size_t Renderer::DrawWorld(const World& world, const Save& save,
         int image = t.path ? 6 + t.variant % 2 : t.variant % 6;
         if (t.terrain != Terrain::kForest) {
           image = 20 + static_cast<int>(t.terrain) - 1;
+        }
+        if (!save.submerged && BridgeAt(save, tile_world)) {
+          image = 6;
         }
         if (save.submerged) {
           image = 52;
@@ -594,7 +600,13 @@ size_t Renderer::DrawWorld(const World& world, const Save& save,
       }
     }
     for (auto& resource : save.submerged ? chunk.underwater : chunk.resources) {
-      if (save.harvested.contains(resource.id)) {
+      if (save.harvested.contains(resource.id) ||
+          (!save.submerged &&
+           (RoadAt(save, resource.pos) ||
+            std::any_of(save.facilities.begin(), save.facilities.end(),
+                        [&](const auto& f) {
+                          return Length(resource.pos - f.position) < 75;
+                        })))) {
         continue;
       }
       auto position = Project(resource.pos);
@@ -679,6 +691,44 @@ size_t Renderer::DrawWorld(const World& world, const Save& save,
     }
   }
   if (!save.submerged) {
+    for (const auto& road : save.roads) {
+      for (size_t i = 1; i < road.points.size(); ++i) {
+        float length = Length(road.points[i] - road.points[i - 1]);
+        int steps = static_cast<int>(std::ceil(length / 24));
+        for (int j = 0; j < steps; ++j) {
+          Vec a = road.points[i - 1] + (road.points[i] - road.points[i - 1]) *
+                                           (static_cast<float>(j) / steps);
+          Vec b = road.points[i - 1] + (road.points[i] - road.points[i - 1]) *
+                                           (static_cast<float>(j + 1) / steps);
+          if (!Visible(Project(a), camera, 70)) {
+            continue;
+          }
+          bool bridge = BridgeAt(save, (a + b) * .5f);
+          Vec normal = Normalized(Vec{-(b - a).y, (b - a).x}) * 22;
+          Color road_color =
+              bridge ? Color{149, 106, 65, 255} : Color{151, 129, 88, 255};
+          auto p0 = ToVector2(Project(a - normal)),
+               p1 = ToVector2(Project(a + normal));
+          auto p2 = ToVector2(Project(b + normal)),
+               p3 = ToVector2(Project(b - normal));
+          auto triangle = [&](Vector2 x, Vector2 y, Vector2 z) {
+            if ((y.x - x.x) * (z.y - x.y) - (y.y - x.y) * (z.x - x.x) > 0) {
+              std::swap(y, z);
+            }
+            DrawTriangle(x, y, z, road_color);
+          };
+          triangle(p0, p1, p2);
+          triangle(p0, p2, p3);
+          if (bridge) {
+            Vec normal = Normalized(Vec{-(b - a).y, (b - a).x}) * 19;
+            DrawLineEx(ToVector2(Project(a - normal)),
+                       ToVector2(Project(a + normal)), 2, {72, 55, 36, 255});
+          }
+        }
+      }
+    }
+  }
+  if (!save.submerged) {
     for (auto& b : world.buildings) {
       auto position = Project(b.pos);
       if (Visible(position, camera)) {
@@ -703,7 +753,7 @@ size_t Renderer::DrawWorld(const World& world, const Save& save,
     }
   }
   for (auto& n : world.npcs) {
-    if (save.submerged || n.ruler) {
+    if (save.submerged || n.ruler || !ResidentActive(save, n.id)) {
       continue;
     }
     auto position = Project(n.previous + (n.pos - n.previous) * alpha);
@@ -742,7 +792,7 @@ size_t Renderer::DrawWorld(const World& world, const Save& save,
   }
   Vec player = Project(save.player);
   auto terrain = TerrainAt(save.player, save.seed);
-  bool afloat = Watercraft(save) &&
+  bool afloat = Watercraft(save) && !BridgeAt(save, save.player) &&
                 (terrain == Terrain::kDeep || terrain == Terrain::kShallow);
   int player_image = game.moving && game.swing <= 0
                          ? 40 + static_cast<int>(game.walk) % 4
@@ -1352,6 +1402,49 @@ void Renderer::DrawUi(const World& world, Save& save, Ui& ui,
                       : ActionKey(InputAction::kDebug) + ": performance",
          w - 282, 409, 13, ui.benchmark ? kGold : kMuted);
   }
+  for (const auto& f : save.facilities) {
+    auto projected = Project(f.position);
+    auto pos = GetWorldToScreen2D(ToVector2(projected + Vec{0, -145}), camera);
+    if (pos.x < -100 || pos.x > w + 100 || pos.y < 0 || pos.y > h - 150) {
+      continue;
+    }
+    std::string label = f.kind;
+    float width = Measure(label, 14) + 16;
+    DrawRectangleRounded({pos.x - width * .5f, pos.y, width, TextSize(14) + 8},
+                         .3f, 6, kPanel);
+    Text(label, pos.x - width * .5f + 8, pos.y + 3, 14, kGold);
+  }
+  if (!ui.Blocked()) {
+    int patron = -1;
+    for (const auto& [coord, chunk] : world.chunks) {
+      for (const auto& enemy : chunk.enemies) {
+        if (enemy.kind && !save.defeated.contains(enemy.id) &&
+            save.relations[enemy.city].treaty == Treaty::kWar &&
+            Length(enemy.pos - save.player) < 360) {
+          patron = enemy.city;
+          break;
+        }
+      }
+      if (patron >= 0) {
+        break;
+      }
+    }
+    if (patron >= 0) {
+      Rectangle surrender{w - 340, h * .5f, 320, 72};
+      DrawRectangleRounded(surrender, .2f, 8, {97, 60, 37, 245});
+      Wrapped("Surrender to " + Settlements()[patron].name +
+                  " · 30 coins + tribute",
+              surrender.x + 10, surrender.y + 8, 300, 17, kInk, 2);
+      if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
+          CheckCollisionPointRec(GetMousePosition(), surrender)) {
+        int local = CityAt(save, save.player);
+        ui.pending_notice =
+            SurrenderTown(save, OwnsCity(save, local) ? local : save.home_city,
+                          patron)
+                .message;
+      }
+    }
+  }
   // Context actions are keycaps on an opaque panel, independent of terrain.
   const float chip_height = 36;
   float usable = w - 64, x = 0, y = 0;
@@ -1567,8 +1660,13 @@ void Renderer::DrawUi(const World& world, Save& save, Ui& ui,
       Text("Select a row · ENTER: learn / equip / track", px + 24, py + 61, 16,
            kMuted);
     } else if (ui.crafting) {
-      Text("Recipe                              Materials / knowledge", px + 24,
-           py + 61, 16, kMuted);
+      Text(CraftWait(save) > 0
+               ? "Cooldown: " +
+                     std::to_string(
+                         static_cast<int>(std::ceil(CraftWait(save)))) +
+                     " game seconds"
+               : "Town: local / road-connected activity building required",
+           px + 24, py + 61, 16, kMuted);
     } else if (ui.equipment) {
       Text("Weapon                              Damage / reach / rarity",
            px + 24, py + 61, 16, kMuted);
@@ -1602,23 +1700,30 @@ void Renderer::DrawUi(const World& world, Save& save, Ui& ui,
         }
         bool skill_locked =
             !HasSkill(save, "crafting") || !HasSkill(save, RecipeSkill(r));
-        bool locked = !RecipeKnown(save, r) || skill_locked ||
+        bool facility_locked =
+            !FacilityAccess(save, CityAt(save, save.player), RecipeFacility(r));
+        bool locked = facility_locked || CraftWait(save) > 0 ||
+                      !RecipeKnown(save, r) || skill_locked ||
                       (!r.technology.empty() &&
                        !save.technologies.contains(r.technology));
         Text(r.name, px + 24, y, 17,
              Equipped(save, i) || locked ? kMuted : kInk);
-        Wrapped(Equipped(save, i) ? "Crafted"
-                : locked ? "Requires: " +
-                               (!RecipeKnown(save, r)
-                                    ? std::string("NPC quest reward")
-                                : skill_locked
-                                    ? SkillName(!HasSkill(save, "crafting")
-                                                    ? "crafting"
-                                                    : RecipeSkill(r))
-                                    : std::string(TechnologyName(r.technology)))
-                         : costs,
-                px + box.width * .38f, y + 2, box.width * .62f - 24, 16,
-                ready && !locked ? kGold : kMuted, 1);
+        Wrapped(
+            Equipped(save, i) ? "Crafted"
+            : locked
+                ? "Requires: " +
+                      (CraftWait(save) > 0     ? std::string("cooldown")
+                       : facility_locked       ? RecipeFacility(r)
+                       : !RecipeKnown(save, r) ? std::string("NPC quest reward")
+                       : skill_locked
+                           ? SkillName(!HasSkill(save, "crafting")
+                                           ? "crafting"
+                                           : RecipeSkill(r))
+                           : std::string(TechnologyName(r.technology)))
+                : costs + " · " + RecipeFacility(r) + " · " +
+                      std::to_string(static_cast<int>(CraftDelay(r))) + "s",
+            px + box.width * .38f, y + 2, box.width * .62f - 24, 16,
+            ready && !locked ? kGold : kMuted, 1);
       } else if (ui.progression) {
         if (i < static_cast<int>(Skills().size())) {
           Wrapped(Skills()[i].name + " · " + GetLessonState(save, i).detail,
@@ -1669,6 +1774,13 @@ void Renderer::DrawUi(const World& world, Save& save, Ui& ui,
         std::string label = lesson ? Skills()[i - 10].name + " · " +
                                          GetLessonState(save, i - 10).detail
                                    : CityActions()[i];
+        if (i == 11 + static_cast<int>(Skills().size())) {
+          int level =
+              static_cast<int>((CityRadius(save, ui.merchant) - 350) / 150) + 1;
+          label = "Expand territory · wood " + std::to_string(level * 15) +
+                  ", stone " + std::to_string(level * 10) + ", coins " +
+                  std::to_string(level * 25);
+        }
         Wrapped(label, px + 24, y, box.width - 48, 16, kInk, 1);
       } else {
         Save display;

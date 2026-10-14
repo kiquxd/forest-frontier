@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <chrono>
+
+#include "settlement_system.hpp"
 namespace frontier {
 void RecordHistory(Save& save, const std::string& kind,
                    const std::string& description, int city) {
@@ -56,12 +58,13 @@ std::vector<TownReport> TownReports(const Save& save,
       }
       if (npc.origin_city >= 0) {
         ++report.visitors;
-      } else if (!npc.ruler) {
+      } else if (!npc.ruler && ResidentActive(save, npc.id)) {
         ++report.residents;
       }
     }
     for (const auto& resident : save.citizens) {
-      if (resident.city == i && resident.job != "idle") {
+      if (resident.city == i && resident.state == "active" &&
+          resident.job != "idle") {
         ++report.workers;
       }
     }

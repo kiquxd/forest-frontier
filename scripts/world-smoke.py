@@ -28,6 +28,13 @@ if not args.extended:
                 width = ui.x.XDisplayWidth(ui.display, 0)
                 height = ui.x.XDisplayHeight(ui.display, 0)
                 ui.key(process, 'm')
+                side = min(width - 120, height - 160)
+                map_x = (width - side) * .5
+                map_y = (height - side) * .5
+                ui.click(process, map_x + side - 295, map_y - 29)
+                ui.click(process, width * .5, height * .5)
+                workflow.capture(process, 'world-road-plan.png')
+                ui.key(process, 'Escape')  # Cancel plan while keeping the map open.
                 ui.click(process, width * .5, height * .5)
                 workflow.capture(process, 'world-journal-quick.png')
                 workflow.shortcut(process, 'Control_L', 'Return')
@@ -40,7 +47,7 @@ if not args.extended:
                     ui.key(process, 'Down')
                 ui.key(process, 'Return')
                 assert process.wait(timeout=5) == 0
-                print('Quick world smoke passed: map click, journal save and return to main menu.')
+                print('Quick world smoke passed: road plan/cancel, map journal save and return to main menu.')
             finally:
                 workflow.stop(process)
     raise SystemExit(0)

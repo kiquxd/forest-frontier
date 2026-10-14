@@ -11,6 +11,7 @@
 
 #include "gameplay.hpp"
 #include "json.hpp"
+#include "settlement_system.hpp"
 
 namespace {
 void Check(bool condition, const char* reason) {
@@ -25,6 +26,11 @@ int FindRecipeIndex(const std::string& id) {
     }
   }
   throw std::runtime_error("Missing recipe");
+}
+
+frontier::Action CraftAfterWait(frontier::Save& save, int recipe) {
+  save.game_time = std::max(save.game_time, save.craft_ready_at);
+  return frontier::Craft(save, recipe);
 }
 
 }  // namespace
@@ -59,7 +65,7 @@ int main() {
     }
     frontier::Resource tree{1, {}, frontier::ResourceKind::kTree, 0};
     Check(!frontier::Harvest(save, tree).ok &&
-              !frontier::Craft(save, FindRecipeIndex("campfire")).ok &&
+              !CraftAfterWait(save, FindRecipeIndex("campfire")).ok &&
               !frontier::Trade(save, save.home_city, 0, false).ok,
           "Starting actions locked");
     Check(
@@ -92,15 +98,14 @@ int main() {
       Check(frontier::Harvest(save, resource).ok, "Gather without tools");
     }
     Check(frontier::TrainSkill(save, 2).ok, "Gathering unlocks craft lesson");
-    Check(frontier::Craft(save, FindRecipeIndex("campfire")).ok &&
-              frontier::Craft(save, FindRecipeIndex("campfire")).ok,
+    Check(CraftAfterWait(save, FindRecipeIndex("campfire")).ok &&
+              CraftAfterWait(save, FindRecipeIndex("campfire")).ok,
           "Two basic crafts without tool prerequisite");
     Check(frontier::TrainSkill(save, 3).ok &&
               frontier::TrainSkill(save, 4).ok &&
               frontier::TrainSkill(save, 5).ok,
           "Practice unlocks tools, combat, fishing");
-    Check(frontier::Craft(save, FindRecipeIndex("rod")).ok,
-          "Craft fishing rod");
+    Check(CraftAfterWait(save, FindRecipeIndex("rod")).ok, "Craft fishing rod");
     for (int i = 0; i < 3; i++) {
       Check(frontier::Harvest(save, {static_cast<uint64_t>(1000 + i),
                                      {},
@@ -109,10 +114,23 @@ int main() {
                 .ok,
             "Catch fish with rod");
     }
+    auto home = save.player;
+    int harbor = -1;
+    for (const auto& f : save.facilities) {
+      if (f.kind == "shipyard") {
+        harbor = f.city;
+        break;
+      }
+    }
+    Check(harbor >= 0, "A specialist town has a shipyard");
+    save.relations[harbor].treaty = frontier::Treaty::kPeace;
+    save.relations[harbor].opinion = 30;
+    save.player = frontier::Settlements()[harbor].pos;
     Check(frontier::TrainSkill(save, 6).ok &&
-              frontier::Craft(save, FindRecipeIndex("boat")).ok,
+              CraftAfterWait(save, FindRecipeIndex("boat")).ok,
           "Fishing unlocks first watercraft without coins or advanced "
           "technologies");
+    save.player = home;
     Check(frontier::TrainSkill(save, 8).ok && frontier::TrainSkill(save, 9).ok,
           "Construction and diplomacy lessons");
     Check(!frontier::Diplomacy(save, save.home_city, 2).ok,

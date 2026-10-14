@@ -10,6 +10,7 @@
 #include "input.hpp"
 #include "progress.hpp"
 #include "render.hpp"
+#include "settlement_system.hpp"
 
 namespace frontier {
 namespace {
@@ -480,9 +481,8 @@ void Renderer::DrawSettlements(const Save& save, SummaryView& view,
   }
   Wrapped(goods + " Knowledge: " + report.technology, x, body.y + 152, width,
           16, kMuted, 3);
-  Wrapped("Location: " + std::to_string(static_cast<int>(town.pos.x)) + ", " +
-              std::to_string(static_cast<int>(town.pos.y)),
-          x, body.y + 230, width, 16, kMuted, 1);
+  Wrapped(TownInfrastructure(save, city), x, body.y + 219, width, 15, kMuted,
+          2);
   if (!report.owned) {
     Wrapped(
         "Visit the ruler for diplomacy and the town master for lessons. Jobs "
@@ -538,7 +538,7 @@ void Renderer::DrawSettlements(const Save& save, SummaryView& view,
                              : Color{29, 48, 37, 255});
     Wrapped((npc == npcs.end() ? "Resident " + std::to_string(resident.npc)
                                : npc->name) +
-                " · " + resident.job,
+                " · " + resident.state + " · " + resident.job,
             x + 8, y + 3, width - 16, 16, kInk, 1);
     Wrapped(
         (resident.weapon.empty() ? "No weapon" : Weapon(resident.weapon).name) +
@@ -566,6 +566,23 @@ void Renderer::DrawSettlements(const Save& save, SummaryView& view,
   if (view.editable && view.selected_resident >= 0 &&
       GetCitizen(save, view.selected_resident) &&
       GetCitizen(save, view.selected_resident)->city == city) {
+    const auto* selected = GetCitizen(save, view.selected_resident);
+    if (selected->state != "active") {
+      float y = body.y + body.height - 70;
+      if (selected->state == "captive") {
+        if (button({x, y, width, 42}, "Ransom · " +
+                                          std::to_string(selected->ransom) +
+                                          " coins · gear returns")) {
+          view.requested_ransom = selected->npc;
+        }
+      } else {
+        Wrapped(
+            "This resident died. Assigned gear was destroyed; they cannot be "
+            "reassigned.",
+            x, y, width, 16, kMuted, 2);
+      }
+      return;
+    }
     auto weapons = OwnedWeapons(save), outfits = OwnedOutfits(save);
     outfits.insert(outfits.begin(), "");
     view.resident_job = std::clamp(view.resident_job, 0,

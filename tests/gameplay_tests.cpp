@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <chrono>
 #include <exception>
 #include <filesystem>
@@ -31,13 +32,18 @@ void MakeFlatWorld(frontier::World& world) {
   world.buildings.clear();
 }
 
+frontier::Action CraftAfterWait(frontier::Save& save, int recipe) {
+  save.game_time = std::max(save.game_time, save.craft_ready_at);
+  return frontier::Craft(save, recipe);
+}
+
 }  // namespace
 
 int main() {
   try {
     frontier::Save save;
     auto inventory = save.inventory;
-    Check(!frontier::Craft(save, 2).ok && save.inventory.wood == inventory.wood,
+    Check(!CraftAfterWait(save, 2).ok && save.inventory.wood == inventory.wood,
           "Failed crafting cannot consume resources");
     save.inventory.wood = 60;
     save.inventory.stone = 30;
@@ -45,10 +51,10 @@ int main() {
     save.inventory.berries = 12;
     save.inventory.leather = 8;
     for (int i = 0; i < 8; i++) {
-      Check(frontier::Craft(save, i).ok, "All recipes craft");
+      Check(CraftAfterWait(save, i).ok, "All recipes craft");
     }
     int wood = save.inventory.wood;
-    Check(frontier::Craft(save, 2).ok && save.inventory.wood == wood - 6 &&
+    Check(CraftAfterWait(save, 2).ok && save.inventory.wood == wood - 6 &&
               save.weapon_copies["wood_sword"] == 2,
           "Spare weapons consume materials and create separate copies");
     Check(save.inventory.sword && save.inventory.boat && save.inventory.armor &&

@@ -83,6 +83,7 @@ struct Enemy {
   Vec attack_target{};
   int kind{};
   int city{-1};
+  int target_npc{-1};
 };
 struct Tile {
   uint8_t variant;
@@ -125,6 +126,7 @@ struct Building {
   Vec pos;
   int variant;
   bool hall{};
+  std::string facility;
 };
 const std::vector<Settlement>& Settlements();
 void ConfigureWorld(uint64_t seed);
@@ -185,6 +187,10 @@ struct Citizen {
   std::string weapon;
   std::string outfit;
   bool trained{};
+  int health{100};
+  std::string state = "active";
+  int captor{-1};
+  int ransom{};
 };
 struct HistoryEntry {
   std::string kind;
@@ -202,6 +208,24 @@ struct KnownDeposit {
   Vec position;
   int good;
   bool underwater;
+};
+struct Facility {
+  int city;
+  std::string kind;
+  Vec position;
+};
+struct Road {
+  int from;
+  int to;
+  std::vector<Vec> points;
+};
+struct Tribute {
+  int city;
+  int patron;
+  int previous_owner;
+  int amount{10};
+  int buyout{300};
+  double next_due{};
 };
 struct Save {
   Vec player{120, 140};
@@ -251,6 +275,14 @@ struct Save {
   std::unordered_set<Coord, CoordHash> visible_surface;
   std::unordered_set<Coord, CoordHash> visible_underwater;
   std::unordered_set<std::string> vessels;
+  bool urban{};
+  double game_time{};
+  double craft_ready_at{};
+  std::vector<float> city_radii;
+  std::vector<int> previous_owners;
+  std::vector<Facility> facilities;
+  std::vector<Road> roads;
+  std::vector<Tribute> tributes;
 };
 Save LoadSave(const std::filesystem::path& path);
 void WriteSave(const std::filesystem::path& path, const Save& save);
@@ -276,6 +308,7 @@ class World {
   bool Clear(Vec position, const Save& save, float radius = 12,
              bool boat = false) const;
   void ResolvePlayerContacts(Save& save);
+  void SyncInfrastructure(const Save& save);
   bool SightBlocked(Vec start, Vec end, const Save& save) const;
   Vec Move(Vec position, Vec displacement, const Save& save, float radius = 12,
            bool boat = false) const;

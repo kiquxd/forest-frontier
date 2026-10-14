@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstddef>
@@ -31,6 +32,11 @@ void MakeFlatWorld(frontier::World& world) {
       world.chunks.emplace(chunk.coord, std::move(chunk));
     }
   }
+}
+
+frontier::Action CraftAfterWait(frontier::Save& save, int recipe) {
+  save.game_time = std::max(save.game_time, save.craft_ready_at);
+  return frontier::Craft(save, recipe);
 }
 
 }  // namespace
@@ -129,7 +135,7 @@ int main() {
           recipe = static_cast<int>(i);
         }
       }
-      Check(frontier::Craft(save, recipe).ok, "Advanced craft chain");
+      Check(CraftAfterWait(save, recipe).ok, "Advanced craft chain");
     }
     save.player = {1100, -1100};
     Check(frontier::Dive(save).ok && save.submerged &&

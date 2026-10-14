@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <exception>
@@ -11,6 +12,7 @@
 #include "adventure.hpp"
 #include "json.hpp"
 #include "save_slots.hpp"
+#include "settlement_system.hpp"
 
 namespace {
 void Check(bool ok, const char* reason) {
@@ -27,6 +29,11 @@ int FindRecipeIndex(const std::string& id) {
   throw std::runtime_error("Missing recipe");
 }
 
+frontier::Action CraftAfterWait(frontier::Save& save, int recipe) {
+  save.game_time = std::max(save.game_time, save.craft_ready_at);
+  return frontier::Craft(save, recipe);
+}
+
 }  // namespace
 
 int main() {
@@ -40,6 +47,8 @@ int main() {
     frontier::Save save;
     frontier::InitializeCampaign(save);
     frontier::InitializeAdventure(save);
+    save.facilities.push_back({save.home_city, "tailor", save.player});
+    save.facilities.push_back({save.home_city, "school", save.player});
     auto npcs = frontier::MakeNpcs();
     Check(save.citizens.size() >= 4 && save.outfit_copies.at("traveler") == 1,
           "New campaign has an owned resident roster and one basic outfit");
@@ -97,24 +106,26 @@ int main() {
                                0});
     }
     Check(frontier::TrainSkill(save, 2).ok &&
-              frontier::Craft(save, FindRecipeIndex("outfit_forager")).ok,
+              CraftAfterWait(save, FindRecipeIndex("outfit_forager")).ok,
           "Quest recipe makes usable clothing");
     save.player = {1100, -1100};
     save.submerged = true;
     Check(frontier::EquipOutfit(save, "forager").ok &&
               frontier::GatherTimeMultiplier(save) < 1,
           "Clothes swap underwater and apply gathering perk");
-    Check(!frontier::Craft(save, FindRecipeIndex("outfit_artisan")).ok,
+    Check(!CraftAfterWait(save, FindRecipeIndex("outfit_artisan")).ok,
           "Unknown quest recipes remain locked");
+    save.submerged = false;
+    save.player = frontier::Settlements()[save.home_city].pos;
     save.inventory.wood = 60;
     save.inventory.reeds = 60;
     save.inventory.stone = 60;
-    Check(frontier::Craft(save, FindRecipeIndex("outfit_forager")).ok &&
+    Check(CraftAfterWait(save, FindRecipeIndex("outfit_forager")).ok &&
               save.outfit_copies.at("forager") == 2,
           "Craft spare clothes");
     Check(frontier::TrainSkill(save, 1).ok && frontier::TrainSkill(save, 4).ok,
           "Practice supports initial training skills");
-    Check(frontier::Craft(save, 2).ok && frontier::Craft(save, 2).ok &&
+    Check(CraftAfterWait(save, 2).ok && CraftAfterWait(save, 2).ok &&
               save.weapon_copies.at("wood_sword") == 2,
           "Spare weapons use counted copies");
     Check(frontier::EquipWeapon(save, "wood_sword").ok,

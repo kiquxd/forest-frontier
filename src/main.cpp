@@ -33,6 +33,7 @@
 #include "render.hpp"
 #include "rlgl.h"
 #include "settings_ui.hpp"
+#include "settlement_system.hpp"
 #include "vessels.hpp"
 #include "world.hpp"
 
@@ -278,6 +279,20 @@ std::string CpuName() {
   }
   return "unknown";
 }
+frontier::Action FixtureCraft(frontier::Save& save, int recipe) {
+  // Explicit benchmark fixtures advance simulated craft time and use the home
+  // workshop. This helper is never called by ordinary gameplay input.
+  save.game_time = std::max(save.game_time, save.craft_ready_at);
+  auto position = save.player;
+  bool submerged = save.submerged;
+  save.submerged = false;
+  save.player = frontier::Settlements()[save.home_city].pos;
+  auto result = frontier::Craft(save, recipe);
+  save.player = position;
+  save.submerged = submerged;
+  return result;
+}
+
 int Play(const Options& options) {
   frontier::Perf perf(options.log_dir);
   frontier::Save save;
@@ -473,6 +488,24 @@ int Play(const Options& options) {
       world.BeginConversation(1, save);
     }
     bool community_assigned = false;
+    if (options.benchmark_gameplay) {
+      frontier::InitializeCampaign(save, true);
+      frontier::InitializeAdventure(save);
+      frontier::InitializeTowns(save);
+      for (const auto& f : frontier::FacilityTypes()) {
+        bool present = std::any_of(
+            save.facilities.begin(), save.facilities.end(),
+            [&](const auto& site) {
+              return site.city == save.home_city && site.kind == f.id;
+            });
+        if (!present) {
+          save.facilities.push_back(
+              {save.home_city, f.id,
+               frontier::Settlements()[save.home_city].pos +
+                   frontier::Vec{310, 0}});
+        }
+      }
+    }
     if (options.benchmark_community) {
       frontier::InitializeCampaign(save, true);
       frontier::InitializeAdventure(save);
@@ -487,16 +520,19 @@ int Play(const Options& options) {
       }
       bool prepared = accepted.ok && completed.ok && clothing >= 0;
       if (clothing >= 0) {
-        prepared = frontier::Craft(save, clothing).ok && prepared;
-        prepared = frontier::Craft(save, clothing).ok && prepared;
+        prepared = FixtureCraft(save, clothing).ok && prepared;
+        prepared = FixtureCraft(save, clothing).ok && prepared;
       }
-      prepared = frontier::Craft(save, 2).ok && prepared;
-      prepared = frontier::Craft(save, 2).ok && prepared;
+      prepared = FixtureCraft(save, 2).ok && prepared;
+      prepared = FixtureCraft(save, 2).ok && prepared;
       for (int i = 0; i < 6; i++) {
         prepared =
             frontier::Trade(save, save.home_city, 5, true).ok && prepared;
       }
+      auto research_position = save.player;
+      save.player = frontier::Settlements()[save.home_city].pos;
       prepared = frontier::Research(save, 0).ok && prepared;
+      save.player = research_position;
       prepared = frontier::AssignCitizen(save, save.citizens[0].npc, "gatherer",
                                          "", "forager")
                      .ok &&
@@ -598,6 +634,12 @@ int Play(const Options& options) {
           {"skills", save.skills.size()},
           {"gathered", save.gathered},
           {"crafted", save.crafted},
+          {"game_time", save.game_time},
+          {"craft_wait", frontier::CraftWait(save)},
+          {"activity_buildings", save.facilities.size()},
+          {"built_roads", save.roads.size()},
+          {"tribute_towns", save.tributes.size()},
+          {"active_residents", frontier::ActiveResidents(save)},
           {"paused", ui.paused || ui.progression},
           {"summary_tab", ui.progression ? ui.summary.tab : -1},
           {"owned_cities",
@@ -671,6 +713,10 @@ int Play(const Options& options) {
       if (now > notice_until) {
         ui.notice.clear();
       }
+      if (!ui.pending_notice.empty()) {
+        notify(ui.pending_notice, now);
+        ui.pending_notice.clear();
+      }
       frontier::Reply completed;
       if (dialogue.TakeCompletion(completed)) {
         if (completed.error.empty()) {
@@ -705,7 +751,7 @@ int Play(const Options& options) {
                   ? completed.output_tokens * 1000 / completed.generation_ms
                   : 0}});
       }
-      if (!ui.settings_open && !ui.map_journal &&
+      if (!ui.settings_open && !ui.map_journal && !ui.road_edit &&
           frontier::ActionPressed(frontier::InputAction::kDebug)) {
         ui.debug = !ui.debug;
       }
@@ -727,12 +773,16 @@ int Play(const Options& options) {
         next_plan = 0;
       }
       if (frontier::MenuBack() && !ui.settings_open) {
-        if (ui.map_journal) {
+        if (ui.road_edit) {
+          ui.road_edit = false;
+          ui.road_points.clear();
+        } else if (ui.map_journal) {
           ui.map_journal = false;
           ui.note_edit = false;
         } else if (ui.progression) {
           ui.summary.requested_node.clear();
           ui.summary.requested_assignment = false;
+          ui.summary.requested_ransom = -1;
           ui.progression = false;
         } else if (ui.paused) {
           ui.paused = false;
@@ -752,7 +802,7 @@ int Play(const Options& options) {
           ui.pause_error.clear();
         }
       }
-      if (!ui.settings_open && !ui.map_journal &&
+      if (!ui.settings_open && !ui.map_journal && !ui.road_edit &&
           frontier::ActionPressed(frontier::InputAction::kProgress)) {
         bool opened = !ui.progression;
         ui.npc = -1;
@@ -763,6 +813,7 @@ int Play(const Options& options) {
         ui.progression = opened;
         ui.summary.requested_node.clear();
         ui.summary.requested_assignment = false;
+        ui.summary.requested_ransom = -1;
         ui.summary.editable = true;
         if (opened) {
           ui.summary.tab = 4;
@@ -781,6 +832,12 @@ int Play(const Options& options) {
                       {"ok", result.ok}});
           ui.summary.requested_node.clear();
         }
+        if (ui.summary.requested_ransom >= 0) {
+          ui.summary.status =
+              frontier::RansomResident(save, ui.summary.requested_ransom)
+                  .message;
+          ui.summary.requested_ransom = -1;
+        }
         if (ui.summary.requested_assignment) {
           auto weapons = frontier::OwnedWeapons(save),
                outfits = frontier::OwnedOutfits(save);
@@ -792,6 +849,7 @@ int Play(const Options& options) {
               outfits.at(ui.summary.resident_outfit));
           ui.summary.status = result.message;
           ui.summary.requested_assignment = false;
+          ui.summary.requested_ransom = -1;
           perf.Event({{"event", "resident_assignment"},
                       {"npc", ui.summary.selected_resident},
                       {"ok", result.ok}});
@@ -802,6 +860,7 @@ int Play(const Options& options) {
           ui.progression = false;
           ui.summary.requested_node.clear();
           ui.summary.requested_assignment = false;
+          ui.summary.requested_ransom = -1;
         }
       }
       if (ui.paused && !ui.settings_open) {
@@ -859,8 +918,8 @@ int Play(const Options& options) {
         }
       }
       const frontier::Resource* resource = nullptr;
-      if (!ui.paused && !ui.progression && !ui.map_journal && !quit &&
-          !pause_was_active) {
+      if (!ui.paused && !ui.progression && !ui.map_journal && !ui.road_edit &&
+          !quit && !pause_was_active) {
         game.Advance(dt);
         if (ui.cartography) {
           ui.map_range = std::clamp(
@@ -948,7 +1007,7 @@ int Play(const Options& options) {
         int nearest_npc = -1;
         float npc_distance = 150;
         for (auto& n : world.npcs) {
-          if (n.ruler) {
+          if (n.ruler || !frontier::ResidentActive(save, n.id)) {
             continue;
           }
           float d = frontier::Length(n.pos - save.player);
@@ -1306,7 +1365,8 @@ int Play(const Options& options) {
           }
         }
         if (ui.npc >= 0 &&
-            frontier::Length(world.npcs[ui.npc].pos - save.player) > 190) {
+            (!frontier::ResidentActive(save, world.npcs[ui.npc].id) ||
+             frontier::Length(world.npcs[ui.npc].pos - save.player) > 190)) {
           ui.npc = -1;
           world.talking_npc = -1;
         }
@@ -1381,7 +1441,7 @@ int Play(const Options& options) {
         }
         if (options.benchmark_gameplay) {
           if (scenario_step < 8 && now > 1 + scenario_step * .35) {
-            auto result = frontier::Craft(save, scenario_step);
+            auto result = FixtureCraft(save, scenario_step);
             perf.Event({{"event", "benchmark_craft"},
                         {"item", scenario_step},
                         {"ok", result.ok}});
@@ -1389,8 +1449,11 @@ int Play(const Options& options) {
           }
           if (options.benchmark_community && scenario_step >= 8 &&
               !community_assigned) {
-            bool trained = frontier::Craft(save, 5).ok;
+            bool trained = FixtureCraft(save, 5).ok;
+            auto research_position = save.player;
+            save.player = frontier::Settlements()[save.home_city].pos;
             trained = frontier::Research(save, 1).ok && trained;
+            save.player = research_position;
             trained =
                 frontier::AssignCitizen(save, save.citizens[1].npc, "guard",
                                         "wood_sword", "leather_armor")
@@ -1416,11 +1479,11 @@ int Play(const Options& options) {
           if (options.benchmark_expedition && scenario_step == 10 &&
               now > 4.7) {
             for (int i = 0; i < 4; i++) {
-              frontier::Craft(save, 10);
+              FixtureCraft(save, 10);
             }
             bool success = true;
             for (int recipe : {9, 11, 12, 13, 14}) {
-              auto result = frontier::Craft(save, recipe);
+              auto result = FixtureCraft(save, recipe);
               success = success && result.ok;
             }
             save.vehicle = 2;
@@ -1616,7 +1679,7 @@ int Play(const Options& options) {
                 : 0;
       }
       if (!options.no_save && !ui.paused && !ui.progression &&
-          !ui.map_journal && !quit && now - last_save > 30) {
+          !ui.map_journal && !ui.road_edit && !quit && now - last_save > 30) {
         auto t = frontier::Clock::now();
         frontier::WriteSave(options.save_path, save);
         last_save = now;
@@ -1654,6 +1717,14 @@ int Play(const Options& options) {
       }
       double update_ms = frontier::ElapsedMilliseconds(update_start);
       auto render_start = frontier::Clock::now();
+      if (ui.road_edit) {
+        ui.actions = {{"Click", "Town / waypoint"},   {"Right click", "Undo"},
+                      {"Enter", "Build entire road"}, {"Esc", "Cancel plan"},
+                      {"Middle mouse", "Pan"},        {"Wheel", "Zoom"}};
+        ui.hint =
+            "Construction requires an explored route and the full material "
+            "cost.";
+      }
       renderer.UpdateAudio(&save, &game, ui.Blocked(), &world);
       BeginDrawing();
       ClearBackground(save.submerged ? Color{12, 28, 39, 255}

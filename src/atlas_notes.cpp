@@ -4,6 +4,7 @@
 #include <stdexcept>
 
 #include "gameplay.hpp"
+#include "settlement_system.hpp"
 #include "vessels.hpp"
 namespace frontier {
 float SightRange(const Save& save) {
@@ -11,6 +12,9 @@ float SightRange(const Save& save) {
     return 650;
   }
   auto terrain = TerrainAt(save.player, save.seed);
+  if (BridgeAt(save, save.player)) {
+    return 850;
+  }
   if (terrain == Terrain::kDeep || terrain == Terrain::kShallow) {
     return ActiveVehicle(save) > 0 ? Vessel(ActiveVehicle(save)).view : 650;
   }

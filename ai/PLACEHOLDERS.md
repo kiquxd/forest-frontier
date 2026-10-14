@@ -1,6 +1,6 @@
 # Incomplete systems and placeholders
 
-Audit of the current 0.7 implementation. This inventory covers working prototypes, missing parts of requested mechanics and technical limitations. It is not a commitment to implement every possible extension. A working menu or prerequisite does not mean the underlying simulation is complete.
+Audit of the current 0.8 implementation. This inventory covers working prototypes, missing parts of requested mechanics and technical limitations. It is not a commitment to implement every possible extension. A working menu or prerequisite does not mean the underlying simulation is complete.
 
 Keep this inventory current whenever mechanics change. Remove a limitation only after implementation and relevant validation. Deliberate scope choices belong in [DECISIONS.md](DECISIONS.md).
 
@@ -22,12 +22,12 @@ Sources: [gameplay.cpp](../src/gameplay.cpp), [adventure.cpp](../src/adventure.c
 
 ## Defenders and resident training
 
-**Working:** counted gear copies, exclusive allocation, research prerequisites, matching work clothes and resident roles.
+**Working:** counted gear copies, exclusive allocation, school-gated research/training, matching work clothes, resident health, irreversible local deaths and captive/ransom states. Dead residents lose assigned weapon/clothes; captive copies remain reserved and return after ransom.
 
 **Incomplete:**
-- Training is an immediate assignment enabled by a global technology, without lessons, experience, training time or individual proficiency.
-- Defenders periodically damage nearby wolves. They lack a complete attack animation, combat decision system and coordinated patrols; this is not an army simulation.
-- Residents have no health, injury or death model and cannot suffer military casualties.
+- Training is an immediate assignment enabled by technology and access to a local/road-connected school, without lessons, experience, training time or individual proficiency.
+- Defenders periodically damage nearby wolves and hostile guards. They lack a complete attack animation, combat decision system and coordinated patrols; this is not an army simulation.
+- Resident casualties/capture currently come from local defender encounters only. There is no campaign casualty simulation, prisoner transport/exchange, player captivity or resident medical treatment system.
 - Ranged defenders are explicitly unavailable; resident ammunition, ranged targeting and squad commands are not implemented.
 
 Sources: [adventure.cpp](../src/adventure.cpp), [gameplay.cpp](../src/gameplay.cpp).
@@ -46,10 +46,10 @@ Sources: [world.cpp](../src/world.cpp), [adventure.cpp](../src/adventure.cpp), [
 
 ## Resident work and production
 
-**Working:** trained residents add bounded stock/treasury batches every 20 seconds; ambassadors improve trust toward eligible discovered towns.
+**Working:** active trained residents add bounded stock/treasury batches every 20 seconds; material-producing jobs require their activity building locally or through peaceful road connections. Ambassadors improve trust toward eligible discovered towns. Dead/captive residents do not work.
 
 **Incomplete:**
-- Work is a timer contribution, without physical collection, hauling, workplaces, input materials or production chains.
+- Work checks required local/road-connected facilities but remains a timer contribution, without physical collection, hauling, attendance at workplaces, input materials or production chains.
 - Scholars currently contribute berries and engineers reeds; these stand in for specialized work rather than producing research or engineering projects.
 - Traders create treasury income without moving goods or completing transactions. Ambassadors adjust trust without traveling or negotiating.
 - There are no work queues, individual productivity progression or operating costs. Guild research changes batch size rather than creating a functioning guild economy.
@@ -73,11 +73,11 @@ Source: [gameplay.cpp](../src/gameplay.cpp).
 
 ## Diplomacy and relations between settlements
 
-**Working:** seeded inter-town relations, attitudes toward visitors, player trust, gifts, truces/alliances/unions, quest trust rewards and ambassadors.
+**Working:** seeded inter-town relations, visitor attitudes, player trust, gifts, truces/alliances/unions, quest trust rewards, ambassadors, surrender retaining local rule, recurring tribute and buying independence/previous allegiance. Unpaid tribute resumes local hostility.
 
 **Incomplete:**
 - Foreign relations are largely initialized values; rulers do not negotiate or change alliances through an autonomous diplomacy simulation.
-- Treaties are immediate threshold/cost operations, without counteroffers, obligations, expiry or a negotiation process.
+- Treaties and surrender use immediate fixed terms, without counteroffers, treaty expiry or a negotiation process. Tribute covers local player-controlled towns; there is no autonomous foreign subjugation or state-level political integration.
 - Alliances do not establish shared defense, coordinated trade or joint policy. Unions transfer ownership without political integration.
 - Visitors are generated residents with an origin town, not travelers arriving along routes. Hostility changes local positioning rather than simulating refusal or diplomatic incidents.
 
@@ -85,12 +85,12 @@ Sources: [gameplay.cpp](../src/gameplay.cpp), [world.cpp](../src/world.cpp), [ad
 
 ## City construction, walls and interiors
 
-**Working:** houses/halls, a hall interaction scene, foreign rulers, an empty owned ruler seat and collidable wall segments with health.
+**Working:** houses/halls, a hall interaction scene, foreign rulers, an empty owned ruler seat, collidable walls, expanding circular town territory and buildable workbench/forge/tailor/school/shipyard/alchemy facilities. Complete manually plotted roads share facility access through peaceful connected towns; water sections are more expensive walkable bridges.
 
 **Incomplete:**
-- Houses are static scenery, without walkable interiors or individual building functions. Hall interiors are interface scenes, not navigable levels.
+- Residential houses are static scenery without walkable interiors or individual household functions. Activity buildings provide access gates; hall interiors are interface scenes, not navigable levels.
 - Walls fill a predefined ring with a fixed opening; there is no free placement, layout editor, movable/openable gate or dismantling interface.
-- There is no town founding, player construction of houses/workshops or building upgrade system.
+- There is no town founding, player construction of residential houses, free building placement or building upgrade system. Territory expansion uses a fixed circular radius and automatically chosen safe activity-building sites.
 - Wall damage supports local encounters, without a complete siege/destruction and rebuilding simulation.
 
 Sources: [world.cpp](../src/world.cpp), [gameplay.cpp](../src/gameplay.cpp), [render.cpp](../src/render.cpp).
@@ -135,10 +135,10 @@ Sources: [gameplay.cpp](../src/gameplay.cpp), [adventure.cpp](../src/adventure.c
 
 ## Crafting, equipment and character progression
 
-**Working:** costs/unlock checks, expanded recipes, counted weapons/clothes, outfit perks, swaps anywhere and five backgrounds with bonuses/penalties.
+**Working:** costs/unlock checks, expanded recipes, counted weapons/clothes, outfit perks, equipment swaps anywhere and five backgrounds. Crafting requires town territory plus the appropriate local/peaceful road-connected activity building. Every successful craft starts a global 5/15/40/90/180-game-second cooldown based on rarity; it persists across reload.
 
 **Incomplete:**
-- Crafting is instant and available anywhere, without stations, crafting time, queues or production facilities.
+- Craft outputs are immediate, followed by a persistent rarity-scaled global cooldown. There are no timed production queues, reserved-input jobs or simultaneous per-building workshop queues.
 - Tools/vessels are mostly ownership flags rather than separate world/inventory instances.
 - Clothing is one full outfit, without independent garment/accessory slots. Equipment copies have no individual quality or instance properties.
 - There are no storage chests, warehouse transfers or complete equipment management for multiple residents.
@@ -161,12 +161,12 @@ Source: [gameplay.cpp](../src/gameplay.cpp).
 
 ## Survival, healing and respawning
 
-**Working:** food/potion healing, recovery near peaceful towns/campfires and death relocation with a coin penalty.
+**Working:** food/potion healing, recovery near peaceful towns/campfires and player death relocation with a coin penalty and destruction of the equipped weapon. Weapons do not drop from dead units.
 
 **Incomplete:**
 - Food is a healing/crafting resource; hunger, thirst, sleep and temperature are not simulated.
 - Campfires provide local healing rather than a complete camping system.
-- Death resets health and removes coins, without a corpse, recovery expedition or persistent injury state.
+- Player death resets health, destroys the equipped weapon and removes coins, without player captivity, a recoverable corpse, recovery expedition or persistent injury state.
 
 Source: [gameplay.cpp](../src/gameplay.cpp).
 
@@ -202,7 +202,7 @@ Sources: [gameplay.cpp](../src/gameplay.cpp), [render.cpp](../src/render.cpp).
 **Incomplete:**
 - Lakes/coastline use predefined large-scale shapes with seeded variation, not general continent/biome generation.
 - Settlements occupy a finite seeded region around fixed landmarks. Distant exploration generates terrain, not an endlessly expanding settlement network.
-- Roads comprise local paths and one predefined inter-town connection, without a complete generated network.
+- Player roads/bridges are manually plotted complete routes, without maintenance, demolition, traffic capacity or territorial right-of-way negotiations. Local town paths remain generated scenery; inter-town roads are not generated automatically.
 - Harvested resources remain depleted; regrowth and renewable deposit management are absent.
 - Animals wander/flee locally, without breeding, food chains or persistent population simulation.
 - Terrain is flat, without caves, elevation or physical geology. Weather, seasons and a day/night simulation are absent.
@@ -224,7 +224,7 @@ Source: [world.cpp](../src/world.cpp).
 **Incomplete:**
 - Cartography uses scale-dependent cached raster detail and exploration cells, not an unlimited-resolution geographic model.
 - Political/economic layers show discovered towns and remembered deposits; complete regional borders, production forecasts and strategic orders await the deferred resident-command/navigation systems.
-- Road detail inherits the incomplete world road network.
+- Road planning is a surface-map mouse interface with at most 64 points and 128 roads. A route must be fully explored and paid for in one operation; alternate keyboard/controller plotting and detailed road editing are absent.
 
 
 ## Graphics, animation and audio
@@ -251,11 +251,11 @@ Sources: [menu.cpp](../src/menu.cpp), [settings_ui.cpp](../src/settings_ui.cpp),
 
 ## Persistence and content identity
 
-**Working:** atomic saves, v1-v6 migration to v7 with backups, persistent quests/gear/roles/unlocks/relations/maps and harvested/defeated IDs.
+**Working:** atomic saves, v1-v7 migration to v8 with backups, persistent quests/gear/roles/unlocks/relations/maps, roads/buildings/territory, resident losses/captives, tribute, crafting clock and harvested/defeated IDs.
 
 **Incomplete:**
 - Living enemy health, position and attack state are transient; chunk regeneration/reload can reset a surviving enemy. NPC/animal movement and active projectiles are also transient.
-- There is no persistent calendar or offline simulation catch-up.
+- A persistent simulation clock drives crafting cooldowns and tribute, but there is no calendar, offline progression or simulation catch-up.
 - Quest giver/resident identities rely on generated NPC indices. Version migrations do not provide general remapping for future settlement/NPC generation or content identity changes.
 
 Sources: [world.cpp](../src/world.cpp), [adventure.cpp](../src/adventure.cpp), [save_slots.cpp](../src/save_slots.cpp).

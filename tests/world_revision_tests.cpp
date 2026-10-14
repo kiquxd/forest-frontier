@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <filesystem>
@@ -11,6 +12,7 @@
 #include "geometry.hpp"
 #include "json.hpp"
 #include "save_slots.hpp"
+#include "settlement_system.hpp"
 #include "vessels.hpp"
 namespace {
 void Check(bool ok, const char* text) {
@@ -18,6 +20,11 @@ void Check(bool ok, const char* text) {
     throw std::runtime_error(text);
   }
 }
+frontier::Action CraftAfterWait(frontier::Save& save, int recipe) {
+  save.game_time = std::max(save.game_time, save.craft_ready_at);
+  return frontier::Craft(save, recipe);
+}
+
 }  // namespace
 int main() {
   auto dir = std::filesystem::temp_directory_path() /
@@ -91,6 +98,8 @@ int main() {
       rejected = true;
     }
     Check(rejected, "Unknown locations reject notes");
+    save.player = frontier::Settlements()[save.home_city].pos;
+    save.facilities.push_back({save.home_city, "shipyard", save.player});
     save.skills.insert("crafting");
     save.inventory.wood = 1000;
     save.inventory.reeds = 1000;
@@ -105,20 +114,20 @@ int main() {
       }
       throw std::runtime_error("Missing vessel recipe");
     };
-    Check(frontier::Craft(save, recipe("vessel_raft")).ok &&
+    Check(CraftAfterWait(save, recipe("vessel_raft")).ok &&
               frontier::ActiveVehicle(save) == 5,
           "Raft is accessible through basic crafting");
-    Check(!frontier::Craft(save, recipe("vessel_flagship")).ok,
+    Check(!CraftAfterWait(save, recipe("vessel_flagship")).ok,
           "Prestige ship requires knowledge");
     save.skills.insert("sailing");
     save.technologies.insert("guild_charter");
     save.technologies.insert("shipbuilding");
     save.technologies.insert("navigation_school");
-    Check(frontier::Craft(save, recipe("vessel_flagship")).ok &&
+    Check(CraftAfterWait(save, recipe("vessel_flagship")).ok &&
               save.coins == 700 && frontier::ActiveVehicle(save) == 9,
           "Flagship checks knowledge, materials and coins");
     auto coins = save.coins;
-    Check(!frontier::Craft(save, recipe("vessel_flagship")).ok &&
+    Check(!CraftAfterWait(save, recipe("vessel_flagship")).ok &&
               save.coins == coins,
           "Duplicate vessel does not consume resources");
     Check(frontier::Vessel(9).speed > frontier::Vessel(2).speed &&

@@ -26,6 +26,8 @@ Follow the [Google C++ Style Guide](https://google.github.io/styleguide/cppguide
 - Keep authoritative quests, rewards, equipment allocation and progression deterministic. Language-model output cannot mutate game state.
 - GPU work stays on the render thread. World generation stays on the worker. Do not reconfigure global world metadata while that worker is alive.
 - Save atomically, support older saves, and preserve a backup before a schema migration. Never reset an existing user's progression.
+- Dead residents are persistent tombstones, never recreated by roster synchronization; assigned weapons/clothes are destroyed without drops. Captive gear remains allocated until ransom returns the same instances. Player death destroys only the equipped weapon.
+- Crafting cooldowns and tribute use persisted simulation time, never wall-clock/offline elapsed time. Roads are explicit player polylines; validate the full route and cost before one atomic construction action. Connected facilities must remain inaccessible through hostile endpoints/transit towns.
 - Equipment uses counted instances. Equipped or citizen-assigned instances cannot be simultaneously allocated elsewhere. Weapons have no durability and are not consumed by attacks; ranged ammunition remains consumable.
 - Default to windowed mode. Fullscreen must be explicitly selected; respect the tiling window manager.
 

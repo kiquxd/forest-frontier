@@ -7,6 +7,7 @@
 #include "atlas_notes.hpp"
 #include "gameplay.hpp"
 #include "render.hpp"
+#include "settlement_system.hpp"
 
 namespace frontier {
 namespace {
@@ -129,10 +130,20 @@ void Renderer::DrawMap(const Save& save, const Ui& ui, const Camera2D&,
       }
     }
     if (!submerged) {
-      ImageDrawLineEx(&image, point(Settlements()[0].pos),
-                      point(Settlements()[1].pos),
-                      std::max(1, static_cast<int>(64 / (range * 2) * kPixels)),
-                      {154, 127, 81, 255});
+      for (const auto& road : save.roads) {
+        for (size_t i = 1; i < road.points.size(); ++i) {
+          ImageDrawLineEx(
+              &image, point(road.points[i - 1]), point(road.points[i]),
+              std::max(1, static_cast<int>(44 / (range * 2) * kPixels)),
+              {171, 137, 88, 255});
+        }
+      }
+      for (const auto& f : save.facilities) {
+        auto p = point(f.position);
+        ImageDrawRectangle(&image, static_cast<int>(p.x) - 2,
+                           static_cast<int>(p.y) - 2, 5, 5,
+                           {208, 175, 105, 255});
+      }
     }
     if (!submerged) {
       for (size_t city = 0; city < Settlements().size(); city++) {
@@ -213,6 +224,26 @@ void Renderer::DrawMap(const Save& save, const Ui& ui, const Camera2D&,
                  box, {0, 0}, 0, WHITE);
   BeginScissorMode(static_cast<int>(box.x), static_cast<int>(box.y),
                    static_cast<int>(box.width), static_cast<int>(box.height));
+  if (!submerged && large) {
+    for (int city = 0; city < static_cast<int>(Settlements().size()); ++city) {
+      if (!save.relations[city].discovered) {
+        continue;
+      }
+      for (int segment = 0; segment < 96; ++segment) {
+        float a = segment * 6.2831853f / 96,
+              b = (segment + 1) * 6.2831853f / 96;
+        Vec p = Settlements()[city].pos +
+                Vec{std::cos(a), std::sin(a)} * CityRadius(save, city);
+        Vec q = Settlements()[city].pos +
+                Vec{std::cos(b), std::sin(b)} * CityRadius(save, city);
+        if (ExploredAt(save.explored, p) && ExploredAt(save.explored, q)) {
+          DrawLineEx(map_pos(p), map_pos(q), 1.5f,
+                     OwnsCity(save, city) ? Color{194, 210, 126, 230}
+                                          : Color{195, 158, 104, 210});
+        }
+      }
+    }
+  }
   auto player = map_pos(save.player);
   DrawCircleV(player, 4, {248, 221, 141, 255});
   DrawCircleLines(static_cast<int>(player.x), static_cast<int>(player.y), 6,

@@ -23,6 +23,7 @@
 #include "geometry.hpp"
 #include "json.hpp"
 #include "progress.hpp"
+#include "settlement_system.hpp"
 
 namespace frontier {
 Vec operator+(Vec a, Vec b) {
@@ -244,12 +245,7 @@ bool PathAt(Vec position) {
       return true;
     }
   }
-  const auto a = Settlements()[0].pos, b = Settlements()[1].pos;
-  const auto d = b - a;
-  float t = std::clamp(((position.x - a.x) * d.x + (position.y - a.y) * d.y) /
-                           (d.x * d.x + d.y * d.y),
-                       0.f, 1.f);
-  return Length(position - (a + d * t)) < 32;
+  return false;
 }
 Chunk GenerateChunk(Coord coord, uint64_t seed) {
   const auto start = std::chrono::steady_clock::now();
@@ -349,7 +345,7 @@ Save LoadSave(const std::filesystem::path& path) {
   nlohmann::json json;
   f >> json;
   int version = json.at("version").get<int>();
-  if (version < 1 || version > 7) {
+  if (version < 1 || version > 8) {
     throw std::runtime_error("Unsupported save version");
   }
   save.seed = json.at("seed").get<uint64_t>();
@@ -567,6 +563,27 @@ Save LoadSave(const std::filesystem::path& path) {
     for (auto& row : json.at("citizens")) {
       Citizen resident{row.at("npc"),    row.at("city"),   row.at("job"),
                        row.at("weapon"), row.at("outfit"), row.at("trained")};
+      if (version >= 8) {
+        resident.health = row.at("health");
+        resident.state = row.at("state");
+        resident.captor = row.at("captor");
+        resident.ransom = row.at("ransom");
+        bool captive = resident.state == "captive";
+        bool dead = resident.state == "dead";
+        if ((!captive && !dead && resident.state != "active") ||
+            resident.health < 0 || resident.health > 100 ||
+            (resident.state == "active" && resident.health == 0) ||
+            (resident.state != "active" && resident.health != 0) ||
+            (captive &&
+             (resident.captor < 0 ||
+              resident.captor >= static_cast<int>(save.relations.size()) ||
+              resident.ransom < 1 || resident.ransom > 10000)) ||
+            (!captive && (resident.captor != -1 || resident.ransom != 0)) ||
+            (dead && (!resident.weapon.empty() || !resident.outfit.empty() ||
+                      resident.trained || resident.job != "idle"))) {
+          throw std::runtime_error("Invalid resident status");
+        }
+      }
       if (resident.npc < 0 || resident.npc > 10000 || resident.city < 0 ||
           resident.city >= static_cast<int>(save.relations.size()) ||
           !resident_ids.insert(resident.npc).second ||
@@ -687,6 +704,109 @@ Save LoadSave(const std::filesystem::path& path) {
       save.known_goods[5] = true;
     }
   }
+  if (version >= 8) {
+    save.urban = json.at("urban");
+    save.game_time = json.at("game_time");
+    save.craft_ready_at = json.at("craft_ready_at");
+    save.city_radii = json.at("city_radii").get<decltype(save.city_radii)>();
+    save.previous_owners =
+        json.at("previous_owners").get<decltype(save.previous_owners)>();
+    size_t towns = save.relations.size();
+    if (!std::isfinite(save.game_time) || save.game_time < 0 ||
+        save.game_time > 1e12 || !std::isfinite(save.craft_ready_at) ||
+        save.craft_ready_at < 0 || save.craft_ready_at > save.game_time + 180 ||
+        (save.urban && (save.city_radii.size() != towns ||
+                        save.previous_owners.size() != towns)) ||
+        (!save.urban &&
+         (!save.city_radii.empty() || !save.previous_owners.empty()))) {
+      throw std::runtime_error("Invalid town progression");
+    }
+    for (float radius : save.city_radii) {
+      if (!std::isfinite(radius) || radius < 350 || radius > 1100) {
+        throw std::runtime_error("Invalid town territory");
+      }
+    }
+    for (int owner : save.previous_owners) {
+      if (owner < 0 || owner > static_cast<int>(towns)) {
+        throw std::runtime_error("Invalid previous ruler");
+      }
+    }
+    auto valid_city = [&](int city) {
+      return city >= 0 && city < static_cast<int>(towns);
+    };
+    auto point = [](const nlohmann::json& row) {
+      Vec p{row.at(0).get<float>(), row.at(1).get<float>()};
+      if (!std::isfinite(p.x) || !std::isfinite(p.y) || std::abs(p.x) > 2e6 ||
+          std::abs(p.y) > 2e6) {
+        throw std::runtime_error("Invalid infrastructure position");
+      }
+      return p;
+    };
+    const auto& facilities = json.at("facilities");
+    const auto& roads = json.at("roads");
+    const auto& tributes = json.at("tributes");
+    if (!facilities.is_array() ||
+        facilities.size() > towns * FacilityTypes().size() ||
+        !roads.is_array() || roads.size() > 128 || !tributes.is_array() ||
+        tributes.size() > towns ||
+        (!save.urban &&
+         (!facilities.empty() || !roads.empty() || !tributes.empty()))) {
+      throw std::runtime_error("Invalid infrastructure counts");
+    }
+    std::unordered_set<std::string> sites;
+    for (const auto& row : facilities) {
+      Facility f{row.at("city"), row.at("kind"), point(row.at("position"))};
+      if (!valid_city(f.city) ||
+          std::none_of(FacilityTypes().begin(), FacilityTypes().end(),
+                       [&](const auto& type) { return type.id == f.kind; }) ||
+          !sites.insert(std::to_string(f.city) + ":" + f.kind).second) {
+        throw std::runtime_error("Invalid town building");
+      }
+      save.facilities.push_back(f);
+    }
+    std::unordered_set<std::string> connections;
+    for (const auto& row : roads) {
+      Road r{row.at("from"), row.at("to"), {}};
+      const auto& route = row.at("points");
+      if (!valid_city(r.from) || !valid_city(r.to) || r.from == r.to ||
+          !route.is_array() || route.size() < 2 || route.size() > 64 ||
+          !connections
+               .insert(std::to_string(std::min(r.from, r.to)) + ":" +
+                       std::to_string(std::max(r.from, r.to)))
+               .second) {
+        throw std::runtime_error("Invalid saved road");
+      }
+      double length = 0;
+      for (const auto& vertex : route) {
+        Vec p = point(vertex);
+        if (!r.points.empty()) {
+          float segment = Length(p - r.points.back());
+          if (segment < 1) {
+            throw std::runtime_error("Invalid road segment");
+          }
+          length += segment;
+        }
+        r.points.push_back(p);
+      }
+      if (length > 50000) {
+        throw std::runtime_error("Saved road is too long");
+      }
+      save.roads.push_back(std::move(r));
+    }
+    std::unordered_set<int> subjects;
+    for (const auto& row : tributes) {
+      Tribute t{row.at("city"),   row.at("patron"), row.at("previous_owner"),
+                row.at("amount"), row.at("buyout"), row.at("next_due")};
+      if (!valid_city(t.city) || !valid_city(t.patron) || t.city == t.patron ||
+          t.previous_owner < 0 || t.previous_owner > static_cast<int>(towns) ||
+          t.amount != 10 || t.buyout != 300 || !std::isfinite(t.next_due) ||
+          t.next_due < 0 || t.next_due > save.game_time + 120 ||
+          !subjects.insert(t.city).second) {
+        throw std::runtime_error("Invalid tribute obligation");
+      }
+      save.tributes.push_back(t);
+    }
+  }
   return save;
 }
 void WriteSave(const std::filesystem::path& path, const Save& save) {
@@ -738,7 +858,7 @@ void WriteSave(const std::filesystem::path& path, const Save& save) {
                      {"b", {w.b.x, w.b.y}},
                      {"hp", w.hp}});
   }
-  nlohmann::json json = {{"version", 7},
+  nlohmann::json json = {{"version", 8},
                          {"seed", save.seed},
                          {"player", {save.player.x, save.player.y}},
                          {"wood", save.inventory.wood},
@@ -793,7 +913,40 @@ void WriteSave(const std::filesystem::path& path, const Save& save) {
                                 {"job", resident.job},
                                 {"weapon", resident.weapon},
                                 {"outfit", resident.outfit},
-                                {"trained", resident.trained}});
+                                {"trained", resident.trained},
+                                {"health", resident.health},
+                                {"state", resident.state},
+                                {"captor", resident.captor},
+                                {"ransom", resident.ransom}});
+  }
+  json["urban"] = save.urban;
+  json["game_time"] = save.game_time;
+  json["craft_ready_at"] = save.craft_ready_at;
+  json["city_radii"] = save.city_radii;
+  json["previous_owners"] = save.previous_owners;
+  json["facilities"] = nlohmann::json::array();
+  for (const auto& f : save.facilities) {
+    json["facilities"].push_back({{"city", f.city},
+                                  {"kind", f.kind},
+                                  {"position", {f.position.x, f.position.y}}});
+  }
+  json["roads"] = nlohmann::json::array();
+  for (const auto& r : save.roads) {
+    nlohmann::json points = nlohmann::json::array();
+    for (Vec p : r.points) {
+      points.push_back({p.x, p.y});
+    }
+    json["roads"].push_back(
+        {{"from", r.from}, {"to", r.to}, {"points", points}});
+  }
+  json["tributes"] = nlohmann::json::array();
+  for (const auto& t : save.tributes) {
+    json["tributes"].push_back({{"city", t.city},
+                                {"patron", t.patron},
+                                {"previous_owner", t.previous_owner},
+                                {"amount", t.amount},
+                                {"buyout", t.buyout},
+                                {"next_due", t.next_due}});
   }
   json["known_deposits"] = nlohmann::json::array();
   std::vector<uint64_t> deposit_ids;
@@ -832,7 +985,7 @@ void WriteSave(const std::filesystem::path& path, const Save& save) {
     int old_version = previous.is_object() ? previous.value("version", 0) : 0;
     auto backup = path;
     backup += ".v" + std::to_string(old_version) + ".bak";
-    if (old_version > 0 && old_version < 7 &&
+    if (old_version > 0 && old_version < 8 &&
         !std::filesystem::exists(backup)) {
       std::filesystem::copy_file(path, backup);
     }
@@ -963,6 +1116,10 @@ void World::Tick(float dt, const Save& save, double time) {
   for (auto& npc : npcs) {
     if (Length(npc.home - player) < 2200) {
       npc.previous = npc.pos;
+      if (!ResidentActive(save, npc.id)) {
+        npc.pos = npc.previous = npc.home;
+        continue;
+      }
       if (npc.ruler) {
         continue;
       }
@@ -993,13 +1150,14 @@ void World::Tick(float dt, const Save& save, double time) {
   }
   // Local disc contacts affect positions, not schedules or destinations.
   for (size_t i = 0; i < npcs.size(); i++) {
-    if (npcs[i].ruler || Length(npcs[i].pos - save.player) > 1800) {
+    if (npcs[i].ruler || !ResidentActive(save, npcs[i].id) ||
+        Length(npcs[i].pos - save.player) > 1800) {
       continue;
     }
     for (size_t j = i + 1; j < npcs.size(); j++) {
       auto& a = npcs[i];
       auto& b = npcs[j];
-      if (b.ruler) {
+      if (b.ruler || !ResidentActive(save, b.id)) {
         continue;
       }
       Vec d = b.pos - a.pos;
@@ -1138,7 +1296,8 @@ bool World::Clear(Vec position, const Save& save, float radius,
           terrain != Terrain::kShallow) {
         return false;
       }
-      if (!save.submerged && !boat && terrain == Terrain::kDeep) {
+      if (!save.submerged && !boat && terrain == Terrain::kDeep &&
+          !RoadAt(save, position, radius)) {
         return false;
       }
     }
@@ -1177,7 +1336,8 @@ bool World::Clear(Vec position, const Save& save, float radius,
             resource.kind != ResourceKind::kOre) {
           continue;
         }
-        if (save.harvested.contains(resource.id)) {
+        if (save.harvested.contains(resource.id) ||
+            RoadAt(save, resource.pos)) {
           continue;
         }
         const std::array<Vec, 6> rock = {
@@ -1195,16 +1355,29 @@ bool World::Clear(Vec position, const Save& save, float radius,
   }
   return true;
 }
+void World::SyncInfrastructure(const Save& save) {
+  size_t built =
+      std::count_if(buildings.begin(), buildings.end(),
+                    [](const auto& b) { return !b.facility.empty(); });
+  if (built == save.facilities.size()) {
+    return;
+  }
+  std::erase_if(buildings, [](const auto& b) { return !b.facility.empty(); });
+  for (const auto& f : save.facilities) {
+    buildings.push_back({f.position, 0, false, f.kind});
+  }
+}
 void World::ResolvePlayerContacts(Save& save) {
   if (save.submerged) {
     return;
   }
   auto terrain = TerrainAt(save.player, save.seed);
-  if (terrain == Terrain::kDeep || terrain == Terrain::kShallow) {
+  if ((terrain == Terrain::kDeep || terrain == Terrain::kShallow) &&
+      !BridgeAt(save, save.player)) {
     return;
   }
   for (auto& npc : npcs) {
-    if (npc.ruler) {
+    if (npc.ruler || !ResidentActive(save, npc.id)) {
       continue;
     }
     Vec d = save.player - npc.pos;

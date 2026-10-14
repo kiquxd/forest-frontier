@@ -11,6 +11,7 @@
 #include "adventure.hpp"
 #include "atlas_notes.hpp"
 #include "progress.hpp"
+#include "settlement_system.hpp"
 #include "vessels.hpp"
 
 namespace frontier {
@@ -358,7 +359,18 @@ Action Craft(Save& save, int recipe) {
   if (recipe < 0 || recipe >= static_cast<int>(Recipes().size())) {
     return {false, "Unknown recipe"};
   }
+  InitializeTowns(save);
   auto& r = Recipes()[recipe];
+  if (CraftWait(save) > 0) {
+    return {false,
+            "Crafting cooldown: " +
+                std::to_string(static_cast<int>(std::ceil(CraftWait(save)))) +
+                " game seconds"};
+  }
+  if (!FacilityAccess(save, CityAt(save, save.player), RecipeFacility(r))) {
+    return {false, "Craft on town territory with a local or road-connected " +
+                       RecipeFacility(r)};
+  }
   if (!HasSkill(save, "crafting") || !HasSkill(save, RecipeSkill(r))) {
     return {false, "Skill locked. Learn at a town hall: " +
                        SkillName(!HasSkill(save, "crafting") ? "crafting"
@@ -402,6 +414,12 @@ Action Craft(Save& save, int recipe) {
       (r.result == "ammo" && save.inventory.ammo > 999990) ||
       (r.result == "repair" && save.inventory.repairs >= 1000000) ||
       (r.result == "steel" && GoodCount(save.inventory, 10) > 999997)) {
+    return {false, "Inventory full"};
+  }
+  if ((r.result.starts_with("weapon:") &&
+       save.weapon_copies[r.result.substr(7)] >= 1000000) ||
+      (r.result.starts_with("outfit:") &&
+       save.outfit_copies[r.result.substr(7)] >= 1000000)) {
     return {false, "Inventory full"};
   }
   for (int i = 0; i < kGoodTypes; i++) {
@@ -457,6 +475,7 @@ Action Craft(Save& save, int recipe) {
     save.inventory.repairs++;
   }
   save.crafted++;
+  save.craft_ready_at = save.game_time + CraftDelay(r);
   RememberResources(save);
   return {true, "Crafted: " + r.name};
 }
@@ -581,6 +600,16 @@ const std::vector<std::string>& CityActions() {
       list.push_back("Lesson: " + skill.name + " · " + skill.requirement);
     }
     list.push_back("Relations with other towns");
+    list.push_back("Expand territory · increasing wood / stone / coin cost");
+    for (const auto& f : FacilityTypes()) {
+      list.push_back("Build " + f.name + " · wood " + std::to_string(f.wood) +
+                     ", stone " + std::to_string(f.stone) + ", coins " +
+                     std::to_string(f.coins));
+    }
+    list.push_back("Surrender to this ruler · 30 now, tribute 10 / 120s");
+    list.push_back("Buy independence · 300 coins");
+    list.push_back("Restore previous allegiance · 300 coins");
+    list.push_back("Ransom first captive held here · price depends on weapon");
     return list;
   }();
   return kActions;
@@ -636,6 +665,31 @@ Action Diplomacy(Save& save, int city, int action) {
   EnsureCityState(save);
   if (city < 0 || city >= static_cast<int>(Settlements().size())) {
     return {false, "Town unavailable"};
+  }
+  int extra = 11 + static_cast<int>(Skills().size());
+  if (action == extra) {
+    return ExpandCity(save, city);
+  }
+  if (action > extra &&
+      action <= extra + static_cast<int>(FacilityTypes().size())) {
+    return BuildFacility(save, city, FacilityTypes()[action - extra - 1].id);
+  }
+  int politics = extra + 1 + static_cast<int>(FacilityTypes().size());
+  if (action == politics) {
+    int local = CityAt(save, save.player);
+    return SurrenderTown(save, OwnsCity(save, local) ? local : save.home_city,
+                         city);
+  }
+  if (action == politics + 1 || action == politics + 2) {
+    return BuyIndependence(save, city, action == politics + 2);
+  }
+  if (action == politics + 3) {
+    for (const auto& resident : save.citizens) {
+      if (resident.state == "captive" && resident.captor == city) {
+        return RansomResident(save, resident.npc);
+      }
+    }
+    return {false, "This ruler holds none of your residents"};
   }
   auto& r = save.relations[city];
   struct SyncOpinion {
@@ -1017,12 +1071,14 @@ void Gameplay::Advance(float dt) {
 }
 Vec Gameplay::MovePlayer(World& world, Save& save, Vec displacement) {
   auto terrain = TerrainAt(save.player, save.seed);
-  bool afloat = terrain == Terrain::kShallow || terrain == Terrain::kDeep;
+  bool on_bridge = !save.submerged && BridgeAt(save, save.player);
+  bool afloat =
+      !on_bridge && (terrain == Terrain::kShallow || terrain == Terrain::kDeep);
   int vehicle = afloat ? ActiveVehicle(save) : 0;
-  float factor = save.submerged                 ? 1.1f
-                 : vehicle                      ? Vessel(vehicle).speed
-                 : terrain == Terrain::kShallow ? .45f
-                                                : 1.f;
+  float factor = save.submerged ? 1.1f
+                 : vehicle      ? Vessel(vehicle).speed
+                 : terrain == Terrain::kShallow && !on_bridge ? .45f
+                                                              : 1.f;
   if (swing > 0 && vehicle == 0) {
     factor *= .45f;
   }
@@ -1096,6 +1152,12 @@ void Gameplay::Explore(Save& save, float, float, float, const World* world) {
   }
   EnsureCityState(save);
   for (size_t i = 0; i < Settlements().size(); i++) {
+    // Approaching a hall identifies its centre even though the foundation
+    // blocks the ordinary sight ray. Reveal only that cell, not the town.
+    if (!save.submerged && Length(save.player - Settlements()[i].pos) <= 180) {
+      save.explored.insert(MapCell(Settlements()[i].pos));
+      save.visible_surface.insert(MapCell(Settlements()[i].pos));
+    }
     if (!save.relations[i].discovered &&
         ExploredAt(save.explored, Settlements()[i].pos)) {
       save.relations[i].discovered = true;
@@ -1143,7 +1205,7 @@ Action Gameplay::Attack(World&, Save& save) {
   auto terrain = TerrainAt(save.player, save.seed);
   if (save.submerged ||
       ((terrain == Terrain::kDeep || terrain == Terrain::kShallow) &&
-       Watercraft(save))) {
+       Watercraft(save) && !BridgeAt(save, save.player))) {
     return {false, "Weapons unavailable aboard vessels"};
   }
   attack_weapon_ = CurrentWeapon(save);
@@ -1315,6 +1377,9 @@ Action Gameplay::PlaceCampfire(World& world, Save& save) {
 }
 void Gameplay::Tick(World& world, Save& save, float dt, double time) {
   EnsureCityState(save);
+  InitializeTowns(save);
+  TickTowns(save, dt);
+  world.SyncInfrastructure(save);
   TickResidents(save, dt);
   bool sanctuary = false;
   defender_clock_ += dt;
@@ -1323,14 +1388,17 @@ void Gameplay::Tick(World& world, Save& save, float dt, double time) {
     for (auto& npc : world.npcs) {
       if (Length(npc.pos - save.player) < 1500) {
         auto defender = GetCitizen(save, npc.id);
-        if (!defender || defender->job != "guard" || !defender->trained ||
+        if (!defender || defender->state != "active" ||
+            defender->job != "guard" || !defender->trained ||
             defender->weapon.empty() || !OwnsCity(save, defender->city)) {
           continue;
         }
         bool struck = false;
         for (auto& [coord, chunk] : world.chunks) {
           for (auto& enemy : chunk.enemies) {
-            if (!enemy.kind && !save.defeated.contains(enemy.id) &&
+            if ((!enemy.kind ||
+                 save.relations[enemy.city].treaty == Treaty::kWar) &&
+                !save.defeated.contains(enemy.id) &&
                 Length(enemy.pos - npc.pos) < 180) {
               Damage(world, save, enemy,
                      std::max(1, Weapon(defender->weapon).damage / 2),
@@ -1371,11 +1439,43 @@ void Gameplay::Tick(World& world, Save& save, float dt, double time) {
       bool hostile = e.kind ? save.relations.at(e.city).treaty == Treaty::kWar
                             : !sanctuary;
       auto terrain = TerrainAt(save.player, save.seed);
-      if (save.submerged || terrain == Terrain::kDeep ||
-          (terrain == Terrain::kShallow && Watercraft(save))) {
+      if (save.submerged ||
+          (!BridgeAt(save, save.player) &&
+           (terrain == Terrain::kDeep ||
+            (terrain == Terrain::kShallow && Watercraft(save))))) {
         hostile = false;
       }
-      float distance = Length(e.pos - save.player);
+      if (e.windup <= 0) {
+        e.target_npc = -1;
+        float nearest = Length(e.pos - save.player);
+        for (const auto& npc : world.npcs) {
+          auto c = GetCitizen(save, npc.id);
+          float d = Length(npc.pos - e.pos);
+          if (c && c->state == "active" && c->job == "guard" && c->trained &&
+              OwnsCity(save, c->city) && d < std::min(180.f, nearest) &&
+              (!e.kind || save.relations[e.city].treaty == Treaty::kWar)) {
+            nearest = d;
+            e.target_npc = npc.id;
+          }
+        }
+      }
+      Vec victim = save.player;
+      if (e.target_npc >= 0) {
+        auto c = GetCitizen(save, e.target_npc);
+        if (c && c->state == "active") {
+          auto npc =
+              std::find_if(world.npcs.begin(), world.npcs.end(),
+                           [&](const auto& n) { return n.id == e.target_npc; });
+          if (npc != world.npcs.end()) {
+            victim = npc->pos;
+            hostile = !e.kind || save.relations[e.city].treaty == Treaty::kWar;
+          }
+        } else {
+          e.target_npc = -1;
+          e.windup = 0;
+        }
+      }
+      float distance = Length(e.pos - victim);
       bool chase = hostile && distance < 360;
       Vec target = e.home + Vec{std::sin(static_cast<float>(time) * .4f +
                                          static_cast<float>(e.id % 31)) *
@@ -1384,7 +1484,7 @@ void Gameplay::Tick(World& world, Save& save, float dt, double time) {
                                          static_cast<float>(e.id % 17)) *
                                     45};
       if (chase) {
-        target = save.player;
+        target = victim;
       }
       bool avoid_fire = false;
       if (!e.kind) {
@@ -1409,7 +1509,23 @@ void Gameplay::Tick(World& world, Save& save, float dt, double time) {
                          Normalized(e.attack_target - e.pos) *
                              std::min(24.f, Length(e.attack_target - e.pos)),
                          save, 10);
-          if (chase && Length(e.pos - save.player) < 38 && invulnerable <= 0) {
+          if (chase && e.target_npc >= 0 && Length(e.pos - victim) < 38) {
+            auto c = GetCitizen(save, e.target_npc);
+            if (c && c->state == "active") {
+              float taken = c->outfit.empty() ? 1 : Outfit(c->outfit).taken;
+              c->health -= std::max(
+                  1, static_cast<int>(std::lround((e.kind ? 18 : 12) * taken)));
+              if (c->health <= 0) {
+                bool captured = e.kind && Hash(save.seed ^ e.id ^
+                                               static_cast<uint64_t>(c->npc)) %
+                                                  100 <
+                                              40;
+                notice = LoseResident(save, c->npc, captured, e.city).message;
+              }
+            }
+          }
+          if (chase && e.target_npc < 0 && Length(e.pos - save.player) < 38 &&
+              invulnerable <= 0) {
             int amount =
                 save.inventory.armor ? (e.kind ? 11 : 7) : (e.kind ? 18 : 12);
             if (save.adventure) {
@@ -1430,7 +1546,7 @@ void Gameplay::Tick(World& world, Save& save, float dt, double time) {
         }
       } else if (chase && distance < 58 && e.cooldown <= 0) {
         e.windup = .4f;
-        e.attack_target = save.player;
+        e.attack_target = victim;
       } else {
         Vec delta = target - e.pos;
         float travel =
@@ -1476,13 +1592,16 @@ void Gameplay::Tick(World& world, Save& save, float dt, double time) {
         nearest = static_cast<int>(i);
       }
     }
+    DestroyPlayerWeapon(save);
     save.player = Settlements()[nearest].pos + Vec{120, 140};
     save.health = 100;
     save.coins -= save.coins / 5;
     save.submerged = false;
     invulnerable = 3;
     respawns++;
-    notice = "You woke up in a friendly town. Lost 20% of coins.";
+    notice =
+        "You woke up in a friendly town. Lost equipped weapon and 20% of "
+        "coins.";
     return;
   }
   if (save.submerged) {

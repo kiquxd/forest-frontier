@@ -33,6 +33,7 @@ struct SummaryView {
   int resident_page{};
   std::string requested_node;
   bool requested_assignment{};
+  int requested_ransom{-1};
   std::string status;
 };
 struct Ui {
@@ -42,6 +43,7 @@ struct Ui {
   int npc{-1};
   std::string hint;
   std::string notice;
+  std::string pending_notice;
   std::string input;
   std::string reply;
   bool busy{};
@@ -76,6 +78,11 @@ struct Ui {
   bool settings_open{};
   std::vector<std::pair<std::string, std::string>> actions;
   bool map_journal{};
+  bool road_edit{};
+  int road_from{-1};
+  int road_to{-1};
+  std::vector<Vec> road_points;
+  std::string road_status;
   int map_overlay{};
   int note_id{-1};
   int note_page{};

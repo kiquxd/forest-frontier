@@ -5,6 +5,7 @@
 #include "atlas_notes.hpp"
 #include "input.hpp"
 #include "render.hpp"
+#include "settlement_system.hpp"
 namespace frontier {
 namespace {
 std::string Utf8(int code) {
@@ -40,6 +41,92 @@ void Renderer::DrawMapJournal(Save& save, Ui& ui) {
     Wrapped(text, r.x + 8, r.y + 6, r.width - 16, 16, {231, 231, 204, 255}, 1);
     return hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
   };
+  if (!ui.map_journal && !save.submerged &&
+      button({map.x + map.width - 390, map.y - 46, 190, 34},
+             ui.road_edit ? "Cancel road" : "Plan road", ui.road_edit)) {
+    ui.road_edit = !ui.road_edit;
+    ui.road_from = ui.road_to = -1;
+    ui.road_points.clear();
+    ui.road_status.clear();
+    return;
+  }
+  if (ui.road_edit) {
+    const auto& cache = maps_[1];
+    auto project = [&](Vec p) {
+      return Vector2{map.x + (p.x - cache.center.x + cache.range) /
+                                 (2 * cache.range) * map.width,
+                     map.y + (p.y - cache.center.y + cache.range) /
+                                 (2 * cache.range) * map.height};
+    };
+    BeginScissorMode(static_cast<int>(map.x), static_cast<int>(map.y),
+                     static_cast<int>(map.width), static_cast<int>(map.height));
+    for (size_t i = 0; i < ui.road_points.size(); ++i) {
+      if (i > 0) {
+        DrawLineEx(project(ui.road_points[i - 1]), project(ui.road_points[i]),
+                   4, {226, 183, 94, 255});
+      }
+      DrawCircleV(project(ui.road_points[i]), 5, {243, 217, 144, 255});
+    }
+    EndScissorMode();
+    if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) && !ui.road_points.empty()) {
+      ui.road_points.pop_back();
+      ui.road_to = -1;
+      if (ui.road_points.empty()) {
+        ui.road_from = -1;
+      }
+    }
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
+        CheckCollisionPointRec(GetMousePosition(), map) &&
+        GetMousePosition().y < map.y + map.height - 112 && ui.road_to < 0) {
+      auto mouse = GetMousePosition();
+      Vec point{
+          cache.center.x + (mouse.x - map.x) / map.width * cache.range * 2 -
+              cache.range,
+          cache.center.y + (mouse.y - map.y) / map.height * cache.range * 2 -
+              cache.range};
+      int city = CityAt(save, point);
+      if (ui.road_from < 0) {
+        if (OwnsCity(save, city)) {
+          ui.road_from = city;
+          ui.road_points.push_back(Settlements()[city].pos);
+        } else {
+          ui.road_status = "Start by clicking your town";
+        }
+      } else if (city >= 0 && city != ui.road_from &&
+                 save.relations[city].discovered) {
+        ui.road_to = city;
+        ui.road_points.push_back(Settlements()[city].pos);
+      } else if (ExploredAt(save.explored, point) &&
+                 ui.road_points.size() < 63 &&
+                 Length(point - ui.road_points.back()) >= 1) {
+        ui.road_points.push_back(point);
+      } else {
+        ui.road_status = "Choose an explored location; maximum 64 points";
+      }
+    }
+    auto quote = QuoteRoad(save, ui.road_from, ui.road_to, ui.road_points);
+    Rectangle panel{map.x, map.y + map.height - 112, map.width, 90};
+    DrawRectangleRounded(panel, .15f, 8, {18, 34, 25, 250});
+    Wrapped(ui.road_to >= 0 ? quote.message
+                            : "Click your town, add route points, then click "
+                              "the destination town. Right click: undo.",
+            panel.x + 10, panel.y + 5, panel.width - 20, 16,
+            {236, 220, 183, 255}, 2);
+    if (button({panel.x + 10, panel.y + 51, 215, 32},
+               "Build entire road · Enter") ||
+        IsKeyPressed(KEY_ENTER)) {
+      auto result = BuildRoad(save, ui.road_from, ui.road_to, ui.road_points);
+      ui.road_status = result.message;
+      if (result.ok) {
+        ui.pending_notice = result.message;
+        ui.road_edit = false;
+        maps_[0].refresh = maps_[1].refresh = -1;
+      }
+    }
+    Wrapped(ui.road_status, panel.x + 240, panel.y + 55, panel.width - 250, 15,
+            {229, 184, 114, 255}, 1);
+    return;
+  }
   auto open = [&](int id, Vec point, bool underwater) {
     ui.map_journal = true;
     ui.note_edit = true;

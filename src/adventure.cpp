@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "progress.hpp"
+#include "settlement_system.hpp"
 
 namespace frontier {
 const CharacterDef& PlayerCharacter(const Save& save) {
@@ -78,6 +79,7 @@ void InitializeAdventure(Save& save) {
     }
   }
   SyncCitizens(save);
+  InitializeTowns(save);
 }
 int AvailableWeapon(const Save& save, const std::string& id, int excluded) {
   if (id.empty()) {
@@ -88,7 +90,8 @@ int AvailableWeapon(const Save& save, const std::string& id, int excluded) {
                   ? (save.inventory.weapons.contains(id) ? 1 : 0)
                   : found->second;
   for (auto& resident : save.citizens) {
-    if (resident.npc != excluded && resident.weapon == id) {
+    if (resident.state != "dead" && resident.npc != excluded &&
+        resident.weapon == id) {
       count--;
     }
   }
@@ -101,7 +104,8 @@ int AvailableOutfit(const Save& save, const std::string& id, int excluded) {
   auto found = save.outfit_copies.find(id);
   int count = found == save.outfit_copies.end() ? 0 : found->second;
   for (auto& resident : save.citizens) {
-    if (resident.npc != excluded && resident.outfit == id) {
+    if (resident.state != "dead" && resident.npc != excluded &&
+        resident.outfit == id) {
       count--;
     }
   }
@@ -385,7 +389,7 @@ std::string ResearchRequirements(const Save& save, const ProgressNode& n) {
     }
   };
   add("Coins", save.coins, n.coins);
-  add("Residents", static_cast<int>(save.citizens.size()), n.residents);
+  add("Residents", ActiveResidents(save), n.residents);
   add("Skills", static_cast<int>(save.skills.size()), n.skills);
   add("Clothes", CountClothes(save), n.clothes);
   add("Weapons", CountWeapons(save), n.weapons);
@@ -401,11 +405,15 @@ std::string ResearchRequirements(const Save& save, const ProgressNode& n) {
   if (!n.second_prerequisite.empty()) {
     out << " + " << SkillName(n.second_prerequisite);
   }
+  if (!FacilityAccess(save, CityAt(save, save.player), "school")) {
+    out << " · Requires a local or road-connected school";
+  }
   return out.str();
 }
 bool ResearchReady(const Save& save, const ProgressNode& n) {
-  return !save.technologies.contains(n.id) && save.coins >= n.coins &&
-         static_cast<int>(save.citizens.size()) >= n.residents &&
+  return FacilityAccess(save, CityAt(save, save.player), "school") &&
+         !save.technologies.contains(n.id) && save.coins >= n.coins &&
+         ActiveResidents(save) >= n.residents &&
          static_cast<int>(save.skills.size()) >= n.skills &&
          CountClothes(save) >= n.clothes && CountWeapons(save) >= n.weapons &&
          static_cast<int>(std::count(save.owners.begin(), save.owners.end(),
@@ -443,7 +451,8 @@ Action AssignCitizen(Save& save, int id, const std::string& job,
                      const std::string& weapon_id,
                      const std::string& outfit_id) {
   auto resident = GetCitizen(save, id);
-  if (!resident || !OwnsCity(save, resident->city)) {
+  if (!resident || resident->state != "active" ||
+      !OwnsCity(save, resident->city)) {
     return {false, "This is not your resident"};
   }
   if (std::find(ResidentJobs().begin(), ResidentJobs().end(), job) ==
@@ -477,6 +486,9 @@ Action AssignCitizen(Save& save, int id, const std::string& job,
   if (!tech.empty() && !save.technologies.contains(tech)) {
     return {false, "Training required: " + tech};
   }
+  if (job != "idle" && !FacilityAccess(save, resident->city, "school")) {
+    return {false, "Training requires a local or road-connected school"};
+  }
   if (job != "idle" && (outfit_id.empty() || Outfit(outfit_id).job != job)) {
     return {false, "This job needs matching work clothes"};
   }
@@ -505,7 +517,7 @@ void TickResidents(Save& save, float dt) {
   save.work_clock = std::fmod(save.work_clock, 20.f);
   int batch = save.technologies.contains("guild_charter") ? 2 : 1;
   for (auto& n : save.citizens) {
-    if (OwnsCity(save, n.city) && n.trained &&
+    if (n.state == "active" && OwnsCity(save, n.city) && n.trained &&
         save.relations[n.city].treaty != Treaty::kWar) {
       int good = n.job == "gatherer"   ? 0
                  : n.job == "crafter"  ? 1
@@ -513,7 +525,12 @@ void TickResidents(Save& save, float dt) {
                  : n.job == "scholar"  ? 2
                  : n.job == "engineer" ? 3
                                        : -1;
-      if (good >= 0) {
+      std::string facility = n.job == "crafter"    ? "workbench"
+                             : n.job == "scholar"  ? "school"
+                             : n.job == "engineer" ? "forge"
+                             : n.job == "fisher"   ? "shipyard"
+                                                   : "workbench";
+      if (good >= 0 && FacilityAccess(save, n.city, facility)) {
         save.stocks[n.city][good] =
             std::min(1000000, save.stocks[n.city][good] + batch);
       }
