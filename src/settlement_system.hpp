@@ -7,6 +7,7 @@
 #include "gameplay.hpp"
 
 namespace frontier {
+inline constexpr double kMaxCraftCooldown = 7200;
 struct FacilityDef {
   std::string id;
   std::string name;

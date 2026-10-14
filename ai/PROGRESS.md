@@ -136,3 +136,9 @@ Menu separation, progression dashboard and save workflows:
 - Surrender retains local town control with 30 coins upfront, tribute 10 per 120 simulation seconds and a 300-coin exit. Missed tribute resumes local hostility. Exit can retain player independence or restore the recorded previous ruler. Autonomous wars/state integration remain placeholders.
 - Save v8 persists clocks, cooldown, infrastructure, territory, captivity/losses and tribute; v1-v7 progress remains readable and migrations preserve backups. README, TODO and PLACEHOLDERS stay synchronized at 93 remaining items; navigation is still deferred behind resident command systems.
 - Twelve CTest groups pass; the final full run took 5.51 seconds. Checks cover atomic road costs/bridges, cooldown reload, local guard capture, ransom allocation, dead-roster synchronization, tribute/default, previous-owner restoration and v7 migration. Short real-window smoke passes road planning/cancel, journal/save and return to menu. Inspected logs/world-road-plan.png; moved confirmation panel inside the map after finding a clipped button. Formatting/diff checks pass. No performance benchmark was run for this change.
+
+## 2026-10-14 — Longer crafting cooldowns
+
+- Increased rarity tiers to 1, 5, 30, 60 and 120 simulation minutes. Updated the save-validation ceiling to the shared two-hour maximum; schema stays v8, and existing shorter in-progress timers remain readable and unchanged.
+- Added deterministic clock-boundary and two-hour save/reload checks; no real-time waiting, GUI simulation or performance benchmark is needed for this balance change. README and PLACEHOLDERS describe the new durations; the tracked incomplete scope in TODO is unchanged.
+- Validation: Release build and all 12 CTest groups pass; the complete test run takes approximately 5.5 seconds. Formatting and diff checks pass.

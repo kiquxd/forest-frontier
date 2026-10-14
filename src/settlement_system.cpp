@@ -234,7 +234,7 @@ int RecipeRarity(const Recipe& recipe) {
   return recipe.technology.empty() ? 0 : 1;
 }
 double CraftDelay(const Recipe& recipe) {
-  static constexpr double kSeconds[] = {5, 15, 40, 90, 180};
+  static constexpr double kSeconds[] = {60, 300, 1800, 3600, kMaxCraftCooldown};
   return kSeconds[std::clamp(RecipeRarity(recipe), 0, 4)];
 }
 double CraftWait(const Save& save) {

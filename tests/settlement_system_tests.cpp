@@ -77,13 +77,20 @@ int main() {
     Check(!frontier::Craft(save, fire).ok && save.inventory.wood == wood &&
               save.craft_ready_at == ready,
           "Cooldown blocks spam without resource loss or extending the timer");
-    frontier::TickTowns(save, 5);
+    frontier::TickTowns(save, 59);
+    Check(!frontier::Craft(save, fire).ok,
+          "Common crafting remains blocked until one full game minute");
+    frontier::TickTowns(save, 1);
     Check(frontier::Craft(save, fire).ok,
           "Game time releases cooldown without sleeping");
     Check(frontier::CraftDelay(
               frontier::Recipes()[RecipeIndex("vessel_flagship")]) >
               frontier::CraftDelay(frontier::Recipes()[fire]),
           "Rare crafts take longer");
+    Check(frontier::CraftDelay(frontier::Recipes()[fire]) == 60 &&
+              frontier::CraftDelay(
+                  frontier::Recipes()[RecipeIndex("vessel_flagship")]) == 7200,
+          "Craft tiers range from one minute to two hours");
     save.game_time = save.craft_ready_at;
     auto before = save.player;
     save.player = {100000, 100000};
@@ -247,11 +254,18 @@ int main() {
     save.player = frontier::Settlements()[home].pos;
     std::filesystem::create_directories(folder);
     auto path = folder / "world.json";
-    save.craft_ready_at = save.game_time + 15;
+    save.craft_ready_at = save.game_time + frontier::kMaxCraftCooldown;
     frontier::WriteSave(path, save);
     auto loaded = frontier::LoadSave(path);
-    Check(frontier::CraftWait(loaded) == 15,
+    Check(frontier::CraftWait(loaded) == frontier::kMaxCraftCooldown,
           "Cooldown cannot be bypassed by reload");
+    auto previous_timer = save;
+    previous_timer.craft_ready_at = previous_timer.game_time + 15;
+    auto previous_path = folder / "short-timer.json";
+    frontier::WriteSave(previous_path, previous_timer);
+    Check(frontier::CraftWait(frontier::LoadSave(previous_path)) == 15,
+          "Existing short cooldowns remain readable without resetting "
+          "progression");
     Check(loaded.game_time == save.game_time && loaded.roads.size() == 1 &&
               loaded.facilities.size() == save.facilities.size() &&
               frontier::GetCitizen(loaded, npc)->state == "dead",

@@ -48,7 +48,7 @@
 
 ## 2026-10-14 — Town infrastructure, crafting limits and local losses
 
-- Successful craft outputs remain immediate but start one persistent global cooldown: rarity tiers take 5/15/40/90/180 simulation seconds. Reopening menus/reloading cannot reset it; offline wall time does not advance it. Ordinary equipment swaps remain unrestricted.
+- Successful craft outputs remain immediate but start one persistent global cooldown: rarity tiers take 1/5/30/60/120 simulation minutes. Reopening menus/reloading cannot reset it; offline wall time does not advance it. Ordinary equipment swaps remain unrestricted.
 - Crafting requires the appropriate facility on the player's current town territory or through a graph of fully built roads with peaceful accessible towns. New home towns receive a workbench; foreign towns receive seeded facilities. Construction builds six activity types and expands circular territory; basic hall lessons bootstrap this without a school, while resident research/training needs a school. Existing save progression is preserved in schema v8 with migration backups.
 - Roads are player-selected complete polylines, not generated inter-town links. Full exploration, endpoints, permissions and the full wood/stone cost are checked before committing; water sections count as more expensive walkable bridges. Navigation/orders remain a separate deferred prerequisite-dependent scope.
 - Local defenders can die or, against hostile human guards, deterministically enter captivity (40% of seeded outcomes). Dead entries remain tombstones and lose assigned weapon/clothes; captive copies stay reserved, and ransom returns the same equipment. Player death destroys the equipped weapon; player captivity and strategic army casualties are still absent.

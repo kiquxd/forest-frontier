@@ -714,7 +714,8 @@ Save LoadSave(const std::filesystem::path& path) {
     size_t towns = save.relations.size();
     if (!std::isfinite(save.game_time) || save.game_time < 0 ||
         save.game_time > 1e12 || !std::isfinite(save.craft_ready_at) ||
-        save.craft_ready_at < 0 || save.craft_ready_at > save.game_time + 180 ||
+        save.craft_ready_at < 0 ||
+        save.craft_ready_at > save.game_time + kMaxCraftCooldown ||
         (save.urban && (save.city_radii.size() != towns ||
                         save.previous_owners.size() != towns)) ||
         (!save.urban &&

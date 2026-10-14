@@ -37,7 +37,7 @@ You begin with basic clothing and no learned skills, tools or weapons. Open **K 
 
 - Fourteen weapon definitions and eleven outfits with gathering, movement, trade, protection or diving perks. Change player equipment anywhere.
 - Counted equipment copies: an instance allocated to a resident cannot also be used by the player or another resident. Weapons have no durability and are never consumed by attacks; ammunition is expendable.
-- Craft tools, weapons, clothes, consumables, vessels and underwater modules on town territory with the appropriate activity building, locally or via a peaceful built-road connection. Successful crafting starts a persistent global cooldown of 5–180 game seconds, increasing with rarity; failed attempts cost nothing. Time advances during live gameplay, including the crafting menu, and stops while paused, in Progress or editing notes/roads.
+- Craft tools, weapons, clothes, consumables, vessels and underwater modules on town territory with the appropriate activity building, locally or via a peaceful built-road connection. Successful crafting starts a persistent global cooldown of 1–120 game minutes, increasing with rarity; failed attempts cost nothing. Time advances during live gameplay, including the crafting menu, and stops while paused, in Progress or editing notes/roads.
 - Settlement markets with stocks and treasuries; buy and sell resources and earn trust. Rare materials and technologies depend on relationships with specialist towns.
 - Town halls, rulers, gifts, truces, war declarations, alliances and diplomatic unions. Unions can bring another town under your ownership.
 - Build a school or connect to one before researching resident technologies and assigning trained jobs. Active residents contribute periodically to stocks, income or relationships; material-producing jobs also check their activity building. Equipment swaps remain available anywhere.
@@ -217,7 +217,7 @@ The mechanics below are working prototypes or incomplete systems. Their current 
 
 #### Crafting, equipment and character progression
 
-**Working:** costs/unlock checks, expanded recipes, counted weapons/clothes, outfit perks, equipment swaps anywhere and five backgrounds. Crafting requires town territory plus the appropriate local/peaceful road-connected activity building. Every successful craft starts a global 5/15/40/90/180-game-second cooldown based on rarity; it persists across reload.
+**Working:** costs/unlock checks, expanded recipes, counted weapons/clothes, outfit perks, equipment swaps anywhere and five backgrounds. Crafting requires town territory plus the appropriate local/peaceful road-connected activity building. Every successful craft starts a global 1/5/30/60/120-game-minute cooldown based on rarity; it persists across reload.
 
 **Incomplete:**
 - Craft outputs are immediate, followed by a persistent rarity-scaled global cooldown. There are no timed production queues, reserved-input jobs or simultaneous per-building workshop queues.

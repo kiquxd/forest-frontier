@@ -135,7 +135,7 @@ Sources: [gameplay.cpp](../src/gameplay.cpp), [adventure.cpp](../src/adventure.c
 
 ## Crafting, equipment and character progression
 
-**Working:** costs/unlock checks, expanded recipes, counted weapons/clothes, outfit perks, equipment swaps anywhere and five backgrounds. Crafting requires town territory plus the appropriate local/peaceful road-connected activity building. Every successful craft starts a global 5/15/40/90/180-game-second cooldown based on rarity; it persists across reload.
+**Working:** costs/unlock checks, expanded recipes, counted weapons/clothes, outfit perks, equipment swaps anywhere and five backgrounds. Crafting requires town territory plus the appropriate local/peaceful road-connected activity building. Every successful craft starts a global 1/5/30/60/120-game-minute cooldown based on rarity; it persists across reload.
 
 **Incomplete:**
 - Craft outputs are immediate, followed by a persistent rarity-scaled global cooldown. There are no timed production queues, reserved-input jobs or simultaneous per-building workshop queues.
