@@ -1,16 +1,33 @@
-#pragma once
+#ifndef FOREST_FRONTIER_SRC_SUMMARY_HPP_
+#define FOREST_FRONTIER_SRC_SUMMARY_HPP_
+
+#include <string>
+#include <vector>
+
 #include "adventure.hpp"
 
 namespace frontier {
-struct SummaryEntry {std::string icon,name,detail;int count{-1};};
+struct SummaryEntry {
+  std::string icon;
+  std::string name;
+  std::string detail;
+  int count{-1};
+};
 struct ProgressCard {
-  std::string id,name,icon,detail;
+  std::string id;
+  std::string name;
+  std::string icon;
+  std::string detail;
   std::vector<std::string> dependencies;
-  int column{},row{};
-  bool learned{},ready{};
+  int column{};
+  int row{};
+  bool learned{};
+  bool ready{};
   bool activity{};
   int amount{};
 };
-std::vector<SummaryEntry> inventorySummary(const Save& save);
-std::vector<ProgressCard> progressCards(const Save& save);
-}
+std::vector<SummaryEntry> InventorySummary(const Save& save);
+std::vector<ProgressCard> ProgressCards(const Save& save);
+}  // namespace frontier
+
+#endif  // FOREST_FRONTIER_SRC_SUMMARY_HPP_

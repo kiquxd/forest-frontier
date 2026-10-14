@@ -11,9 +11,9 @@ Keep the English `README.md` current in the same change as gameplay, content, co
 
 ## C++ code style
 
-Follow the [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html) for new and changed C++ code. Existing compressed formatting is legacy debt, not a style to copy.
+Follow the [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html) for new and changed C++ code. Keep the migrated first-party sources consistent; do not reintroduce compressed statements or inconsistent names.
 
-- Format changed C++ files with `clang-format -i --style=file` using the root `.clang-format`: Google base, two-space indentation, 80-column limit, spaces instead of tabs. Do not pack multiple statements, branches or function bodies onto one line.
+- Format changed C++ files with `clang-format -i --style=file` using the root `.clang-format`: Google base, two-space indentation, 80-column limit, spaces instead of tabs and braces around control-flow bodies. Use clang-format >=15; migration was validated with 23.1.3. `./scripts/format.sh` formats all first-party C++; `./scripts/format.sh --check` verifies it without edits. Do not pack multiple statements, branches or function bodies onto one line.
 - Use descriptive names: `UpperCamelCase` types/functions, `snake_case` variables, `kUpperCamelCase` constants and trailing underscores for private data members. Formatting does not enforce naming or design rules; review them separately.
 - Make headers self-contained, include dependencies directly, use guards for new headers and follow Google's include grouping/order. Avoid global `using namespace` directives.
 - Keep functions focused, ownership explicit and interfaces readable. Explain non-obvious decisions and invariants in comments.

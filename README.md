@@ -505,4 +505,11 @@ Benchmarks use temporary game state and do not save their simulated progression.
 
 Implementation choices, validation results and unfinished systems are recorded in [ai/DECISIONS.md](ai/DECISIONS.md), [ai/PROGRESS.md](ai/PROGRESS.md) and [ai/PLACEHOLDERS.md](ai/PLACEHOLDERS.md). The tracked work checklist is [TODO.md](TODO.md). Contribution rules are in [AGENTS.md](AGENTS.md). Keep content and NPC IDs stable, preserve existing saves, and keep public UI/content in English.
 
-New and changed C++ code follows the [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html) and the repository [.clang-format](.clang-format). Existing code still needs a gradual style migration; the configuration does not mean all sources already comply. Install clang-format separately for development, then format changed source files with `clang-format -i --style=file path/to/file.cpp`. It is not required to build or play.
+First-party C++ sources and tests follow the [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html) and the repository [.clang-format](.clang-format): consistent naming, expanded declarations/control flow, header guards and direct includes. Dependency sources retain their upstream style. Install clang-format >=15 separately for development; the migration was validated with 23.1.3. It is not required to build or play.
+
+```sh
+./scripts/format.sh         # Format first-party C++ sources and tests
+./scripts/format.sh --check # Verify formatting without edits
+```
+
+Set `CLANG_FORMAT=/path/to/clang-format` to use a specific formatter executable. Formatting checks cover layout; naming and design still require review.

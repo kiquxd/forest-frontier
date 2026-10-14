@@ -1,65 +1,233 @@
-#include "gameplay.hpp"
-#include "json.hpp"
-#include <fstream>
 #include <algorithm>
+#include <chrono>
+#include <cstdint>
+#include <exception>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <stdexcept>
-#include <chrono>
-using namespace frontier;
-static void check(bool condition,const char* reason) {if(!condition) throw std::runtime_error(reason);}
-static int recipe(const std::string& id) {for(int i=0;i<int(recipes().size());i++) if(recipes()[i].id==id) return i;throw std::runtime_error("Missing recipe");}
+#include <string>
+#include <utility>
+
+#include "gameplay.hpp"
+#include "json.hpp"
+
+namespace {
+void Check(bool condition, const char* reason) {
+  if (!condition) {
+    throw std::runtime_error(reason);
+  }
+}
+int FindRecipeIndex(const std::string& id) {
+  for (int i = 0; i < static_cast<int>(frontier::Recipes().size()); i++) {
+    if (frontier::Recipes()[i].id == id) {
+      return i;
+    }
+  }
+  throw std::runtime_error("Missing recipe");
+}
+
+}  // namespace
+
 int main() {
   try {
-    configureWorld(742019);Save s;initializeCampaign(s);
-    check(std::count(s.owners.begin(),s.owners.end(),0)==1&&ownsCity(s,s.homeCity),"Exactly one initial player city");
-    check(length(s.player-settlements()[s.homeCity].pos)<180&&s.coins==0&&s.skills.empty(),"Start near own hall without skills or money");
-    auto halls=makeBuildings();check(std::count_if(halls.begin(),halls.end(),[](auto& b){return b.hall;})==int(settlements().size()),"Every city has a hall");
-    auto people=makeNpcs();check(std::count_if(people.begin(),people.end(),[](auto& n){return n.ruler;})==int(settlements().size()),"Every foreign city can supply a resident ruler");
-    for(int i=0;i<int(s.owners.size());i++) for(int j=0;j<int(s.owners.size());j++) check(s.cityOpinions[i][j]==s.cityOpinions[j][i],"Reciprocal city relationships");
-    Resource tree{1,{},ResourceKind::Tree,0};check(!harvest(s,tree).ok&&!craft(s,recipe("campfire")).ok&&!trade(s,s.homeCity,0,false).ok,"Starting actions locked");
-    check(!trainSkill(s,6).ok&&!trainSkill(s,10).ok,"Advanced lessons need practice");
-    check(lessonState(s,0).ready&&!lessonState(s,0).learned,"Introductory lesson is available in a fresh campaign");
-    check(diplomacy(s,s.homeCity,10).ok,"Hall teaches gathering");
-    check(lessonState(s,0).learned&&lessonState(s,0).progress==lessonState(s,0).target&&lessonState(s,1).ready,"Hall lesson immediately updates learned state and dependent lesson");
-    check(!diplomacy(s,s.homeCity,10).ok&&s.skills.size()==1,"Repeated hall lesson cannot change progression");
-    s.gathered=4;check(!lessonState(s,2).ready&&lessonState(s,2).progress==4&&lessonState(s,2).target==5,"Craftsmanship shows its exact practice progress");s.gathered=0;
-    check(trainSkill(s,1).ok,"Free hall lessons bootstrap trade");
-    for(int i=0;i<60;i++) {Resource resource{uint64_t(100+i),{},ResourceKind(i%4),0};check(harvest(s,resource).ok,"Gather without tools");}
-    check(trainSkill(s,2).ok,"Gathering unlocks craft lesson");
-    check(craft(s,recipe("campfire")).ok&&craft(s,recipe("campfire")).ok,"Two basic crafts without tool prerequisite");
-    check(trainSkill(s,3).ok&&trainSkill(s,4).ok&&trainSkill(s,5).ok,"Practice unlocks tools, combat, fishing");
-    check(craft(s,recipe("rod")).ok,"Craft fishing rod");
-    for(int i=0;i<3;i++) check(harvest(s,{uint64_t(1000+i),{},ResourceKind::Fish,0}).ok,"Catch fish with rod");
-    check(trainSkill(s,6).ok&&craft(s,recipe("boat")).ok,"Fishing unlocks first watercraft without coins or advanced technologies");
-    check(trainSkill(s,8).ok&&trainSkill(s,9).ok,"Construction and diplomacy lessons");
-    check(!diplomacy(s,s.homeCity,2).ok,"Cannot declare war on own city");
-    check(diplomacy(s,s.homeCity,8).ok&&trainSkill(s,10).ok,"City activity unlocks engineering");
-    int foreign=(s.homeCity+1)%int(s.owners.size());s.coins=500;s.relations[foreign]={40,Treaty::Peace,true};
-    check(diplomacy(s,foreign,2).ok&&s.cityOpinions[s.homeCity][foreign]==-80,"War changes intercity relationship");
-    check(diplomacy(s,foreign,1).ok&&s.cityOpinions[foreign][s.homeCity]==0,"Truce changes mutual relationship");
-    s.relations[foreign].opinion=75;check(diplomacy(s,foreign,3).ok&&diplomacy(s,foreign,4).ok&&ownsCity(s,foreign),"Union transfers ownership");
-    auto path=std::filesystem::temp_directory_path()/("campaign-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())+".json");
-    writeSave(path,s);auto loaded=loadSave(path);std::filesystem::remove(path);
-    check(loaded.owners==s.owners&&loaded.skills==s.skills&&loaded.cityOpinions==s.cityOpinions&&loaded.caught==3,"Campaign and activities survive save roundtrip");
-    Save legacy;legacy.inventory.ship=true;legacy.technologies.insert("submarine");auto oldPosition=legacy.player;initializeCampaign(legacy,true);
-    check(legacy.skills.size()==skills().size()&&legacy.inventory.ship&&legacy.technologies.contains("submarine")&&length(legacy.player-oldPosition)==0,"Legacy migration preserves progress and position");
+    frontier::ConfigureWorld(742019);
+    frontier::Save save;
+    frontier::InitializeCampaign(save);
+    Check(std::count(save.owners.begin(), save.owners.end(), 0) == 1 &&
+              frontier::OwnsCity(save, save.home_city),
+          "Exactly one initial player city");
+    Check(frontier::Length(save.player -
+                           frontier::Settlements()[save.home_city].pos) < 180 &&
+              save.coins == 0 && save.skills.empty(),
+          "Start near own hall without skills or money");
+    auto halls = frontier::MakeBuildings();
+    Check(std::count_if(halls.begin(), halls.end(),
+                        [](auto& b) { return b.hall; }) ==
+              static_cast<int>(frontier::Settlements().size()),
+          "Every city has a hall");
+    auto people = frontier::MakeNpcs();
+    Check(std::count_if(people.begin(), people.end(),
+                        [](auto& n) { return n.ruler; }) ==
+              static_cast<int>(frontier::Settlements().size()),
+          "Every foreign city can supply a resident ruler");
+    for (int i = 0; i < static_cast<int>(save.owners.size()); i++) {
+      for (int j = 0; j < static_cast<int>(save.owners.size()); j++) {
+        Check(save.city_opinions[i][j] == save.city_opinions[j][i],
+              "Reciprocal city relationships");
+      }
+    }
+    frontier::Resource tree{1, {}, frontier::ResourceKind::kTree, 0};
+    Check(!frontier::Harvest(save, tree).ok &&
+              !frontier::Craft(save, FindRecipeIndex("campfire")).ok &&
+              !frontier::Trade(save, save.home_city, 0, false).ok,
+          "Starting actions locked");
+    Check(
+        !frontier::TrainSkill(save, 6).ok && !frontier::TrainSkill(save, 10).ok,
+        "Advanced lessons need practice");
+    Check(frontier::GetLessonState(save, 0).ready &&
+              !frontier::GetLessonState(save, 0).learned,
+          "Introductory lesson is available in a fresh campaign");
+    Check(frontier::Diplomacy(save, save.home_city, 10).ok,
+          "Hall teaches gathering");
+    Check(frontier::GetLessonState(save, 0).learned &&
+              frontier::GetLessonState(save, 0).progress ==
+                  frontier::GetLessonState(save, 0).target &&
+              frontier::GetLessonState(save, 1).ready,
+          "Hall lesson immediately updates learned state and dependent lesson");
+    Check(!frontier::Diplomacy(save, save.home_city, 10).ok &&
+              save.skills.size() == 1,
+          "Repeated hall lesson cannot change progression");
+    save.gathered = 4;
+    Check(!frontier::GetLessonState(save, 2).ready &&
+              frontier::GetLessonState(save, 2).progress == 4 &&
+              frontier::GetLessonState(save, 2).target == 5,
+          "Craftsmanship shows its exact practice progress");
+    save.gathered = 0;
+    Check(frontier::TrainSkill(save, 1).ok,
+          "Free hall lessons bootstrap trade");
+    for (int i = 0; i < 60; i++) {
+      frontier::Resource resource{
+          static_cast<uint64_t>(100 + i), {}, frontier::ResourceKind(i % 4), 0};
+      Check(frontier::Harvest(save, resource).ok, "Gather without tools");
+    }
+    Check(frontier::TrainSkill(save, 2).ok, "Gathering unlocks craft lesson");
+    Check(frontier::Craft(save, FindRecipeIndex("campfire")).ok &&
+              frontier::Craft(save, FindRecipeIndex("campfire")).ok,
+          "Two basic crafts without tool prerequisite");
+    Check(frontier::TrainSkill(save, 3).ok &&
+              frontier::TrainSkill(save, 4).ok &&
+              frontier::TrainSkill(save, 5).ok,
+          "Practice unlocks tools, combat, fishing");
+    Check(frontier::Craft(save, FindRecipeIndex("rod")).ok,
+          "Craft fishing rod");
+    for (int i = 0; i < 3; i++) {
+      Check(frontier::Harvest(save, {static_cast<uint64_t>(1000 + i),
+                                     {},
+                                     frontier::ResourceKind::kFish,
+                                     0})
+                .ok,
+            "Catch fish with rod");
+    }
+    Check(frontier::TrainSkill(save, 6).ok &&
+              frontier::Craft(save, FindRecipeIndex("boat")).ok,
+          "Fishing unlocks first watercraft without coins or advanced "
+          "technologies");
+    Check(frontier::TrainSkill(save, 8).ok && frontier::TrainSkill(save, 9).ok,
+          "Construction and diplomacy lessons");
+    Check(!frontier::Diplomacy(save, save.home_city, 2).ok,
+          "Cannot declare war on own city");
+    Check(frontier::Diplomacy(save, save.home_city, 8).ok &&
+              frontier::TrainSkill(save, 10).ok,
+          "City activity unlocks engineering");
+    int foreign = (save.home_city + 1) % static_cast<int>(save.owners.size());
+    save.coins = 500;
+    save.relations[foreign] = {40, frontier::Treaty::kPeace, true};
+    Check(frontier::Diplomacy(save, foreign, 2).ok &&
+              save.city_opinions[save.home_city][foreign] == -80,
+          "War changes intercity relationship");
+    Check(frontier::Diplomacy(save, foreign, 1).ok &&
+              save.city_opinions[foreign][save.home_city] == 0,
+          "Truce changes mutual relationship");
+    save.relations[foreign].opinion = 75;
+    Check(frontier::Diplomacy(save, foreign, 3).ok &&
+              frontier::Diplomacy(save, foreign, 4).ok &&
+              frontier::OwnsCity(save, foreign),
+          "Union transfers ownership");
+    auto path =
+        std::filesystem::temp_directory_path() /
+        ("campaign-" +
+         std::to_string(
+             std::chrono::steady_clock::now().time_since_epoch().count()) +
+         ".json");
+    frontier::WriteSave(path, save);
+    auto loaded = frontier::LoadSave(path);
+    std::filesystem::remove(path);
+    Check(loaded.owners == save.owners && loaded.skills == save.skills &&
+              loaded.city_opinions == save.city_opinions && loaded.caught == 3,
+          "Campaign and activities survive save roundtrip");
+    frontier::Save legacy;
+    legacy.inventory.ship = true;
+    legacy.technologies.insert("submarine");
+    auto old_position = legacy.player;
+    frontier::InitializeCampaign(legacy, true);
+    Check(legacy.skills.size() == frontier::Skills().size() &&
+              legacy.inventory.ship &&
+              legacy.technologies.contains("submarine") &&
+              frontier::Length(legacy.player - old_position) == 0,
+          "Legacy migration preserves progress and position");
     // A migrated v3 slot keeps capabilities and gets an untouched backup.
-    auto legacyPath=std::filesystem::temp_directory_path()/("campaign-v3-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())+".json");
-    writeSave(legacyPath,s);nlohmann::json json;{std::ifstream in(legacyPath);in>>json;}json["version"]=3;{std::ofstream out(legacyPath);out<<json;}
-    auto migrated=loadSave(legacyPath);initializeCampaign(migrated,true);writeSave(legacyPath,migrated);
-    check(std::filesystem::exists(legacyPath.string()+".v3.bak")&&migrated.inventory.boat&&migrated.skills.size()==skills().size(),"Old slot backed up without relocking equipment");
-    std::filesystem::remove(legacyPath);std::filesystem::remove(legacyPath.string()+".v3.bak");
-    // Reception policy changes an actual visitor's position, rather than only text.
-    World world(s.seed);world.buildings.clear();int host=0;auto center=chunkAt(settlements()[host].pos);
-    for(int y=-2;y<=2;y++) for(int x=-2;x<=2;x++) {Chunk chunk;chunk.coord={center.x+x,center.y+y};chunk.tiles.resize(256,Tile{0,false,Terrain::Forest});world.chunks.emplace(chunk.coord,std::move(chunk));}
-    Save reception=s;reception.player=settlements()[host].pos+Vec{100,100};
-    int visitor=-1,ruler=-1;for(auto& n:world.npcs) if(n.settlement==host) {if(n.originCity>=0) visitor=n.id;if(n.ruler) ruler=n.id;}
-    check(visitor>=0&&ruler>=0,"Resident ruler and foreign visitor exist");
-    auto rulerPosition=world.npcs[ruler].pos;reception.cityOpinions[host][world.npcs[visitor].originCity]=-80;
-    world.tick(20,reception,0);
-    check(length(world.npcs[visitor].pos-settlements()[host].pos)>200,"Hostile foreign visitor stays outside central square");
-    world.beginConversation(ruler,reception);world.tick(1,reception,1);
-    check(length(world.npcs[ruler].pos-rulerPosition)==0,"Ruler stays inside the hall during conversation");
-    std::cout<<"campaign ownership, halls, relations, unlock path and persistence passed\n";
-  } catch(const std::exception& e) {std::cerr<<e.what()<<'\n';return 1;}
+    auto legacy_path =
+        std::filesystem::temp_directory_path() /
+        ("campaign-v3-" +
+         std::to_string(
+             std::chrono::steady_clock::now().time_since_epoch().count()) +
+         ".json");
+    frontier::WriteSave(legacy_path, save);
+    nlohmann::json json;
+    {
+      std::ifstream in(legacy_path);
+      in >> json;
+    }
+    json["version"] = 3;
+    {
+      std::ofstream out(legacy_path);
+      out << json;
+    }
+    auto migrated = frontier::LoadSave(legacy_path);
+    frontier::InitializeCampaign(migrated, true);
+    frontier::WriteSave(legacy_path, migrated);
+    Check(std::filesystem::exists(legacy_path.string() + ".v3.bak") &&
+              migrated.inventory.boat &&
+              migrated.skills.size() == frontier::Skills().size(),
+          "Old slot backed up without relocking equipment");
+    std::filesystem::remove(legacy_path);
+    std::filesystem::remove(legacy_path.string() + ".v3.bak");
+    // Reception policy changes an actual visitor's position, rather than only
+    // text.
+    frontier::World world(save.seed);
+    world.buildings.clear();
+    int host = 0;
+    auto center = frontier::ChunkAt(frontier::Settlements()[host].pos);
+    for (int y = -2; y <= 2; y++) {
+      for (int x = -2; x <= 2; x++) {
+        frontier::Chunk chunk;
+        chunk.coord = {center.x + x, center.y + y};
+        chunk.tiles.resize(
+            256, frontier::Tile{0, false, frontier::Terrain::kForest});
+        world.chunks.emplace(chunk.coord, std::move(chunk));
+      }
+    }
+    frontier::Save reception = save;
+    reception.player =
+        frontier::Settlements()[host].pos + frontier::Vec{100, 100};
+    int visitor = -1, ruler = -1;
+    for (auto& npc : world.npcs) {
+      if (npc.settlement == host) {
+        if (npc.origin_city >= 0) {
+          visitor = npc.id;
+        }
+        if (npc.ruler) {
+          ruler = npc.id;
+        }
+      }
+    }
+    Check(visitor >= 0 && ruler >= 0,
+          "Resident ruler and foreign visitor exist");
+    auto ruler_position = world.npcs[ruler].pos;
+    reception.city_opinions[host][world.npcs[visitor].origin_city] = -80;
+    world.Tick(20, reception, 0);
+    Check(frontier::Length(world.npcs[visitor].pos -
+                           frontier::Settlements()[host].pos) > 200,
+          "Hostile foreign visitor stays outside central square");
+    world.BeginConversation(ruler, reception);
+    world.Tick(1, reception, 1);
+    Check(frontier::Length(world.npcs[ruler].pos - ruler_position) == 0,
+          "Ruler stays inside the hall during conversation");
+    std::cout << "campaign ownership, halls, relations, unlock path and "
+                 "persistence passed\n";
+  } catch (const std::exception& e) {
+    std::cerr << e.what() << '\n';
+    return 1;
+  }
 }

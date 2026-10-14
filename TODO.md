@@ -175,7 +175,3 @@ Remove an item only after its full scope is implemented and validated. Split it 
 - [ ] Linux source setup is available and tested, but there is no standalone relocatable package: assets/content/default writable paths remain bound to the checkout at build time. System packages must be installed separately.
 - [ ] Downloads use HTTPS, curl success and a GGUF header check for the model, without pinned checksums or complete model validation. The model/font URLs track upstream main, and existing dependency files/source checkouts are reused rather than reverified against a lock manifest.
 - [ ] The 60 FPS target and accepted worst-window p95 ceiling of 30 ms constrain future changes; current measurements do not guarantee them for future systems.
-
-## C++ style migration
-
-- [ ] Existing C++ sources and tests still use densely packed statements, inconsistent naming and header/include conventions. Migrate them to the Google C++ Style Guide and the repository .clang-format in reviewable changes; keep formatting changes separate from behavior changes, preserve saved-content IDs and validate any symbol renames.

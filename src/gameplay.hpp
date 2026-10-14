@@ -1,75 +1,115 @@
-#pragma once
-#include "world.hpp"
+#ifndef FOREST_FRONTIER_SRC_GAMEPLAY_HPP_
+#define FOREST_FRONTIER_SRC_GAMEPLAY_HPP_
+
 #include <array>
+#include <cstdint>
+#include <string>
+#include <vector>
+
+#include "world.hpp"
 
 namespace frontier {
-struct Action {bool ok;std::string message;};
-const std::vector<Recipe>& recipes();
-const char* goodName(int good);
-int& goodCount(Inventory& inv,int good);
-int goodCount(const Inventory& inv,int good);
-bool equipped(const Inventory& inv,int recipe);
-void ensureCityState(Save& save);
-void initializeCampaign(Save& save,bool legacy=false);
-bool ownsCity(const Save& save,int city);
-struct Skill {std::string id,name,requirement;};
-const std::vector<Skill>& skills();
-bool hasSkill(const Save& save,const std::string& id);
-std::string skillName(const std::string& id);
-std::string recipeSkill(const Recipe& recipe);
-Action trainSkill(Save& save,int skill);
-struct LessonState {bool learned,ready;int progress,target;std::string detail;};
-LessonState lessonState(const Save& save,int skill);
-const WeaponDef& currentWeapon(const Save& save);
-const char* treatyName(Treaty treaty);
-const char* technologyName(const std::string& id);
-std::vector<std::string> ownedWeapons(const Save& save);
-Action equipWeapon(Save& save,const std::string& id);
-const std::vector<std::string>& cityActions();
-Action diplomacy(Save& save,int city,int action);
-Action learnTechnology(Save& save,int city);
-const WeaponDef& cityWeapon(int city,uint64_t seed);
-bool watercraft(const Save& save);
-int activeVehicle(const Save& save);
-Action cycleVehicle(Save& save);
-Action dive(Save& save);
-Action repairVessel(Save& save);
-Action sonar(Save& save);
-int resourceGood(ResourceKind kind);
-Action craft(Save& save,int recipe);
-int buyPrice(int settlement,int good);
-int sellPrice(int settlement,int good);
-Action trade(Save& save,int settlement,int good,bool buy);
-Action consume(Save& save,bool potion);
-float harvestDuration(const Resource& resource,const Inventory& inv);
-Action harvest(Save& save,const Resource& resource);
+struct Action {
+  bool ok;
+  std::string message;
+};
+const std::vector<Recipe>& Recipes();
+const char* GoodName(int good);
+int& GoodCount(Inventory& inventory, int good);
+int GoodCount(const Inventory& inventory, int good);
+bool Equipped(const Inventory& inventory, int recipe);
+void EnsureCityState(Save& save);
+void InitializeCampaign(Save& save, bool legacy = false);
+bool OwnsCity(const Save& save, int city);
+struct Skill {
+  std::string id;
+  std::string name;
+  std::string requirement;
+};
+const std::vector<Skill>& Skills();
+bool HasSkill(const Save& save, const std::string& id);
+std::string SkillName(const std::string& id);
+std::string RecipeSkill(const Recipe& recipe);
+Action TrainSkill(Save& save, int skill);
+struct LessonState {
+  bool learned;
+  bool ready;
+  int progress;
+  int target;
+  std::string detail;
+};
+LessonState GetLessonState(const Save& save, int skill);
+const WeaponDef& CurrentWeapon(const Save& save);
+const char* TreatyName(Treaty treaty);
+const char* TechnologyName(const std::string& id);
+std::vector<std::string> OwnedWeapons(const Save& save);
+Action EquipWeapon(Save& save, const std::string& id);
+const std::vector<std::string>& CityActions();
+Action Diplomacy(Save& save, int city, int action);
+Action LearnTechnology(Save& save, int city);
+const WeaponDef& CityWeapon(int city, uint64_t seed);
+bool Watercraft(const Save& save);
+int ActiveVehicle(const Save& save);
+Action CycleVehicle(Save& save);
+Action Dive(Save& save);
+Action RepairVessel(Save& save);
+Action Sonar(Save& save);
+int ResourceGood(ResourceKind kind);
+Action Craft(Save& save, int recipe);
+int BuyPrice(int settlement, int good);
+int SellPrice(int settlement, int good);
+Action Trade(Save& save, int settlement, int good, bool buy);
+Action Consume(Save& save, bool potion);
+float HarvestDuration(const Resource& resource, const Inventory& inventory);
+Action Harvest(Save& save, const Resource& resource);
 
 class Gameplay {
-public:
-  void advance(float dt);
-  Vec movePlayer(World& world,Save& save,Vec displacement);
-  void tick(World& world,Save& save,float dt,double time);
-  void combat(World& world,Save& save,float dt);
-  void explore(Save& save,float width,float height,float zoom);
-  Action attack(World& world,Save& save);
-  Action placeCampfire(World& world,Save& save);
-  bool repairSpawn(const World& world,Save& save) const;
-  Vec facing{1,0};
-  float walk{},swing{},invulnerable{},attackCooldown{};
-  float attackElapsed{},attackDuration{},sonarCooldown{};
-  Vec attackFacing{1,0};
-  struct Projectile {Vec pos,velocity;float life;int damage;};
+ public:
+  void Advance(float dt);
+  Vec MovePlayer(World& world, Save& save, Vec displacement);
+  void Tick(World& world, Save& save, float dt, double time);
+  void Combat(World& world, Save& save, float dt);
+  void Explore(Save& save, float width, float height, float zoom);
+  Action Attack(World& world, Save& save);
+  Action PlaceCampfire(World& world, Save& save);
+  bool RepairSpawn(const World& world, Save& save) const;
+  Vec facing{1, 0};
+  float walk{};
+  float swing{};
+  float invulnerable{};
+  float attack_cooldown{};
+  float attack_elapsed{};
+  float attack_duration{};
+  float sonar_cooldown{};
+  Vec attack_facing{1, 0};
+  struct Projectile {
+    Vec pos;
+    Vec velocity;
+    float life;
+    int damage;
+  };
   std::vector<Projectile> projectiles;
-  const WeaponDef& swingingWeapon() const {return attackWeapon_;}
+  const WeaponDef& SwingingWeapon() const {
+    return attack_weapon_;
+  }
   bool moving{};
-  int attacks{},kills{},damageTaken{},collisions{},respawns{};
+  int attacks{};
+  int kills{};
+  int damage_taken{};
+  int collisions{};
+  int respawns{};
   std::string notice;
-private:
-  bool hitResolved_{true};
-  WeaponDef attackWeapon_;
-  void damage(World& world,Save& save,Enemy& enemy,int amount,Vec direction);
+
+ private:
+  bool hit_resolved_{true};
+  WeaponDef attack_weapon_;
+  void Damage(World& world, Save& save, Enemy& enemy, int amount,
+              Vec direction);
   float regeneration_{};
-  float civicClock_{};
-  float pressureClock_{};float defenderClock_{};
+  float civic_clock_{};
+  float pressure_clock_{};
+  float defender_clock_{};
 };
-}
+}  // namespace frontier
+
+#endif  // FOREST_FRONTIER_SRC_GAMEPLAY_HPP_
