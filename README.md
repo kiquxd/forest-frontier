@@ -328,7 +328,7 @@ Saved-world and live paused-world summaries share icon-backed vertical item/skil
 
 Weapons intentionally have no durability, equipment swaps work anywhere, and ordinary NPC interactions use authored English content. Those are implemented design choices. Multiplayer and a space/planet simulation are outside the current scope.
 
-Maintain this section alongside [ai/PLACEHOLDERS.md](ai/PLACEHOLDERS.md) whenever implementation changes. Remove a limitation only after the corresponding behavior is implemented and validated.
+The tracked [TODO.md checklist](TODO.md) lists remaining work item by item. Remove completed items after implementation and validation, splitting partial completions so remaining scope is retained. Maintain it and this section alongside [ai/PLACEHOLDERS.md](ai/PLACEHOLDERS.md) whenever implementation changes.
 
 ## Installation
 
@@ -503,4 +503,6 @@ python3 scripts/summarize-perf.py
 
 Benchmarks use temporary game state and do not save their simulated progression. The lower-level `scripts/benchmark.sh` also provides uncapped baseline, gameplay and expedition scenarios; its LLM modes expect a server to be running already.
 
-Implementation choices, validation results and unfinished systems are recorded in [ai/DECISIONS.md](ai/DECISIONS.md), [ai/PROGRESS.md](ai/PROGRESS.md) and [ai/PLACEHOLDERS.md](ai/PLACEHOLDERS.md). Contribution rules are in [AGENTS.md](AGENTS.md). Keep content and NPC IDs stable, preserve existing saves, and keep public UI/content in English.
+Implementation choices, validation results and unfinished systems are recorded in [ai/DECISIONS.md](ai/DECISIONS.md), [ai/PROGRESS.md](ai/PROGRESS.md) and [ai/PLACEHOLDERS.md](ai/PLACEHOLDERS.md). The tracked work checklist is [TODO.md](TODO.md). Contribution rules are in [AGENTS.md](AGENTS.md). Keep content and NPC IDs stable, preserve existing saves, and keep public UI/content in English.
+
+New and changed C++ code follows the [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html) and the repository [.clang-format](.clang-format). Existing code still needs a gradual style migration; the configuration does not mean all sources already comply. Install clang-format separately for development, then format changed source files with `clang-format -i --style=file path/to/file.cpp`. It is not required to build or play.

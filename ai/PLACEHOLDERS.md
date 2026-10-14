@@ -6,6 +6,8 @@ Keep this inventory current whenever mechanics change. Remove a limitation only 
 
 The public counterpart is the [README Current limits section](../README.md#current-limits). Keep every incomplete system and relevant technical limitation represented there in the same change; the README must describe the limitations directly rather than only link to this file.
 
+The tracked item-by-item checklist is [TODO.md](../TODO.md). Remove validated completions there and synchronize this audit and README; split partial completions so remaining limitations are not lost. Legacy C++ style migration is tracked separately as technical debt in that checklist.
+
 ## Strategic warfare
 
 **Working:** war declarations, hostile local guards, wall damage, truces, alliances, union ownership, military research and equipment allocation.
