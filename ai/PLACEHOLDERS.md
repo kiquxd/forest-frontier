@@ -282,18 +282,14 @@ Sources: [world.cpp](../src/world.cpp), [adventure.cpp](../src/adventure.cpp), [
 
 Sources: [dialogue.cpp](../src/dialogue.cpp), [main.cpp](../src/main.cpp).
 
-## Performance, balance and release coverage
+## Release and distribution
 
-**Working:** automated mechanic tests, real-window menu smoke, compact logs and community/expedition benchmarks with model load.
+**Working:** Linux source setup downloads dependencies, builds the game and optional model server, and runs automated tests. The repository includes installation and launch instructions.
 
 **Incomplete:**
-- Results cover short routes on the tested Linux machine, not long campaigns, maximum population/settlement counts or future army simulations.
-- Timing/RSS logs are not GPU profiler coverage or combined game-plus-model memory accounting.
-- Economy, rewards, unlock pacing and background balance lack broad long-play validation.
 - Windows/macOS packaging, platform validation and a complete distribution workflow are not established by the Linux build.
 - Linux source setup is available and tested, but there is no standalone relocatable package: assets/content/default writable paths remain bound to the checkout at build time. System packages must be installed separately.
 - Downloads use HTTPS, curl success and a GGUF header check for the model, without pinned checksums or complete model validation. The model/font URLs track upstream main, and existing dependency files/source checkouts are reused rather than reverified against a lock manifest.
-- The 60 FPS target and accepted worst-window p95 ceiling of 30 ms constrain future changes; current measurements do not guarantee them for future systems.
 
 Sources: [perf.cpp](../src/perf.cpp), [PROGRESS.md](PROGRESS.md), [README.md](../README.md).
 

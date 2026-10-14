@@ -166,12 +166,8 @@ Remove an item only after its full scope is implemented and validated. Split it 
 - [ ] The model has no bounded gameplay role such as context-grounded quest narration or constrained negotiation. A successful benchmark does not establish such a mechanic.
 - [ ] Model measurements do not validate persistent NPC memory or model-driven world behavior; neither exists in normal gameplay.
 
-## Performance, balance and release coverage
+## Release and distribution
 
-- [ ] Results cover short routes on the tested Linux machine, not long campaigns, maximum population/settlement counts or future army simulations.
-- [ ] Timing/RSS logs are not GPU profiler coverage or combined game-plus-model memory accounting.
-- [ ] Economy, rewards, unlock pacing and background balance lack broad long-play validation.
 - [ ] Windows/macOS packaging, platform validation and a complete distribution workflow are not established by the Linux build.
 - [ ] Linux source setup is available and tested, but there is no standalone relocatable package: assets/content/default writable paths remain bound to the checkout at build time. System packages must be installed separately.
 - [ ] Downloads use HTTPS, curl success and a GGUF header check for the model, without pinned checksums or complete model validation. The model/font URLs track upstream main, and existing dependency files/source checkouts are reused rather than reverified against a lock manifest.
-- [ ] The 60 FPS target and accepted worst-window p95 ceiling of 30 ms constrain future changes; current measurements do not guarantee them for future systems.
