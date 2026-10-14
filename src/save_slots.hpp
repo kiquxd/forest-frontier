@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "controls.hpp"
 #include "world.hpp"
 
 namespace frontier {
@@ -18,7 +19,9 @@ struct Settings {
   float zoom{1.15f};
   bool fullscreen{};
   bool debug{true};
-  bool dialogues{true};
+  float text_scale{1.f};
+  bool high_contrast{};
+  Bindings bindings{DefaultBindings()};
   std::string last_save;
 };
 Settings LoadSettings(const std::filesystem::path& path);
@@ -36,6 +39,23 @@ std::vector<SaveSlot> ScanSaveSlots(const std::filesystem::path& directory);
 std::filesystem::path CreateSaveSlot(
     const std::filesystem::path& directory, const std::string& name,
     uint64_t seed, const std::string& background = "traveler");
+std::filesystem::path RenameSaveSlot(const std::filesystem::path& directory,
+                                     const std::filesystem::path& source,
+                                     const std::string& name);
+std::filesystem::path CopySaveSlot(const std::filesystem::path& directory,
+                                   const std::filesystem::path& source,
+                                   const std::string& name);
+std::filesystem::path ImportSaveSlot(const std::filesystem::path& directory,
+                                     const std::filesystem::path& source,
+                                     const std::string& name);
+void ExportSaveSlot(const std::filesystem::path& directory,
+                    const std::filesystem::path& source,
+                    const std::filesystem::path& destination);
+std::vector<SaveSlot> ScanRecoveredSlots(
+    const std::filesystem::path& directory);
+std::filesystem::path RestoreSaveSlot(const std::filesystem::path& directory,
+                                      const std::filesystem::path& source,
+                                      const std::string& name);
 void DeleteSaveSlot(const std::filesystem::path& directory,
                     const std::filesystem::path& path);
 }  // namespace frontier

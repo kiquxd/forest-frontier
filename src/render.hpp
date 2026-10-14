@@ -21,6 +21,18 @@ struct SummaryView {
   float horizontal{};
   bool underwater{};
   std::string caption;
+  bool editable{};
+  bool keyboard{true};
+  bool history{};
+  int selected_city{};
+  int selected_resident{-1};
+  int resident_job{};
+  int resident_weapon{};
+  int resident_outfit{};
+  int resident_page{};
+  std::string requested_node;
+  bool requested_assignment{};
+  std::string status;
 };
 struct Ui {
   int wood{};
@@ -36,6 +48,7 @@ struct Ui {
   bool debug{true};
   bool benchmark{};
   float harvest_progress{};
+  float action_bar_top{};
   double fps{};
   double p95{};
   double p99{};
@@ -59,6 +72,8 @@ struct Ui {
   int pause_selection{};
   std::string pause_error;
   bool temporary_session{};
+  bool settings_open{};
+  std::vector<std::pair<std::string, std::string>> actions;
   SummaryView summary;
   int resident_job{};
   int resident_weapon{};
@@ -84,6 +99,8 @@ class Renderer {
   static Rectangle PauseBounds();
   static Rectangle PauseButton(int choice);
   static Rectangle PauseSummaryBounds();
+  static Rectangle ProgressSummaryBounds();
+  static Rectangle ProgressCloseButton();
   static int MenuPageRows();
   static constexpr float kMenuRowHeight = 50;
   static constexpr float kMenuListTop = 102;
@@ -95,7 +112,7 @@ class Renderer {
   void SummaryInput(SummaryView& view, Rectangle box,
                     bool keyboard = true) const;
   void DrawSummary(const Save& save, SummaryView& view, Rectangle box,
-                   bool enabled = true);
+                   bool enabled = true, const std::vector<Npc>* npcs = nullptr);
   void Text(const std::string& s, float x, float y, float size,
             Color color) const;
   void Wrapped(const std::string& s, float x, float y, float width, float size,
@@ -136,6 +153,8 @@ class Renderer {
     uint64_t seed{};
   };
   std::array<MapCache, 2> maps_{};
+  void DrawSettlements(const Save& save, SummaryView& view, Rectangle body,
+                       bool enabled, const std::vector<Npc>& npcs);
   void DrawMap(const Save& save, const Ui& ui, const Camera2D& camera,
                Rectangle box, bool large, bool viewport = true);
 };

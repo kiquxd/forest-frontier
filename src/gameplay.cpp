@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "adventure.hpp"
+#include "progress.hpp"
 
 namespace frontier {
 const char* GoodName(int good) {
@@ -179,6 +180,7 @@ void InitializeCampaign(Save& save, bool legacy) {
   if (legacy) {
     for (auto& skill : Skills()) {
       save.skills.insert(skill.id);
+      RecordHistory(save, "skill", "Learned " + skill.name);
     }
     for (int i = 0; i < n; i++) {
       if (save.relations[i].treaty == Treaty::kUnion) {
@@ -240,6 +242,7 @@ Action TrainSkill(Save& save, int index) {
     return {false, state.detail};
   }
   save.skills.insert(skill.id);
+  RecordHistory(save, "skill", "Learned " + skill.name);
   return {true, "Learned: " + skill.name};
 }
 std::string RecipeSkill(const Recipe& r) {
@@ -414,6 +417,7 @@ Action Craft(Save& save, int recipe) {
     save.inventory.repairs++;
   }
   save.crafted++;
+  RememberResources(save);
   return {true, "Crafted: " + r.name};
 }
 int BuyPrice(int city, int good) {
@@ -476,7 +480,7 @@ Action Trade(Save& save, int city, int good, bool buy) {
       return {false, "This town does not produce that material"};
     }
     if (relation.opinion < 20 || !Knows(save, MaterialTech(good))) {
-      return {false, "Trust and town technology required — P: diplomacy"};
+      return {false, "Trust and town technology required; visit a town hall"};
     }
   }
   int& count = GoodCount(save.inventory, good);
@@ -517,6 +521,7 @@ Action Trade(Save& save, int city, int good, bool buy) {
     stock++;
     count--;
   }
+  RememberResources(save);
   return {true, std::string(buy ? "Bought: " : "Sold: ") + GoodName(good)};
 }
 const std::vector<std::string>& CityActions() {
@@ -562,6 +567,9 @@ Action LearnTechnology(Save& save, int city) {
   save.coins -= 20;
   save.treasury[city] += 20;
   save.technologies.insert(type.technology);
+  RecordHistory(save, "technology",
+                "Learned " + std::string(TechnologyName(type.technology)),
+                city);
   return {true, "Learned: " + std::string(TechnologyName(type.technology))};
 }
 const WeaponDef& CityWeapon(int city, uint64_t seed) {
@@ -593,14 +601,21 @@ Action Diplomacy(Save& save, int city, int action) {
   struct SyncOpinion {
     Save& save;
     int city;
+    Treaty previous;
     ~SyncOpinion() {
+      if (previous != save.relations[city].treaty) {
+        RecordHistory(save, "treaty",
+                      Settlements()[city].name + ": " +
+                          TreatyName(save.relations[city].treaty),
+                      city);
+      }
       if (save.campaign && save.home_city >= 0 && !OwnsCity(save, city)) {
         save.city_opinions[city][save.home_city] =
             save.city_opinions[save.home_city][city] =
                 save.relations[city].opinion;
       }
     }
-  } sync{save, city};
+  } sync{save, city, r.treaty};
   if (OwnsCity(save, city) && action < 5) {
     return {false, "This is your town. No treaty needed"};
   }
@@ -826,8 +841,10 @@ Action Dive(Save& save) {
     return {false, "Repair the hull with J first"};
   }
   save.submerged = !save.submerged;
-  return {true, save.submerged ? "Diving. R: surface, G: sonar, F: harvest"
-                               : "Submarine surfaced"};
+  return {true,
+          save.submerged
+              ? "Diving. Surface, sonar and gathering actions are available."
+              : "Submarine surfaced"};
 }
 Action RepairVessel(Save& save) {
   if (save.hull >= 100) {
@@ -881,7 +898,7 @@ Action Consume(Save& save, bool potion) {
   }
   if (potion) {
     if (save.inventory.potions <= 0) {
-      return {false, "No healing potions — C: crafting"};
+      return {false, "No healing potions; craft more"};
     }
     save.inventory.potions--;
     save.health = std::min(100, save.health + 45);
@@ -919,7 +936,7 @@ Action Harvest(Save& save, const Resource& resource) {
     return {false, "Already gathered"};
   }
   if (resource.kind == ResourceKind::kFish && !save.inventory.rod) {
-    return {false, "Fishing requires a rod — C: crafting"};
+    return {false, "Fishing requires a crafted rod"};
   }
   if ((resource.kind == ResourceKind::kCrystal ||
        resource.kind == ResourceKind::kPearl ||
@@ -940,6 +957,7 @@ Action Harvest(Save& save, const Resource& resource) {
     return {false, "Inventory full"};
   }
   GoodCount(save.inventory, good) += amount;
+  save.known_goods[good] = true;
   save.harvested.insert(resource.id);
   save.gathered++;
   if (resource.kind == ResourceKind::kFish) {
@@ -1023,6 +1041,8 @@ void Gameplay::Explore(Save& save, float width, float height, float zoom) {
   for (size_t i = 0; i < Settlements().size(); i++) {
     if (ExploredAt(save.explored, Settlements()[i].pos)) {
       save.relations[i].discovered = true;
+      RecordHistory(save, "discovery", "Discovered " + Settlements()[i].name,
+                    static_cast<int>(i));
     }
   }
 }
@@ -1073,7 +1093,7 @@ Action Gameplay::Attack(World&, Save& save) {
       std::max(1, static_cast<int>(std::lround(attack_weapon_.damage *
                                                PlayerCharacter(save).damage)));
   if (attack_weapon_.kind == "bow" && save.inventory.ammo < 1) {
-    return {false, "No arrows — C: crafting"};
+    return {false, "No arrows; craft more"};
   }
   if (attack_weapon_.kind == "bow") {
     save.inventory.ammo--;
@@ -1106,6 +1126,9 @@ void Gameplay::Damage(World& world, Save& save, Enemy& enemy, int amount,
     save.wolf_kills++;
   }
   save.defeated.insert(enemy.id);
+  if (!enemy.kind) {
+    save.known_goods[5] = true;
+  }
   save.inventory.leather =
       std::min(1000000, save.inventory.leather + (enemy.kind ? 0 : 2));
   save.coins = std::min(10000000, save.coins + (enemy.kind ? 8 : 3));
@@ -1402,7 +1425,7 @@ void Gameplay::Tick(World& world, Save& save, float dt, double time) {
       if (pressure_clock_ >= 2) {
         save.hull = std::max(1, save.hull - 3);
         pressure_clock_ = 0;
-        notice = "Dangerous reefs: hull damaged. J: repair.";
+        notice = "Dangerous reefs: hull damaged. Use the repair action.";
       }
     } else {
       pressure_clock_ = 0;

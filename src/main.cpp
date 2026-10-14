@@ -23,12 +23,15 @@
 #include "adventure.hpp"
 #include "dialogue.hpp"
 #include "gameplay.hpp"
+#include "input.hpp"
 #include "json.hpp"
 #include "menu.hpp"
 #include "perf.hpp"
+#include "progress.hpp"
 #include "raylib.h"
 #include "render.hpp"
 #include "rlgl.h"
+#include "settings_ui.hpp"
 #include "world.hpp"
 
 namespace {
@@ -574,8 +577,8 @@ int Play(const Options& options) {
           {"skills", save.skills.size()},
           {"gathered", save.gathered},
           {"crafted", save.crafted},
-          {"paused", ui.paused},
-          {"summary_tab", ui.paused ? ui.summary.tab : -1},
+          {"paused", ui.paused || ui.progression},
+          {"summary_tab", ui.progression ? ui.summary.tab : -1},
           {"owned_cities",
            std::count(save.owners.begin(), save.owners.end(), 0)},
           {"quests", save.quests.size()},
@@ -636,6 +639,8 @@ int Play(const Options& options) {
                     {"max_tokens", 128}});
       }
     };
+    frontier::Settings live_settings = frontier::ActiveSettings();
+    frontier::SettingsPanel settings_panel;
     bool quit = false, saved_for_exit = false;
     while (!quit && !WindowShouldClose()) {
       const double now = frontier::ElapsedMilliseconds(session_start) / 1000;
@@ -679,16 +684,20 @@ int Play(const Options& options) {
                   ? completed.output_tokens * 1000 / completed.generation_ms
                   : 0}});
       }
-      if (IsKeyPressed(KEY_F3)) {
+      if (!ui.settings_open &&
+          frontier::ActionPressed(frontier::InputAction::kDebug)) {
         ui.debug = !ui.debug;
       }
-      if (IsKeyPressed(KEY_F11)) {
+      if (!ui.settings_open &&
+          frontier::ActionPressed(frontier::InputAction::kFullscreen)) {
         ToggleGameFullscreen();
       }
-      const bool pause_was_active = ui.paused;
-      if (IsKeyPressed(KEY_TAB) && !ui.paused && ui.npc < 0 && !ui.crafting &&
-          !ui.trading && !ui.civic && !ui.equipment && !ui.cartography &&
-          !ui.progression && !ui.wardrobe && !ui.journal) {
+      const bool settings_was_open = ui.settings_open;
+      const bool pause_was_active = ui.paused || ui.progression;
+      if (frontier::ActionPressed(frontier::InputAction::kAutoroute) &&
+          !ui.paused && ui.npc < 0 && !ui.crafting && !ui.trading &&
+          !ui.civic && !ui.equipment && !ui.cartography && !ui.progression &&
+          !ui.wardrobe && !ui.journal) {
         ui.benchmark = !ui.benchmark;
         pause_until = now;
         route_index = 0;
@@ -696,8 +705,12 @@ int Play(const Options& options) {
         path_index = 0;
         next_plan = 0;
       }
-      if (IsKeyPressed(KEY_ESCAPE)) {
-        if (ui.paused) {
+      if (frontier::MenuBack() && !ui.settings_open) {
+        if (ui.progression) {
+          ui.summary.requested_node.clear();
+          ui.summary.requested_assignment = false;
+          ui.progression = false;
+        } else if (ui.paused) {
           ui.paused = false;
         } else if (ui.Blocked()) {
           ui.npc = -1;
@@ -715,15 +728,68 @@ int Play(const Options& options) {
           ui.pause_error.clear();
         }
       }
-      if (ui.paused) {
-        renderer.SummaryInput(ui.summary,
-                              frontier::Renderer::PauseSummaryBounds());
-        if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_DOWN)) {
-          ui.pause_selection = 1 - ui.pause_selection;
+      if (!ui.settings_open &&
+          frontier::ActionPressed(frontier::InputAction::kProgress)) {
+        bool opened = !ui.progression;
+        ui.npc = -1;
+        world.talking_npc = -1;
+        ui.crafting = ui.trading = ui.civic = ui.equipment = ui.cartography =
+            ui.wardrobe = ui.journal = false;
+        ui.paused = false;
+        ui.progression = opened;
+        ui.summary.requested_node.clear();
+        ui.summary.requested_assignment = false;
+        ui.summary.editable = true;
+        if (opened) {
+          ui.summary.tab = 4;
+          ui.summary.status.clear();
         }
-        bool activate = IsKeyPressed(KEY_ENTER);
+      }
+      if (ui.progression) {
+        renderer.SummaryInput(ui.summary,
+                              frontier::Renderer::ProgressSummaryBounds());
+        if (!ui.summary.requested_node.empty()) {
+          auto result =
+              frontier::UnlockProgress(save, ui.summary.requested_node);
+          ui.summary.status = result.message;
+          perf.Event({{"event", "progress_unlock"},
+                      {"id", ui.summary.requested_node},
+                      {"ok", result.ok}});
+          ui.summary.requested_node.clear();
+        }
+        if (ui.summary.requested_assignment) {
+          auto weapons = frontier::OwnedWeapons(save),
+               outfits = frontier::OwnedOutfits(save);
+          outfits.insert(outfits.begin(), "");
+          auto result = frontier::AssignCitizen(
+              save, ui.summary.selected_resident,
+              frontier::ResidentJobs().at(ui.summary.resident_job),
+              weapons.at(ui.summary.resident_weapon),
+              outfits.at(ui.summary.resident_outfit));
+          ui.summary.status = result.message;
+          ui.summary.requested_assignment = false;
+          perf.Event({{"event", "resident_assignment"},
+                      {"npc", ui.summary.selected_resident},
+                      {"ok", result.ok}});
+        }
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
+            CheckCollisionPointRec(GetMousePosition(),
+                                   frontier::Renderer::ProgressCloseButton())) {
+          ui.progression = false;
+          ui.summary.requested_node.clear();
+          ui.summary.requested_assignment = false;
+        }
+      }
+      if (ui.paused && !ui.settings_open) {
+        if (frontier::MenuUp()) {
+          ui.pause_selection = (ui.pause_selection + 3) % 4;
+        }
+        if (frontier::MenuDown()) {
+          ui.pause_selection = (ui.pause_selection + 1) % 4;
+        }
+        bool activate = frontier::MenuConfirm();
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-          for (int i = 0; i < 2; i++) {
+          for (int i = 0; i < 4; ++i) {
             if (CheckCollisionPointRec(GetMousePosition(),
                                        frontier::Renderer::PauseButton(i))) {
               ui.pause_selection = i;
@@ -734,31 +800,42 @@ int Play(const Options& options) {
         if (activate) {
           if (ui.pause_selection == 0) {
             ui.paused = false;
+          } else if (ui.pause_selection == 3) {
+            settings_panel = {};
+            settings_panel.draft = live_settings;
+            ui.settings_open = true;
           } else {
             try {
               auto started = frontier::Clock::now();
               if (!options.no_save) {
                 frontier::WriteSave(options.save_path, save);
+                last_save = now;
               }
-              saved_for_exit = true;
-              quit = true;
+              ui.pause_error = options.no_save
+                                   ? "Temporary world: no save file."
+                                   : "World saved successfully.";
+              if (ui.pause_selection == 2) {
+                saved_for_exit = true;
+                quit = true;
+              }
               perf.Event(
-                  {{"event", "quit_to_menu"},
+                  {{"event",
+                    ui.pause_selection == 2 ? "quit_to_menu" : "manual_save"},
                    {"saved", !options.no_save},
                    {"duration_ms", frontier::ElapsedMilliseconds(started)}});
             } catch (const std::exception& error) {
               ui.pause_error = "Could not save: " + std::string(error.what()) +
-                               ". Your session is still open. Retry Quit after "
+                               ". Your session is still open. Retry after "
                                "fixing the save path.";
               perf.Event({{"event", "save_failed"},
-                          {"reason", "quit_to_menu"},
+                          {"reason", "pause"},
                           {"error", error.what()}});
             }
           }
         }
       }
       const frontier::Resource* resource = nullptr;
-      if (!ui.paused && !quit && !pause_was_active) {
+      if (!ui.paused && !ui.progression && !quit && !pause_was_active) {
         game.Advance(dt);
         if (ui.cartography) {
           ui.map_range = std::clamp(
@@ -820,12 +897,23 @@ int Play(const Options& options) {
             }
           } else {
             frontier::Vec screen{
-                static_cast<float>((IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) -
-                                   (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A))),
-                static_cast<float>((IsKeyDown(KEY_DOWN) || IsKeyDown(KEY_S)) -
-                                   (IsKeyDown(KEY_UP) || IsKeyDown(KEY_W)))};
+                static_cast<float>(
+                    frontier::ActionDown(frontier::InputAction::kRight) -
+                    frontier::ActionDown(frontier::InputAction::kLeft)),
+                static_cast<float>(
+                    frontier::ActionDown(frontier::InputAction::kDown) -
+                    frontier::ActionDown(frontier::InputAction::kUp))};
+            if (frontier::Length(screen) == 0 && IsGamepadAvailable(0)) {
+              screen = {GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_X),
+                        GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_Y)};
+              if (frontier::Length(screen) < .2f) {
+                screen = {};
+              }
+            }
             move = frontier::Normalized(frontier::Unproject(screen)) *
-                   (dt * (IsKeyDown(KEY_LEFT_SHIFT) ? 340.f : 185.f));
+                   (dt * (frontier::ActionDown(frontier::InputAction::kSprint)
+                              ? 340.f
+                              : 185.f));
           }
           game.MovePlayer(world, save, move);
           if (frontier::Length(save.player) > 1e6f) {
@@ -854,7 +942,8 @@ int Play(const Options& options) {
         }
         if (ui.npc < 0 && !ui.crafting && !ui.trading && !ui.civic &&
             !ui.equipment && !ui.cartography && !ui.progression &&
-            !ui.wardrobe && !ui.journal && IsKeyPressed(KEY_E) &&
+            !ui.wardrobe && !ui.journal &&
+            frontier::ActionPressed(frontier::InputAction::kTalk) &&
             nearest_npc >= 0) {
           ui.npc = nearest_npc;
           world.BeginConversation(ui.npc, save);
@@ -889,7 +978,7 @@ int Play(const Options& options) {
           float pw = std::min(720.f, GetScreenWidth() - 50.f),
                 py = GetScreenHeight() - 500.f - 96,
                 px = (GetScreenWidth() - pw) * .5f;
-          if (IsKeyPressed(KEY_ONE) ||
+          if (frontier::ActionPressed(frontier::InputAction::kQuestAction) ||
               (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
                CheckCollisionPointRec(GetMousePosition(),
                                       {px + 20, py + 269, pw - 40, 32}))) {
@@ -901,12 +990,12 @@ int Play(const Options& options) {
             perf.Event(
                 {{"event", "quest"}, {"npc", npc.id}, {"ok", result.ok}});
           }
-          if (IsKeyPressed(KEY_F4)) {
+          if (frontier::ActionPressed(frontier::InputAction::kTeacher)) {
             int city = npc.settlement;
             auto& type = frontier::GetContent()
                              .towns[frontier::Settlements()[city].type];
             if (frontier::GetContent().npcs[npc.type].id != type.teacher) {
-              notify("Find the town master or open the town hall with P", now);
+              notify("Find the town master or visit a town hall", now);
             } else {
               notify(frontier::LearnTechnology(save, city).message, now);
             }
@@ -915,16 +1004,18 @@ int Play(const Options& options) {
             auto weapons = frontier::OwnedWeapons(save);
             auto clothes = frontier::OwnedOutfits(save);
             clothes.insert(clothes.begin(), "");
-            if (IsKeyPressed(KEY_THREE)) {
+            if (frontier::ActionPressed(frontier::InputAction::kResidentJob)) {
               ui.resident_job =
                   (ui.resident_job + 1) %
                   static_cast<int>(frontier::ResidentJobs().size());
             }
-            if (IsKeyPressed(KEY_FOUR)) {
+            if (frontier::ActionPressed(
+                    frontier::InputAction::kResidentWeapon)) {
               ui.resident_weapon =
                   (ui.resident_weapon + 1) % static_cast<int>(weapons.size());
             }
-            if (IsKeyPressed(KEY_FIVE)) {
+            if (frontier::ActionPressed(
+                    frontier::InputAction::kResidentOutfit)) {
               ui.resident_outfit =
                   (ui.resident_outfit + 1) % static_cast<int>(clothes.size());
             }
@@ -932,7 +1023,8 @@ int Play(const Options& options) {
                 ui.resident_weapon, 0, static_cast<int>(weapons.size()) - 1);
             ui.resident_outfit = std::clamp(
                 ui.resident_outfit, 0, static_cast<int>(clothes.size()) - 1);
-            if (IsKeyPressed(KEY_SIX)) {
+            if (frontier::ActionPressed(
+                    frontier::InputAction::kResidentAssign)) {
               notify(
                   frontier::AssignCitizen(
                       save, npc.id, frontier::ResidentJobs()[ui.resident_job],
@@ -943,9 +1035,11 @@ int Play(const Options& options) {
           }
         }
         if (ui.npc < 0) {
-          if (IsKeyPressed(KEY_K) || IsKeyPressed(KEY_O) ||
-              IsKeyPressed(KEY_L)) {
-            bool progress = IsKeyPressed(KEY_K), clothes = IsKeyPressed(KEY_O);
+          if (frontier::ActionPressed(frontier::InputAction::kOutfits) ||
+              frontier::ActionPressed(frontier::InputAction::kQuests)) {
+            bool progress = false,
+                 clothes =
+                     frontier::ActionPressed(frontier::InputAction::kOutfits);
             ui.progression = progress && !ui.progression;
             ui.wardrobe = clothes && !ui.wardrobe;
             ui.journal = !progress && !clothes && !ui.journal;
@@ -953,27 +1047,27 @@ int Play(const Options& options) {
                 ui.cartography = false;
             ui.selection = 0;
           }
-          if (IsKeyPressed(KEY_M)) {
+          if (frontier::ActionPressed(frontier::InputAction::kMap)) {
             ui.cartography = !ui.cartography;
             ui.map_center = save.player;
             ui.crafting = ui.trading = ui.civic = ui.equipment =
                 ui.progression = ui.wardrobe = ui.journal = false;
           }
-          if (IsKeyPressed(KEY_I)) {
+          if (frontier::ActionPressed(frontier::InputAction::kWeapons)) {
             ui.equipment = !ui.equipment;
             ui.crafting = ui.trading = ui.civic = ui.cartography =
                 ui.progression = ui.wardrobe = ui.journal = false;
             ui.selection = 0;
           }
-          if (IsKeyPressed(KEY_C)) {
+          if (frontier::ActionPressed(frontier::InputAction::kCraft)) {
             ui.crafting = !ui.crafting;
             ui.trading = ui.civic = ui.equipment = ui.cartography =
                 ui.progression = ui.wardrobe = ui.journal = false;
             ui.selection = 0;
           }
-          if (IsKeyPressed(KEY_P)) {
+          if (frontier::ActionPressed(frontier::InputAction::kHall)) {
             if (nearby_hall < 0) {
-              notify("Approach the town hall entrance — P: enter", now);
+              notify("Approach a town hall entrance", now);
             } else {
               ui.civic = !ui.civic;
               ui.merchant = nearby_hall;
@@ -982,7 +1076,7 @@ int Play(const Options& options) {
               ui.selection = save.skills.empty() && save.campaign ? 10 : 0;
             }
           }
-          if (IsKeyPressed(KEY_T)) {
+          if (frontier::ActionPressed(frontier::InputAction::kTrade)) {
             if (ui.trading) {
               ui.trading = false;
             } else if (nearest_npc >= 0) {
@@ -997,7 +1091,7 @@ int Play(const Options& options) {
           }
         }
         if (ui.crafting || ui.trading || ui.civic || ui.equipment ||
-            ui.progression || ui.wardrobe || ui.journal) {
+            ui.wardrobe || ui.journal) {
           auto weapons = frontier::OwnedWeapons(save);
           auto clothes = frontier::OwnedOutfits(save);
           std::vector<int> quests;
@@ -1130,32 +1224,33 @@ int Play(const Options& options) {
                         {"coins", save.coins}});
           }
         } else if (!ui.Blocked()) {
-          if (IsKeyPressed(KEY_SPACE) ||
-              IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+          if (frontier::ActionPressed(frontier::InputAction::kAttack) ||
+              (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
+               GetMousePosition().y < ui.action_bar_top)) {
             auto result = game.Attack(world, save);
             if (!result.message.empty()) {
               notify(result.message, now);
             }
           }
-          if (IsKeyPressed(KEY_H)) {
+          if (frontier::ActionPressed(frontier::InputAction::kHeal)) {
             notify(frontier::Consume(save, true).message, now);
           }
-          if (IsKeyPressed(KEY_Q)) {
+          if (frontier::ActionPressed(frontier::InputAction::kEat)) {
             notify(frontier::Consume(save, false).message, now);
           }
-          if (IsKeyPressed(KEY_B)) {
+          if (frontier::ActionPressed(frontier::InputAction::kCampfire)) {
             notify(game.PlaceCampfire(world, save).message, now);
           }
-          if (IsKeyPressed(KEY_V)) {
+          if (frontier::ActionPressed(frontier::InputAction::kVehicle)) {
             notify(frontier::CycleVehicle(save).message, now);
           }
-          if (IsKeyPressed(KEY_R)) {
+          if (frontier::ActionPressed(frontier::InputAction::kDive)) {
             notify(frontier::Dive(save).message, now);
           }
-          if (IsKeyPressed(KEY_J)) {
+          if (frontier::ActionPressed(frontier::InputAction::kRepair)) {
             notify(frontier::RepairVessel(save).message, now);
           }
-          if (IsKeyPressed(KEY_G)) {
+          if (frontier::ActionPressed(frontier::InputAction::kSonar)) {
             if (game.sonar_cooldown > 0) {
               notify("Sonar recharging", now);
             } else {
@@ -1359,25 +1454,26 @@ int Play(const Options& options) {
         resource = world.Nearest(save.player, save, 90);
         ui.hint.clear();
         if (nearest_npc >= 0) {
-          ui.hint = "E: talk · T: trade with " + world.npcs[nearest_npc].name;
+          ui.hint = "Nearby: " + world.npcs[nearest_npc].name;
         } else if (resource) {
           ui.hint =
               resource->kind == frontier::ResourceKind::kFish
-                  ? (save.inventory.rod ? "Hold F: catch fish"
-                                        : "Fishing rod required — C: crafting")
-                  : "Hold F: gather " +
-                        std::string(frontier::GoodName(
-                            frontier::ResourceGood(resource->kind)));
+                  ? (save.inventory.rod ? "Catch fish with a rod"
+                                        : "Fishing rod required")
+                  : "Resource: " + std::string(frontier::GoodName(
+                                       frontier::ResourceGood(resource->kind)));
         }
         if (ui.npc >= 0) {
           ui.hint = "Talking with " + world.npcs[ui.npc].name +
                     " · ESC: end conversation";
         } else if (nearby_hall >= 0) {
-          ui.hint += ui.hint.empty() ? "P: enter town hall" : " · P: town hall";
+          ui.hint +=
+              ui.hint.empty() ? "Town hall nearby" : " · town hall nearby";
         }
         if (ui.npc < 0 && !ui.crafting && !ui.trading && !ui.civic &&
             !ui.equipment && !ui.cartography && !ui.progression &&
-            !ui.wardrobe && !ui.journal && resource && IsKeyDown(KEY_F)) {
+            !ui.wardrobe && !ui.journal && resource &&
+            frontier::ActionDown(frontier::InputAction::kGather)) {
           if (gathering_id != resource->id) {
             gathering = 0;
             gathering_id = resource->id;
@@ -1393,6 +1489,92 @@ int Play(const Options& options) {
         } else {
           gathering = 0;
         }
+        ui.actions.clear();
+        auto hint_action = [&](frontier::InputAction action,
+                               const std::string& description) {
+          ui.actions.push_back({frontier::ActionKey(action), description});
+        };
+        if (ui.npc >= 0) {
+          if (frontier::NpcQuest(save, world.npcs[ui.npc])) {
+            hint_action(frontier::InputAction::kQuestAction, "Quest");
+          }
+          const auto& speaker = world.npcs[ui.npc];
+          const auto& town_type =
+              frontier::GetContent()
+                  .towns[frontier::Settlements()[speaker.settlement].type];
+          if (frontier::GetContent().npcs[speaker.type].id ==
+              town_type.teacher) {
+            hint_action(frontier::InputAction::kTeacher, "Specialist lesson");
+          }
+          if (frontier::GetCitizen(save, speaker.id)) {
+            hint_action(frontier::InputAction::kResidentJob, "Job");
+            hint_action(frontier::InputAction::kResidentWeapon, "Work weapon");
+            hint_action(frontier::InputAction::kResidentOutfit, "Work clothes");
+            hint_action(frontier::InputAction::kResidentAssign, "Assign");
+          }
+          ui.actions.push_back({"Esc", "Close conversation"});
+        } else if (ui.Blocked()) {
+          ui.actions.push_back({"Enter / Esc", "Confirm / close"});
+        } else {
+          const auto& bindings = frontier::ActiveSettings().bindings;
+          std::string movement;
+          for (auto action :
+               {frontier::InputAction::kUp, frontier::InputAction::kLeft,
+                frontier::InputAction::kDown, frontier::InputAction::kRight}) {
+            if (!movement.empty()) {
+              movement += "/";
+            }
+            movement +=
+                frontier::KeyName(bindings[static_cast<int>(action)].primary);
+          }
+          ui.actions.push_back({movement, "Move"});
+          hint_action(frontier::InputAction::kSprint, "Sprint");
+          hint_action(frontier::InputAction::kProgress, "Progress");
+          hint_action(frontier::InputAction::kMap, "Map");
+          if (nearest_npc >= 0) {
+            hint_action(frontier::InputAction::kTalk,
+                        "Talk: " + world.npcs[nearest_npc].name);
+            hint_action(frontier::InputAction::kTrade, "Trade");
+          }
+          if (nearby_hall >= 0) {
+            hint_action(frontier::InputAction::kHall, "Enter town hall");
+          }
+          if (resource) {
+            hint_action(frontier::InputAction::kGather, "Gather (hold)");
+          }
+          hint_action(frontier::InputAction::kCraft, "Craft");
+          hint_action(frontier::InputAction::kWeapons, "Weapons");
+          hint_action(frontier::InputAction::kOutfits, "Outfits");
+          if (!save.submerged && !frontier::Watercraft(save)) {
+            hint_action(frontier::InputAction::kAttack, "Attack");
+          }
+          if (save.inventory.boat || save.inventory.ship ||
+              save.inventory.submarine) {
+            hint_action(frontier::InputAction::kVehicle, "Vessel");
+          }
+          if (save.inventory.submarine && frontier::ActiveVehicle(save) == 3) {
+            hint_action(frontier::InputAction::kDive, "Dive / surface");
+          }
+          if (save.submerged && save.inventory.sonar) {
+            hint_action(frontier::InputAction::kSonar, "Sonar");
+          }
+          if (save.hull < 100 && save.inventory.repairs) {
+            hint_action(frontier::InputAction::kRepair, "Repair");
+          }
+          if (save.health < 100 &&
+              (save.inventory.berries || save.inventory.fish)) {
+            hint_action(frontier::InputAction::kEat, "Eat");
+          }
+          if (save.health < 100 && save.inventory.potions) {
+            hint_action(frontier::InputAction::kHeal, "Heal");
+          }
+          if (save.inventory.campfires && !save.submerged &&
+              !frontier::Watercraft(save)) {
+            hint_action(frontier::InputAction::kCampfire, "Place campfire");
+          }
+          hint_action(frontier::InputAction::kQuests, "Quests");
+          ui.actions.push_back({"Esc", "Pause"});
+        }
         ui.harvest_progress =
             resource
                 ? gathering /
@@ -1400,7 +1582,8 @@ int Play(const Options& options) {
                        frontier::GatherTimeMultiplier(save))
                 : 0;
       }
-      if (!options.no_save && !ui.paused && !quit && now - last_save > 30) {
+      if (!options.no_save && !ui.paused && !ui.progression && !quit &&
+          now - last_save > 30) {
         auto t = frontier::Clock::now();
         frontier::WriteSave(options.save_path, save);
         last_save = now;
@@ -1448,6 +1631,16 @@ int Play(const Options& options) {
       EndMode2D();
       renderer.DrawLabels(world, save, ui, camera);
       renderer.DrawUi(world, save, ui, camera);
+      if (ui.settings_open && settings_was_open) {
+        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(),
+                      Color{0, 0, 0, 185});
+        if (frontier::DrawSettingsPanel(renderer, settings_panel, live_settings,
+                                        options.settings_path)) {
+          ui.settings_open = false;
+        }
+        ui.debug = live_settings.debug;
+        desired_zoom = live_settings.zoom;
+      }
       double submit_ms = frontier::ElapsedMilliseconds(render_start);
       auto present_start = frontier::Clock::now();
       EndDrawing();
@@ -1544,6 +1737,7 @@ int main(int argc, char** argv) {
     if (settings.fullscreen) {
       ToggleGameFullscreen();
     }
+    frontier::SetActiveSettings(settings);
     frontier::MenuOptions menu;
     menu.directory = options.save_path.parent_path();
     if (menu.directory.empty()) {
@@ -1557,6 +1751,7 @@ int main(int argc, char** argv) {
     menu.preview = menu_preview ? options.preview : "";
     menu.frames = menu_preview ? options.frames : 0;
     menu.screenshot = options.screenshot;
+    frontier::SetActiveSettings(menu.settings);
     bool direct_start =
         (options.direct || options.no_save || options.spawn.has_value()) &&
         !menu_preview;
@@ -1589,9 +1784,10 @@ int main(int argc, char** argv) {
         game_options.port = menu.settings.port;
         game_options.zoom = menu.settings.zoom;
         game_options.debug = menu.settings.debug;
-        game_options.dialogues = menu.settings.dialogues;
       }
+      frontier::SetActiveSettings(menu.settings);
       Play(game_options);
+      menu.settings = frontier::ActiveSettings();
       menu.preferred = *slot;
       menu.settings.fullscreen = IsWindowFullscreen();
     }

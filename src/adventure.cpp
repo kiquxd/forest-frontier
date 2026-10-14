@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+#include "progress.hpp"
+
 namespace frontier {
 const CharacterDef& PlayerCharacter(const Save& save) {
   return Character(save.character_id);
@@ -262,6 +264,7 @@ Action AcceptQuest(Save& save, const Npc& npc) {
       quest->id, false,
       quest->objective == "deliver" ? 0 : ObjectiveValue(save, *quest)};
   save.tracked_quest = npc.id;
+  RecordHistory(save, "quest_accepted", quest->title, npc.settlement);
   return {true, "Quest accepted: " + quest->title};
 }
 Action FinishQuest(Save& save, const Npc& npc) {
@@ -309,6 +312,8 @@ Action FinishQuest(Save& save, const Npc& npc) {
         save.city_opinions[npc.settlement][save.home_city] =
             save.relations[npc.settlement].opinion;
   }
+  RememberResources(save);
+  RecordHistory(save, "quest_completed", quest.title, npc.settlement);
   return {true, "Quest completed: " + quest.title + " · rewards received"};
 }
 int AverageTrust(const Save& save) {
@@ -425,6 +430,7 @@ Action Research(Save& save, int index) {
   }
   save.coins -= n.coins;
   save.technologies.insert(n.id);
+  RecordHistory(save, "research", "Researched " + n.name);
   return {true, "Researched: " + n.name};
 }
 const std::vector<std::string>& ResidentJobs() {

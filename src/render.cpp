@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "adventure.hpp"
+#include "input.hpp"
 #include "json.hpp"
 
 namespace frontier {
@@ -333,7 +334,7 @@ Renderer::Renderer() {
     }
   }
   // Bake every used physical size; never rescale a nearby glyph atlas.
-  for (int size = 20; size <= 45; size++) {
+  for (int size = 20; size <= 64; size++) {
     Font loaded = font_path.empty()
                       ? GetFontDefault()
                       : LoadFontEx(font_path.c_str(), size, points.data(),
@@ -378,7 +379,7 @@ const Font& Renderer::GetFont(float size) const {
       ->font;
 }
 float Renderer::TextSize(float size) {
-  return std::round(std::max(16.f, size) * 1.25f);
+  return std::round(std::max(16.f, size) * 1.25f * ActiveSettings().text_scale);
 }
 float Renderer::Measure(const std::string& s, float size) const {
   size = TextSize(size);
@@ -816,11 +817,6 @@ void Renderer::DrawLabels(const World& world, const Save& save, const Ui& ui,
                       ? Color{228, 131, 110, 255}
                       : kInk;
     Text(city_label, position.x - width * .5f, position.y, 22, color);
-    if (Length(save.player - (s.pos + Vec{55, 55})) < 90) {
-      auto door =
-          GetWorldToScreen2D(ToVector2(Project(s.pos) + Vec{0, 30}), camera);
-      Text("P: enter town hall", door.x - 80, door.y, 16, kGold);
-    }
   }
   for (auto& npc : world.npcs) {
     if (npc.ruler || npc.id == ui.npc) {
@@ -1022,19 +1018,23 @@ int Renderer::MenuPageRows() {
                     1, 8);
 }
 Rectangle Renderer::PauseBounds() {
-  float width = std::min(1240.f, GetScreenWidth() - 48.f),
-        height = GetScreenHeight() - 48.f;
-  return {(GetScreenWidth() - width) * .5f, 24, width, height};
+  float width = std::min(720.f, GetScreenWidth() - 48.f),
+        height = std::min(470.f, GetScreenHeight() - 48.f);
+  return {(GetScreenWidth() - width) * .5f, (GetScreenHeight() - height) * .5f,
+          width, height};
 }
 Rectangle Renderer::PauseSummaryBounds() {
-  auto box = PauseBounds();
-  return {box.x + 20, box.y + 60, box.width - 40, box.height - 192};
+  return ProgressSummaryBounds();
+}
+Rectangle Renderer::ProgressSummaryBounds() {
+  return {44, 94, GetScreenWidth() - 88.f, GetScreenHeight() - 154.f};
+}
+Rectangle Renderer::ProgressCloseButton() {
+  return {GetScreenWidth() - 180.f, 38, 130, 40};
 }
 Rectangle Renderer::PauseButton(int choice) {
   auto box = PauseBounds();
-  float width = std::min(330.f, (box.width - 60) * .5f);
-  return {choice == 0 ? box.x + 20 : box.x + box.width - width - 20,
-          box.y + box.height - 74, width, 50};
+  return {box.x + 24, box.y + 80 + choice * 58.f, box.width - 48, 48};
 }
 Rectangle Renderer::MenuBounds(int rows) {
   float width = std::min(960.f, GetScreenWidth() - 40.f),
@@ -1083,7 +1083,6 @@ void Renderer::DrawUi(const World& world, const Save& save, Ui& ui,
                                             : " · Boat";
   }
   Wrapped(equipment, 38, 291, 354, 16, kInk, 2);
-  Text("L: quests · E: NPC lore", 38, 346, 14, kMuted);
   DrawRectangleRounded({20, 372, 390, 102}, .1f, 6, kPanel);
   Text("Iron " + std::to_string(GoodCount(save.inventory, 6)) + " · Copper " +
            std::to_string(GoodCount(save.inventory, 7)) + " · Steel " +
@@ -1094,25 +1093,15 @@ void Renderer::DrawUi(const World& world, const Save& save, Ui& ui,
        38, 410, 16, kInk);
   Text(save.submerged ? "Air " + std::to_string(static_cast<int>(save.oxygen)) +
                             " · Hull " + std::to_string(save.hull)
-                      : "Arrows " + std::to_string(save.inventory.ammo) +
-                            " · I: equipment",
+                      : "Arrows " + std::to_string(save.inventory.ammo),
        38, 443, 16, kGold);
 
-  if (save.campaign) {
-    DrawRectangleRounded({20, 486, 390, 74}, .1f, 6, kPanel);
-    Text("Skills " + std::to_string(save.skills.size()) + " / " +
-             std::to_string(Skills().size()),
-         38, 496, 16, kGold);
-    Wrapped(save.skills.empty() ? "K: skills · O: clothing · L: quests"
-                                : "K: skills and resident training",
-            38, 524, 354, 14, kInk, 2);
-  }
   float mx = w - 280, my = 20;
   DrawRectangleRounded({mx, my, 260, 270}, .08f, 6, kPanel);
   Text(save.submerged ? "Seafloor map" : "Explored world", mx + 16, my + 12, 16,
        kInk);
   DrawMap(save, ui, camera, {mx + 15, my + 42, 230, 196}, false);
-  Text("M: map · bright: visible area", mx + 16, my + 246, 13, kMuted);
+  Text("Bright area: currently visible", mx + 16, my + 246, 13, kMuted);
 
   if (ui.debug) {
     DrawRectangleRounded({w - 300, 302, 280, 138}, .1f, 6, kPanel);
@@ -1130,24 +1119,43 @@ void Renderer::DrawUi(const World& world, const Save& save, Ui& ui,
     Text("Visible " + std::to_string(ui.visible) + " / animals " +
              std::to_string(ui.animals),
          w - 282, 385, 14, kMuted);
-    Text(ui.benchmark ? "Auto-route enabled" : "F3: hide performance stats",
+    Text(ui.benchmark ? "Auto-route enabled"
+                      : ActionKey(InputAction::kDebug) + ": performance",
          w - 282, 409, 13, ui.benchmark ? kGold : kMuted);
   }
-  DrawRectangleRounded({20, h - 96, std::min(w - 40, 1000.f), 76}, .12f, 6,
-                       kPanel);
-  Text(w < 1100 ? "WASD / arrows · SHIFT · E/T: residents · C: craft · P: town "
-                  "· M: map"
-                : "WASD / arrows · SHIFT · E: talk · T: trade · C: craft · P: "
-                  "town · M: map · SPACE: attack",
-       37, h - 83, 14, kInk);
-  Text(w < 1100 ? "SPACE: attack · I: equipment · R/V/G: vessels · F: gather"
-                : "F: gather · Q: eat · H: potion · I: gear · V: vessel · R: "
-                  "dive · G: sonar · J: repair",
-       37, h - 62, 13, kMuted);
-  Wrapped(ui.hint.empty()
-              ? "Find towns: their technologies unlock new resources."
-              : ui.hint,
-          37, h - 41, std::min(w - 74, 966.f), 16, kGold, 1);
+  // Context actions are keycaps on an opaque panel, independent of terrain.
+  const float chip_height = 36;
+  float usable = w - 64, x = 0, y = 0;
+  for (const auto& [key, description] : ui.actions) {
+    float width = Measure(key, 17) + Measure(description, 17) + 40;
+    if (x + width > usable && x > 0) {
+      x = 0;
+      y += chip_height + 7;
+    }
+    x += width + 8;
+  }
+  float panel_height = y + chip_height + 52;
+  ui.action_bar_top = h - panel_height - 16;
+  DrawRectangleRounded({20, h - panel_height - 16, w - 40, panel_height}, .1f,
+                       10, {13, 26, 19, 245});
+  x = 32;
+  float row_y = h - panel_height - 4;
+  for (const auto& [key, description] : ui.actions) {
+    float key_width = Measure(key, 17) + 18,
+          width = key_width + Measure(description, 17) + 22;
+    if (x + width > w - 32 && x > 32) {
+      x = 32;
+      row_y += chip_height + 7;
+    }
+    DrawRectangleRounded({x, row_y, key_width, chip_height}, .3f, 8,
+                         {74, 99, 61, 255});
+    Text(key, x + 9, row_y + 6, 17, kGold);
+    Text(description, x + key_width + 8, row_y + 6, 17, kInk);
+    x += width + 8;
+  }
+  Wrapped(
+      ui.hint.empty() ? "Explore, gather and learn through quests." : ui.hint,
+      32, h - 49, w - 64, 17, kGold, 1);
   if (!ui.notice.empty()) {
     float tw = Measure(ui.notice, 17), width = std::min(w - 40, tw + 36);
     DrawRectangleRounded(
@@ -1173,7 +1181,7 @@ void Renderer::DrawUi(const World& world, const Save& save, Ui& ui,
     Text(task.title, w - 282, y + 10, 17, kGold);
     Text(std::to_string(
              std::min(task.target, GetQuestProgress(save, progress))) +
-             " / " + std::to_string(task.target) + " · L: journal",
+             " / " + std::to_string(task.target),
          w - 282, y + 36, 16, kInk);
     Text(giver.name + " · " +
              std::to_string(static_cast<int>(Length(giver.pos - save.player) /
@@ -1216,13 +1224,15 @@ void Renderer::DrawUi(const World& world, const Save& save, Ui& ui,
     DrawRectangleRounded(
         {px + 20, py + 269, pw - 40, 32}, .1f, 4,
         quest ? Color{64, 84, 53, 255} : Color{40, 51, 43, 255});
-    Text(!quest                       ? "No quest offered"
-         : found == save.quests.end() ? "1: accept quest"
-         : found->second.completed    ? "Quest completed"
-                                      : "1: turn in quest",
+    Text(!quest ? "No quest offered"
+         : found == save.quests.end()
+             ? ActionKey(InputAction::kQuestAction) + ": accept quest"
+         : found->second.completed
+             ? "Quest completed"
+             : ActionKey(InputAction::kQuestAction) + ": turn in quest",
          px + 32, py + 275, 17, kInk);
-    Text("F4: learn the town technology from its master", px + 24, py + 315, 16,
-         kMuted);
+    Text(ActionKey(InputAction::kTeacher) + ": learn from the town master",
+         px + 24, py + 315, 16, kMuted);
     if (auto resident = GetCitizen(save, npc.id)) {
       auto weapons = OwnedWeapons(save);
       auto clothes = OwnedOutfits(save);
@@ -1233,16 +1243,20 @@ void Renderer::DrawUi(const World& world, const Save& save, Ui& ui,
                           static_cast<int>(clothes.size()) - 1);
       Text("Resident · current job: " + resident->job, px + 24, py + 349, 17,
            kGold);
-      Text("3: job · " + ResidentJobs()[ui.resident_job], px + 24, py + 377, 16,
-           kInk);
-      Text("4: weapon · " + (weapons[wi].empty() ? std::string("None")
-                                                 : Weapon(weapons[wi]).name),
+      Text(ActionKey(InputAction::kResidentJob) + ": job · " +
+               ResidentJobs()[ui.resident_job],
+           px + 24, py + 377, 16, kInk);
+      Text(ActionKey(InputAction::kResidentWeapon) + ": weapon · " +
+               (weapons[wi].empty() ? std::string("None")
+                                    : Weapon(weapons[wi]).name),
            px + 24, py + 402, 16, kInk);
-      Text("5: clothes · " + (clothes[oi].empty() ? std::string("None")
-                                                  : Outfit(clothes[oi]).name),
+      Text(ActionKey(InputAction::kResidentOutfit) + ": clothes · " +
+               (clothes[oi].empty() ? std::string("None")
+                                    : Outfit(clothes[oi]).name),
            px + 24, py + 427, 16, kInk);
-      Text("6: train and assign · K: training requirements", px + 24, py + 463,
-           16, kGold);
+      Text(ActionKey(InputAction::kResidentAssign) + ": assign · " +
+               ActionKey(InputAction::kProgress) + ": requirements",
+           px + 24, py + 463, 16, kGold);
     } else {
       Wrapped(
           "Not your resident. Trade, quests and knowledge can still build "
@@ -1250,8 +1264,8 @@ void Renderer::DrawUi(const World& world, const Save& save, Ui& ui,
           px + 24, py + 363, pw - 48, 18, kMuted, 3);
     }
   }
-  if (ui.crafting || ui.trading || ui.civic || ui.equipment || ui.progression ||
-      ui.wardrobe || ui.journal) {
+  if (ui.crafting || ui.trading || ui.civic || ui.equipment || ui.wardrobe ||
+      ui.journal) {
     auto weapons = OwnedWeapons(save);
     auto clothes = OwnedOutfits(save);
     std::vector<int> quests;
@@ -1551,33 +1565,48 @@ void Renderer::DrawUi(const World& world, const Save& save, Ui& ui,
     Text(save.submerged ? "Seafloor map" : "Map of the explored world", map.x,
          map.y - 38, 24, kGold);
     DrawMap(save, ui, camera, map, true);
-    Text("Wheel: zoom · Drag: pan · M / ESC: close", map.x,
-         map.y + map.height + 16, 16, kMuted);
+    Text("Wheel: zoom · Drag: pan · " + ActionKey(InputAction::kMap) +
+             " / Esc: close",
+         map.x, map.y + map.height + 16, 16, kMuted);
   }
-  if (ui.paused) {
+  if (ui.progression) {
+    DrawRectangle(0, 0, static_cast<int>(w), static_cast<int>(h),
+                  {0, 0, 0, 190});
+    DrawRectangleRounded({24, 24, w - 48, h - 48}, .04f, 12, {20, 35, 28, 255});
+    Text("Progress · paused", 44, 40, 24, kGold);
+    auto close = ProgressCloseButton();
+    DrawRectangleRounded(close, .5f, 10, {51, 76, 51, 255});
+    Text("Close · Esc", close.x + 10, close.y + 8, 16, kInk);
+    DrawSummary(save, ui.summary, ProgressSummaryBounds(), true, &world.npcs);
+    Wrapped(ActionKey(InputAction::kProgress) +
+                " / Esc: close · arrows: tabs · up/down: tree or towns · "
+                "Enter: action",
+            44, h - 53, w - 88, 16, kMuted, 1);
+  }
+  if (ui.paused && !ui.settings_open) {
     DrawRectangle(0, 0, static_cast<int>(w), static_cast<int>(h),
                   {0, 0, 0, 185});
     auto box = PauseBounds();
     DrawRectangleRounded(box, .06f, 12, {22, 35, 31, 255});
-    Text("World summary · paused", box.x + 20, box.y + 16, 24, kGold);
-    DrawSummary(save, ui.summary, PauseSummaryBounds());
-    Wrapped(ui.pause_error.empty()
-                ? (ui.temporary_session ? "Temporary world · no save file"
-                                        : "Quit saves this world · ESC resumes "
-                                          "· UP / DOWN chooses a button")
-                : ui.pause_error,
-            box.x + 20, box.y + box.height - 124, box.width - 40, 16,
-            ui.pause_error.empty() ? kMuted : kGold, 2);
-    for (int i = 0; i < 2; i++) {
+    Text("World paused", box.x + 24, box.y + 22, 26, kGold);
+    const char* actions[] = {"Resume · Esc", "Save world",
+                             "Save & return to main menu", "Settings"};
+    for (int i = 0; i < 4; ++i) {
       auto button = PauseButton(i);
       bool hover = CheckCollisionPointRec(GetMousePosition(), button);
-      DrawRectangleRounded(button, .65f, 12,
+      DrawRectangleRounded(button, .6f, 12,
                            ui.pause_selection == i || hover
                                ? Color{81, 99, 64, 255}
                                : Color{36, 51, 44, 255});
-      Text(i == 0 ? "Resume · ESC" : "Quit to main menu", button.x + 18,
-           button.y + 13, 18, kInk);
+      Wrapped(actions[i], button.x + 18, button.y + 12, button.width - 36, 18,
+              kInk, 1);
     }
+    Wrapped(ui.pause_error.empty()
+                ? (ui.temporary_session ? "Temporary world; saving is disabled."
+                                        : "Save writes this world. Return "
+                                          "saves before leaving. Esc resumes.")
+                : ui.pause_error,
+            box.x + 24, box.y + box.height - 90, box.width - 48, 17, kGold, 3);
   }
 }
 }  // namespace frontier

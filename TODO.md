@@ -22,7 +22,7 @@ Remove an item only after its full scope is implemented and validated. Split it 
 
 - [ ] Population comes from generated NPCs. There is no recruitment, immigration, birth, dismissal or population growth within an existing town.
 - [ ] Housing does not determine capacity. Residents have no food needs, wages, happiness or household economy.
-- [ ] There is no central roster interface for searching residents, comparing equipment or assigning jobs in bulk.
+- [ ] The town roster supports individual job/equipment assignment; resident search, comparison tools and bulk assignment are absent.
 - [ ] Town layouts do not grow or develop new districts in response to population/economy changes.
 
 ## Resident work and production
@@ -148,18 +148,14 @@ Remove an item only after its full scope is implemented and validated. Split it 
 
 ## Menus, controls and save management
 
-- [ ] Controls are fixed; rebinding/controller interfaces and complete accessibility configuration are absent.
-- [ ] Separate lists/NPC panels do not provide a consolidated settlement/roster dashboard.
-- [ ] Save summaries show key progress, not a complete citizen equipment/job report or campaign history.
-- [ ] Rename/copy/import/export and restoration of deleted saves/backups are not complete menu workflows; recovery requires filesystem access.
-- [ ] Historical dialogue settings remain even though normal gameplay no longer requests free-form model conversations; the public README now makes the authored-gameplay boundary explicit.
+- [ ] Gamepad support covers basic movement/actions and directional menu navigation, without complete controller mappings, remapping or text entry. Accessibility has text size and tree contrast, without a complete keyboard-only interface, screen-reader or color customization.
+- [ ] Campaign history retains the most recent 512 creation, discovery, quest, unlock and treaty events. It does not reconstruct events from older saves or provide a complete searchable campaign timeline.
 
 ## Persistence and content identity
 
 - [ ] Living enemy health, position and attack state are transient; chunk regeneration/reload can reset a surviving enemy. NPC/animal movement and active projectiles are also transient.
 - [ ] There is no persistent calendar or offline simulation catch-up.
 - [ ] Quest giver/resident identities rely on generated NPC indices. Version migrations do not provide general remapping for future settlement/NPC generation or content identity changes.
-- [ ] Backup restoration remains manual.
 
 ## Local model integration
 

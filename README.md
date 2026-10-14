@@ -14,7 +14,7 @@ An optional local Qwen model and launcher are included for performance experimen
 
 Choose one of five backgrounds: **Traveler, Artisan, Scout, Envoy or Warden**. Each card shows its bonuses and penalties, affecting movement, gathering, combat or trade. A new campaign places you near the town hall of one randomly selected town you own. Other settlements are independent and have their own attitudes, specialties and knowledge.
 
-You begin with basic clothing and no learned skills, tools or weapons. Visit your hall with **P** to learn **Gathering** for free. Gather resources, unlock **Craftsmanship**, make tools and equipment, and use trading and quests to build your resources and knowledge. Later lessons depend on activities such as gathering, crafting, fishing and completing town orders.
+You begin with basic clothing and no learned skills, tools or weapons. Open **K → Skill tree** or visit your hall with **P** to learn **Gathering** for free. Gather resources, unlock **Craftsmanship**, make tools and equipment, and use trading and quests to build your resources and knowledge. Later lessons depend on activities such as gathering, crafting, fishing and completing town orders.
 
 ### Exploration and survival
 
@@ -48,11 +48,19 @@ Craft a boat, ship or submarine through progression. Switch vessels, sail across
 
 ### Menus and saves
 
-The main menu supports new campaigns, save selection, world summaries, deletion and settings. Summaries show explored maps, discovered towns, resources, equipment, skills and technologies. **Esc** pauses the world and opens the same summary with current progress.
+The main menu supports new campaigns, saved-world summaries, settings and a separate application Quit. **Esc** opens the session pause with **Resume**, **Save world**, **Save & return** and **Settings**. Manual saving leaves the game paused. **K** opens **Progress** and pauses simulation: Overview/history, World, Resources, Settlements and Skill tree. There is no duplicate skill list.
 
-**Quit to main menu saves the world first.** If saving fails, the session stays open for retry. The main menu has a separate Quit button. Save writes are atomic; older formats are migrated with a backup, and deleted slots are moved to `saves/.trash/`. Active worlds autosave periodically.
+The tree shows icons, dependency links, acquired/locked/readiness markers and exact requirements. Select a base skill or research node and choose **Learn / Research** when ready; town technologies and quest knowledge keep their original acquisition rules. The Resources tab remembers goods acquired even after you spend them. Settlements show only discovered towns, their location, residents/visitors, type, rarity, trust, treaty, walls and specialist knowledge. Select your resident to assign a job, weapon and clothes; actual training and counted-copy requirements still apply.
+
+Saved-world summaries are read-only. **F2** expands the selected summary; **F6/F7** rename/copy, **F8/F9** export/import, **F10** opens recovery, and **Delete** confirms deletion into `saves/.trash/`. Import/export dialogs accept filesystem paths (clipboard paste supported); export destinations must be new `.json` files. Recovery lists deleted saves and migration backups and restores a new slot without overwriting your current world or the recovery source.
+
+**Save & return saves the world first.** If saving fails, the session stays open for retry. Saves are atomic; v1–v5 worlds retain progression when written as v6 and keep a migration backup. Active worlds autosave periodically. New saves remember resource discovery and the last 512 significant campaign events; older saves cannot recover their past history.
+
+Settings are available both in the lobby and on pause: fullscreen, window size, frame cap, camera zoom, performance HUD, text size (100/120/140% on top of the existing enlarged font), tree contrast and keyboard bindings. Every gameplay action has a primary key and optional alternate; conflicts offer an explicit swap, and defaults can be restored. Enter, Esc, F5 and paging/editing keys remain reserved for menus. Ordinary gameplay has no language-model conversation setting.
 
 ### Controls
+
+These are the defaults; keyboard actions can be rebound in Settings. The bottom action bar uses the current bindings and offers nearby NPC/hall/resource actions on a dark background.
 
 | Key | Action |
 | --- | --- |
@@ -64,7 +72,7 @@ The main menu supports new campaigns, save selection, world summaries, deletion 
 | Space / Left mouse button | Attack outside UI panels |
 | C / T | Crafting / Trading |
 | I / O | Weapons / Outfits |
-| K / L | Skills and research / Quest journal |
+| K / L | Progress and skill tree / Quest journal |
 | 1 in a conversation | Accept or turn in a quest |
 | F4 in a conversation | Specialist teaching, where available |
 | Q / H / B | Eat / Use potion / Place campfire |
@@ -105,12 +113,12 @@ The mechanics below are working prototypes or incomplete systems. Their current 
 
 #### Population and settlement management
 
-**Working:** an owned starting town, a resident roster, additional residents after unions and individual job/equipment assignment through NPC interaction.
+**Working:** an owned starting town, additional residents after unions and a per-town roster with individual job/equipment assignment from Progress or NPC interaction.
 
 **Incomplete:**
 - Population comes from generated NPCs. There is no recruitment, immigration, birth, dismissal or population growth within an existing town.
 - Housing does not determine capacity. Residents have no food needs, wages, happiness or household economy.
-- There is no central roster interface for searching residents, comparing equipment or assigning jobs in bulk.
+- The town roster supports individual job/equipment assignment; resident search, comparison tools and bulk assignment are absent.
 - Town layouts do not grow or develop new districts in response to population/economy changes.
 
 #### Resident work and production
@@ -179,7 +187,7 @@ The mechanics below are working prototypes or incomplete systems. Their current 
 
 #### Skills, research and technology exchange
 
-**Working:** milestone-gated base skills, seven additional research nodes, multi-criterion checks and town teaching for specialized material/technology access. Hall/skills menus share live lesson requirements, readiness, completion and numeric practice progress; learned lessons cannot be performed again through the interface.
+**Working:** milestone-gated base skills, seven additional research nodes, multi-criterion checks and town teaching for specialized material/technology access. The Progress tree and town hall share authoritative lesson requirements, readiness, completion and numeric practice progress. Base lessons and resident research can be acquired in the tree; specialist technologies still require a teacher/hall visit. Learned lessons cannot be acquired twice.
 
 **Incomplete:**
 - Skills are unlocked flags, without levels, experience or specialization progression. Several milestones are generic activity counters.
@@ -284,26 +292,22 @@ The mechanics below are working prototypes or incomplete systems. Their current 
 
 #### Menus, controls and save management
 
-**Working:** main menu/settings, background selection, save creation/selection/summary, map previews and confirmed deletion into recoverable trash. ESC opens/resumes a gameplay pause or closes an active panel; pause Quit saves before returning to the lobby, and failed saves keep the session open for retry. Lobby Quit explicitly closes the application. Movement supports WASD and arrows; town-hall actions use P and settings application uses F5.
+**Working:** separate Esc session pause (Resume, Save world, Save & return, Settings) and K Progress (Overview/history, World, Resources, Settlements, Skill tree). Progress pauses simulation, shows acquired-resource memory and discovered-town details, and lets you train/research or assign owned residents without bypassing progression/equipment checks. Skills appear only in the tree. Lobby summaries remain read-only and support an expanded view.
 
-Saved-world and live paused-world summaries share icon-backed vertical item/skill lists, a dependency graph, scroll/pan controls and selected-node requirements. Switching preview map layers is read-only.
+Saved worlds can be renamed, copied, imported/exported as JSON, deleted into trash and recovered from trash/migration backups as new slots. Failed saves keep the live session open; file workflows validate sources and avoid overwriting existing destinations. Keyboard bindings have primary/alternate keys, explicit conflict swaps and reset. Shared settings provide text sizes and tree contrast. Readable contextual footer keycaps follow actual bindings; the obsolete normal-dialogue switch is removed.
 
 **Incomplete:**
-- Controls are fixed; rebinding/controller interfaces and complete accessibility configuration are absent.
-- Separate lists/NPC panels do not provide a consolidated settlement/roster dashboard.
-- Save summaries show key progress, not a complete citizen equipment/job report or campaign history.
-- Rename/copy/import/export and restoration of deleted saves/backups are not complete menu workflows; recovery requires filesystem access.
-- Historical dialogue settings remain even though normal gameplay no longer requests free-form model conversations; the authored-gameplay boundary is documented above.
+- Gamepad support covers basic movement/actions and directional menu navigation, without complete controller mappings, remapping or text entry. Accessibility has text size and tree contrast, without a complete keyboard-only interface, screen-reader or color customization.
+- Campaign history retains the most recent 512 creation, discovery, quest, unlock and treaty events. It does not reconstruct events from older saves or provide a complete searchable campaign timeline.
 
 #### Persistence and content identity
 
-**Working:** atomic saves, v1-v4 migration to v5 with backups, persistent quests/gear/roles/unlocks/relations/maps and harvested/defeated IDs.
+**Working:** atomic saves, v1-v5 migration to v6 with backups, persistent quests/gear/roles/unlocks/relations/maps and harvested/defeated IDs.
 
 **Incomplete:**
 - Living enemy health, position and attack state are transient; chunk regeneration/reload can reset a surviving enemy. NPC/animal movement and active projectiles are also transient.
 - There is no persistent calendar or offline simulation catch-up.
 - Quest giver/resident identities rely on generated NPC indices. Version migrations do not provide general remapping for future settlement/NPC generation or content identity changes.
-- Backup restoration remains manual.
 
 #### Local model integration
 
@@ -465,10 +469,12 @@ cmake --build build -j 4
 ctest --test-dir build --output-on-failure
 ```
 
-Tests cover world generation, gameplay, campaigns, quests/equipment, save compatibility, summaries, dialogue transport and launcher lifecycle. A real-window menu regression harness is available on Linux/X11 or XWayland:
+Tests cover world generation, gameplay, campaigns, quests/equipment, save compatibility, controls, tree unlocks, resource memory, save-file workflows, summaries, dialogue transport and launcher lifecycle. A real-window menu regression harness is available on Linux/X11 or XWayland:
 
 ```sh
 python3 scripts/menu-smoke.py
+# Extended workflows + screenshots (X11/XWayland on Wayland; requires grim):
+python3 scripts/menu-workflow-smoke.py
 ```
 
 For core development without a graphics dependency, fetch the JSON header if it is not already present, then configure a separate build:

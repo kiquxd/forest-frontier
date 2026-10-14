@@ -186,6 +186,12 @@ struct Citizen {
   std::string outfit;
   bool trained{};
 };
+struct HistoryEntry {
+  std::string kind;
+  std::string description;
+  int64_t timestamp{};
+  int city{-1};
+};
 struct Save {
   Vec player{120, 140};
   Inventory inventory;
@@ -227,6 +233,8 @@ struct Save {
   float work_clock{};
   int tracked_quest{-1};
   int wolf_kills{};
+  std::array<bool, kGoodTypes> known_goods{};
+  std::vector<HistoryEntry> history;
 };
 Save LoadSave(const std::filesystem::path& path);
 void WriteSave(const std::filesystem::path& path, const Save& save);

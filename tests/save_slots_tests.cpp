@@ -75,12 +75,12 @@ int main() {
     frontier::Settings settings;
     settings.fps = 144;
     settings.zoom = 1.35f;
-    settings.dialogues = false;
+    settings.high_contrast = true;
     settings.port = 8090;
     settings.last_save = first.string();
     frontier::WriteSettings(root / "settings.json", settings);
     auto loaded = frontier::LoadSettings(root / "settings.json");
-    Check(loaded.fps == 144 && loaded.zoom == 1.35f && !loaded.dialogues &&
+    Check(loaded.fps == 144 && loaded.zoom == 1.35f && loaded.high_contrast &&
               loaded.port == 8090 && loaded.last_save == first.string(),
           "Settings and last played slot persist");
     {

@@ -34,12 +34,12 @@ Sources: [adventure.cpp](../src/adventure.cpp), [gameplay.cpp](../src/gameplay.c
 
 ## Population and settlement management
 
-**Working:** an owned starting town, a resident roster, additional residents after unions and individual job/equipment assignment through NPC interaction.
+**Working:** an owned starting town, additional residents after unions and a per-town roster with individual job/equipment assignment from Progress or NPC interaction.
 
 **Incomplete:**
 - Population comes from generated NPCs. There is no recruitment, immigration, birth, dismissal or population growth within an existing town.
 - Housing does not determine capacity. Residents have no food needs, wages, happiness or household economy.
-- There is no central roster interface for searching residents, comparing equipment or assigning jobs in bulk.
+- The town roster supports individual job/equipment assignment; resident search, comparison tools and bulk assignment are absent.
 - Town layouts do not grow or develop new districts in response to population/economy changes.
 
 Sources: [world.cpp](../src/world.cpp), [adventure.cpp](../src/adventure.cpp), [main.cpp](../src/main.cpp).
@@ -122,7 +122,7 @@ Sources: [adventure.cpp](../src/adventure.cpp), [content/quests](../content/ques
 
 ## Skills, research and technology exchange
 
-**Working:** milestone-gated base skills, seven additional research nodes, multi-criterion checks and town teaching for specialized material/technology access. Hall/skills menus share live lesson requirements, readiness, completion and numeric practice progress; learned lessons cannot be performed again through the interface.
+**Working:** milestone-gated base skills, seven additional research nodes, multi-criterion checks and town teaching for specialized material/technology access. The Progress tree and town hall share authoritative lesson requirements, readiness, completion and numeric practice progress. Base lessons and resident research can be acquired in the tree; specialist technologies still require a teacher/hall visit. Learned lessons cannot be acquired twice.
 
 **Incomplete:**
 - Skills are unlocked flags, without levels, experience or specialization progression. Several milestones are generic activity counters.
@@ -247,28 +247,24 @@ Source: [render.cpp](../src/render.cpp).
 
 ## Menus, controls and save management
 
-**Working:** main menu/settings, background selection, save creation/selection/summary, map previews and confirmed deletion into recoverable trash. ESC opens/resumes a gameplay pause or closes an active panel; pause Quit saves before returning to the lobby, and failed saves keep the session open for retry. Lobby Quit explicitly closes the application. Movement supports WASD and arrows; town-hall actions use P and settings application uses F5.
+**Working:** separate Esc session pause (Resume, Save world, Save & return, Settings) and K Progress (Overview/history, World, Resources, Settlements, Skill tree). Progress pauses simulation, shows acquired-resource memory and discovered-town details, and lets you train/research or assign owned residents without bypassing progression/equipment checks. Skills appear only in the tree. Lobby summaries remain read-only and support an expanded view.
 
-Saved-world and live paused-world summaries share icon-backed vertical item/skill lists, a dependency graph, scroll/pan controls and selected-node requirements. Switching preview map layers is read-only.
+Saved worlds can be renamed, copied, imported/exported as JSON, deleted into trash and recovered from trash/migration backups as new slots. Failed saves keep the live session open; file workflows validate sources and avoid overwriting existing destinations. Keyboard bindings have primary/alternate keys, explicit conflict swaps and reset. Shared settings provide text sizes and tree contrast. Readable contextual footer keycaps follow actual bindings; the obsolete normal-dialogue switch is removed.
 
 **Incomplete:**
-- Controls are fixed; rebinding/controller interfaces and complete accessibility configuration are absent.
-- Separate lists/NPC panels do not provide a consolidated settlement/roster dashboard.
-- Save summaries show key progress, not a complete citizen equipment/job report or campaign history.
-- Rename/copy/import/export and restoration of deleted saves/backups are not complete menu workflows; recovery requires filesystem access.
-- Historical dialogue settings remain even though normal gameplay no longer requests free-form model conversations; the public README now makes the authored-gameplay boundary explicit.
+- Gamepad support covers basic movement/actions and directional menu navigation, without complete controller mappings, remapping or text entry. Accessibility has text size and tree contrast, without a complete keyboard-only interface, screen-reader or color customization.
+- Campaign history retains the most recent 512 creation, discovery, quest, unlock and treaty events. It does not reconstruct events from older saves or provide a complete searchable campaign timeline.
 
-Sources: [menu.cpp](../src/menu.cpp), [save_slots.cpp](../src/save_slots.cpp), [main.cpp](../src/main.cpp), [README.md](../README.md).
+Sources: [menu.cpp](../src/menu.cpp), [settings_ui.cpp](../src/settings_ui.cpp), [controls.cpp](../src/controls.cpp), [progress.cpp](../src/progress.cpp), [save_slots.cpp](../src/save_slots.cpp).
 
 ## Persistence and content identity
 
-**Working:** atomic saves, v1-v4 migration to v5 with backups, persistent quests/gear/roles/unlocks/relations/maps and harvested/defeated IDs.
+**Working:** atomic saves, v1-v5 migration to v6 with backups, persistent quests/gear/roles/unlocks/relations/maps and harvested/defeated IDs.
 
 **Incomplete:**
 - Living enemy health, position and attack state are transient; chunk regeneration/reload can reset a surviving enemy. NPC/animal movement and active projectiles are also transient.
 - There is no persistent calendar or offline simulation catch-up.
 - Quest giver/resident identities rely on generated NPC indices. Version migrations do not provide general remapping for future settlement/NPC generation or content identity changes.
-- Backup restoration remains manual.
 
 Sources: [world.cpp](../src/world.cpp), [adventure.cpp](../src/adventure.cpp), [save_slots.cpp](../src/save_slots.cpp).
 

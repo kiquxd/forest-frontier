@@ -96,9 +96,9 @@ std::vector<ProgressCard> ProgressCards(const Save& save) {
   for (int i = 0; i < static_cast<int>(Skills().size()); i++) {
     const auto& skill = Skills()[i];
     auto state = GetLessonState(save, i);
-    std::string detail =
-        state.detail +
-        ". Learn at a peaceful town hall with P, or open K to learn. ";
+    std::string detail = state.detail +
+                         ". Learn from this tree when ready; town-hall lessons "
+                         "also remain available. ";
     if (i == 0) {
       detail += "Unlocks gathering trees, stones, berries and reeds.";
     } else {
@@ -128,7 +128,8 @@ std::vector<ProgressCard> ProgressCards(const Save& save) {
     }
     bool ready = ResearchReady(save, n);
     cards.push_back({n.id, n.name, "tech_" + n.id,
-                     ResearchRequirements(save, n) + ". Open K to research.",
+                     ResearchRequirements(save, n) +
+                         ". Research from this tree when ready.",
                      parents, n.id == "guild_charter" ? 4 : 3, research_rows[i],
                      save.technologies.contains(n.id), ready});
   }
@@ -159,7 +160,8 @@ std::vector<ProgressCard> ProgressCards(const Save& save) {
                          " town master: peace, trust 20, Craftsmanship and 20 "
                          "coins (you have " +
                          std::to_string(save.coins) +
-                         "). Use F4 with the master or P at that town hall.",
+                         "). Visit the town master for a specialist lesson or "
+                         "use the town hall.",
                      {"crafting"},
                      4,
                      row++,

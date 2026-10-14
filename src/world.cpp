@@ -21,6 +21,7 @@
 
 #include "adventure.hpp"
 #include "json.hpp"
+#include "progress.hpp"
 
 namespace frontier {
 Vec operator+(Vec a, Vec b) {
@@ -347,7 +348,7 @@ Save LoadSave(const std::filesystem::path& path) {
   nlohmann::json json;
   f >> json;
   int version = json.at("version").get<int>();
-  if (version < 1 || version > 5) {
+  if (version < 1 || version > 6) {
     throw std::runtime_error("Unsupported save version");
   }
   save.seed = json.at("seed").get<uint64_t>();
@@ -615,6 +616,36 @@ Save LoadSave(const std::filesystem::path& path) {
       }
     }
   }
+  if (version >= 6) {
+    save.known_goods = json.at("known_goods").get<decltype(save.known_goods)>();
+    const auto& history = json.at("history");
+    if (!history.is_array() || history.size() > 512) {
+      throw std::runtime_error("Invalid history");
+    }
+    for (const auto& row : history) {
+      HistoryEntry event{row.at("kind"), row.at("description"),
+                         row.at("timestamp"), row.at("city")};
+      if (event.kind.empty() || event.kind.size() > 64 ||
+          event.description.size() > 512 || event.timestamp < 0 ||
+          event.city < -1 ||
+          event.city >= static_cast<int>(save.relations.size())) {
+        throw std::runtime_error("Invalid history entry");
+      }
+      save.history.push_back(std::move(event));
+    }
+  } else {
+    RememberResources(save);
+    if (save.gathered > 0) {
+      save.known_goods[0] = save.known_goods[1] = save.known_goods[2] =
+          save.known_goods[3] = true;
+    }
+    if (save.caught > 0) {
+      save.known_goods[4] = true;
+    }
+    if (save.wolf_kills > 0) {
+      save.known_goods[5] = true;
+    }
+  }
   return save;
 }
 void WriteSave(const std::filesystem::path& path, const Save& save) {
@@ -666,7 +697,7 @@ void WriteSave(const std::filesystem::path& path, const Save& save) {
                      {"b", {w.b.x, w.b.y}},
                      {"hp", w.hp}});
   }
-  nlohmann::json json = {{"version", 5},
+  nlohmann::json json = {{"version", 6},
                          {"seed", save.seed},
                          {"player", {save.player.x, save.player.y}},
                          {"wood", save.inventory.wood},
@@ -723,13 +754,21 @@ void WriteSave(const std::filesystem::path& path, const Save& save) {
                                 {"outfit", resident.outfit},
                                 {"trained", resident.trained}});
   }
+  json["known_goods"] = save.known_goods;
+  json["history"] = nlohmann::json::array();
+  for (const auto& event : save.history) {
+    json["history"].push_back({{"kind", event.kind},
+                               {"description", event.description},
+                               {"timestamp", event.timestamp},
+                               {"city", event.city}});
+  }
   if (std::filesystem::exists(path)) {
     std::ifstream existing(path);
     auto previous = nlohmann::json::parse(existing, nullptr, false);
     int old_version = previous.is_object() ? previous.value("version", 0) : 0;
     auto backup = path;
     backup += ".v" + std::to_string(old_version) + ".bak";
-    if (old_version > 0 && old_version < 5 &&
+    if (old_version > 0 && old_version < 6 &&
         !std::filesystem::exists(backup)) {
       std::filesystem::copy_file(path, backup);
     }
