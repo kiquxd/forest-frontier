@@ -109,8 +109,8 @@ std::string BindingName(const Bindings& bindings, InputAction action) {
 }
 bool ValidBindingKey(int key) {
   return key == 0 || (key >= 32 && key <= 96) || key == 258 ||
-         (key >= 262 && key <= 265) ||
-         (key >= 290 && key <= 301 && key != 294) || (key >= 340 && key <= 346);
+         (key >= 262 && key <= 265) || (key >= 290 && key <= 301) ||
+         (key >= 340 && key <= 346);
 }
 bool ValidBindings(const Bindings& bindings) {
   std::set<int> used;

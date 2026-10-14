@@ -73,7 +73,7 @@ bool DrawSettingsPanel(Renderer& renderer, SettingsPanel& panel,
     }
     if (panel.capturing) {
       renderer.Wrapped(
-          "Press a key. Esc cancels. Enter, Esc, F5 and paging keys are "
+          "Press a key. Esc cancels. Enter, Esc and paging keys are "
           "reserved for menus.",
           60, box.y + box.height - 65, box.width - 40, 17, {239, 199, 118, 255},
           2);
@@ -233,8 +233,7 @@ bool DrawSettingsPanel(Renderer& renderer, SettingsPanel& panel,
     }
   }
   if (!panel.capturing && panel.pending_key < 0) {
-    if (SettingButton(renderer, {40, h - 65, 240, 44}, "Apply settings · F5") ||
-        IsKeyPressed(KEY_F5)) {
+    if (SettingButton(renderer, {w - 240, box.y + 8, 180, 44}, "Apply", true)) {
       try {
         WriteSettings(path, panel.draft);
         settings = panel.draft;

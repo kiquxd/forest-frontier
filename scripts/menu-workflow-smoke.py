@@ -86,14 +86,14 @@ if __name__ == '__main__':
                 ui.key(process, 'p')  # Conflict with hall.
                 capture(process, 'menu-binding-conflict.png')
                 ui.key(process, 'Return')
-                ui.key(process, 'F5')
+                ui.apply_settings(process)
                 ui.wait_for(settings.exists, 'Rebinding settings were not written')
                 bindings = json.loads(settings.read_text())['bindings']
                 print('Control conflict/swap persisted', flush=True)
                 assert bindings['talk'][0] == 80 and bindings['hall'][0] == 69, 'Conflict swap did not update both actions'
                 capture(process, 'menu-controls.png')
                 ui.click(process, width - 330, height - 43)  # Reset controls.
-                ui.key(process, 'F5')
+                ui.apply_settings(process)
                 assert json.loads(settings.read_text())['bindings']['talk'][0] == 69
                 ui.key(process, 'Escape')
                 ui.key(process, 'Escape')
@@ -185,7 +185,7 @@ if __name__ == '__main__':
                 for _ in range(3):
                     ui.key(process, 'Down')
                 ui.key(process, 'Return')  # The same Enter must not toggle fullscreen.
-                ui.key(process, 'F5')
+                ui.apply_settings(process)
                 assert json.loads(settings.read_text())['fullscreen'], 'Opening pause settings changed fullscreen'
                 capture(process, 'menu-pause-settings.png')
                 ui.key(process, 'Escape')

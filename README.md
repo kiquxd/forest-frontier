@@ -71,7 +71,7 @@ Saved-world summaries are read-only. **F2** expands the selected summary; **F6/F
 
 **Save & return saves the world first.** If saving fails, the session stays open for retry. Saves are atomic; v1–v7 worlds retain progression when written as v8 and keep a migration backup. Active worlds autosave periodically. New saves remember resource discovery and the last 512 significant campaign events; older saves cannot recover their past history.
 
-Settings are available both in the lobby and on pause: fullscreen, window size, frame cap, camera zoom, performance HUD, text size (100/120/140% on top of the existing enlarged font), tree contrast and keyboard bindings. Every gameplay action has a primary key and optional alternate; conflicts offer an explicit swap, and defaults can be restored. Enter, Esc, F5 and paging/editing keys remain reserved for menus. Ordinary gameplay has no language-model conversation setting.
+Settings are available both in the lobby and on pause: fullscreen, window size, frame cap, camera zoom, performance HUD, text size (100/120/140% on top of the existing enlarged font), tree contrast and keyboard bindings. Every gameplay action has a primary key and optional alternate; conflicts offer an explicit swap, and defaults can be restored. Enter, Esc and paging/editing keys remain reserved for menus. Choose **Apply** at the top right to save and apply changes. Ordinary gameplay has no language-model conversation setting.
 
 ### Controls
 
@@ -104,7 +104,6 @@ These are the defaults; keyboard actions can be rebound in Settings. The bottom 
 | Page Up / Page Down | Page through menus or scroll summaries |
 | Esc | Close a panel, otherwise pause/resume |
 | F3 / F11 | Performance HUD / Toggle fullscreen |
-| F5 in settings | Apply settings |
 
 ### Current limits
 
@@ -311,7 +310,7 @@ The mechanics below are working prototypes or incomplete systems. Their current 
 
 **Working:** separate Esc session pause (Resume, Save world, Save & return, Settings) and K Progress (Overview/history, World, Resources, Settlements, Skill tree). Progress pauses simulation, shows acquired-resource memory and discovered-town details, and lets you train/research or assign owned residents without bypassing progression/equipment checks. Skills appear only in the tree. Lobby summaries remain read-only and support an expanded view.
 
-Saved worlds can be renamed, copied, imported/exported as JSON, deleted into trash and recovered from trash/migration backups as new slots. Failed saves keep the live session open; file workflows validate sources and avoid overwriting existing destinations. Keyboard bindings have primary/alternate keys, explicit conflict swaps and reset. Shared settings provide text sizes and tree contrast. Readable contextual footer keycaps follow actual bindings; the obsolete normal-dialogue switch is removed.
+Saved worlds can be renamed, copied, imported/exported as JSON, deleted into trash and recovered from trash/migration backups as new slots. Failed saves keep the live session open; file workflows validate sources and avoid overwriting existing destinations. Keyboard bindings have primary/alternate keys, explicit conflict swaps and reset. Shared settings provide text sizes and tree contrast; a prominent top-right Apply button saves and applies drafts, without an F5 shortcut. Readable contextual footer keycaps follow actual bindings; the obsolete normal-dialogue switch is removed.
 
 **Incomplete:**
 - Gamepad support covers basic movement/actions and directional menu navigation, without complete controller mappings, remapping or text entry. Accessibility has text size and tree contrast, without a complete keyboard-only interface, screen-reader or color customization.
@@ -500,6 +499,7 @@ Tests cover world generation, gameplay, campaigns, crafting cooldowns, facilitie
 
 ```sh
 python3 scripts/world-smoke.py  # Quick journal/save check
+python3 scripts/settings-smoke.py  # Quick Apply-button check
 # Optional extended workflows:
 python3 scripts/world-smoke.py --extended
 python3 scripts/menu-smoke.py

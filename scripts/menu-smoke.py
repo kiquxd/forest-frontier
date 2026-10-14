@@ -53,6 +53,11 @@ def key(process, name):
     t.XTestFakeKeyEvent(display,code,1,0);x.XFlush(display);time.sleep(.06)
     t.XTestFakeKeyEvent(display,code,0,0);x.XFlush(display);time.sleep(.15)
 
+def apply_settings(process):
+    # Settings is shared by the lobby, pause menu and controls page.
+    width=x.XDisplayWidth(display,0)
+    click(process,width-150,140)
+
 def quit_to_menu(process):
     key(process,"Escape") # Open pause menu.
     assert process.poll() is None,"Escape closed the game"
@@ -84,7 +89,7 @@ if __name__ == "__main__":
                 key(process,"Return") # Settings.
                 for _ in range(2): key(process,"Down")
                 key(process,"Right") # Change the frame limit.
-                key(process,"F5") # Apply.
+                apply_settings(process) # Apply button.
                 wait_for(settings.exists,"Settings not saved")
                 assert json.loads(settings.read_text())["fps"] == 120
                 key(process,"Escape")

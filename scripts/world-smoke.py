@@ -82,7 +82,7 @@ with tempfile.TemporaryDirectory(prefix='frontier-world-smoke-') as folder:
             for _ in range(4):ui.key(process,'Return')  # Automatic -> Off.
             ui.key(process,'Down');ui.key(process,'Down')
             for _ in range(7):ui.key(process,'Left')  # Disable effects separately.
-            ui.key(process,'F5')
+            ui.apply_settings(process)
             config=json.loads(settings.read_text());assert config['music_mode']==4 and config['effects_volume']==0,config
             workflow.capture(process,'world-audio-settings.png')
             ui.key(process,'Escape');ui.key(process,'Down');ui.key(process,'Return')

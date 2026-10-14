@@ -142,3 +142,8 @@ Menu separation, progression dashboard and save workflows:
 - Increased rarity tiers to 1, 5, 30, 60 and 120 simulation minutes. Updated the save-validation ceiling to the shared two-hour maximum; schema stays v8, and existing shorter in-progress timers remain readable and unchanged.
 - Added deterministic clock-boundary and two-hour save/reload checks; no real-time waiting, GUI simulation or performance benchmark is needed for this balance change. README and PLACEHOLDERS describe the new durations; the tracked incomplete scope in TODO is unchanged.
 - Validation: Release build and all 12 CTest groups pass; the complete test run takes approximately 5.5 seconds. Formatting and diff checks pass.
+
+## 2026-10-14 — Visible Apply action in settings
+
+- Moved the shared settings Apply action to a prominent top-right button labelled Apply. Removed applying through F5 and released F5 for gameplay rebinding; unsaved draft behavior and atomic settings writes remain unchanged. Lobby, pause and keyboard controls share this implementation.
+- Updated existing UI harnesses to click Apply. A short settings smoke verifies draft changes save through the button and F5 does not write them. Real raylib screenshot logs/settings-apply.png inspected; Release build, all 12 CTest groups (5.81 seconds), formatting and diff checks pass. No extended UI scenario or benchmark was run.

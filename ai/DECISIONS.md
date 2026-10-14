@@ -53,3 +53,7 @@
 - Roads are player-selected complete polylines, not generated inter-town links. Full exploration, endpoints, permissions and the full wood/stone cost are checked before committing; water sections count as more expensive walkable bridges. Navigation/orders remain a separate deferred prerequisite-dependent scope.
 - Local defenders can die or, against hostile human guards, deterministically enter captivity (40% of seeded outcomes). Dead entries remain tombstones and lose assigned weapon/clothes; captive copies stay reserved, and ransom returns the same equipment. Player death destroys the equipped weapon; player captivity and strategic army casualties are still absent.
 - Surrender creates tribute without annexing the town: 30 coins initially, 10 per 120 simulation seconds, 300 to exit. Missed payment ends the pact and restores local hostility. Returning to a previous ruler restores the recorded pre-union owner; the starting home town previously belonged to the player. No autonomous invasion, transport or occupation simulation is introduced.
+
+## 2026-10-14 — Explicit settings Apply button
+
+- The shared settings/controls panel uses a prominent top-right Apply button. F5 no longer applies settings and is available for gameplay rebinding. Saving remains atomic; draft settings do not become active before Apply.
