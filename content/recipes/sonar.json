@@ -1,0 +1,12 @@
+{
+  "id": "sonar",
+  "name": "Sonar",
+  "cost": {
+    "7": 6,
+    "8": 4,
+    "11": 1
+  },
+  "result": "sonar",
+  "effect": "G: explore the seafloor around your submarine",
+  "technology": "crystallurgy"
+}

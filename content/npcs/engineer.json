@@ -1,0 +1,17 @@
+{
+  "id": "engineer",
+  "role": "Engineer",
+  "weight": 6,
+  "rarity": 2,
+  "color": [
+    182,
+    149,
+    101
+  ],
+  "names": [
+    "Ada",
+    "Victor",
+    "Miles"
+  ],
+  "personality": "I test pressure hulls and engines that can survive beneath the water."
+}

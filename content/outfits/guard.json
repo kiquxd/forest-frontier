@@ -1,0 +1,21 @@
+{
+  "id": "guard",
+  "name": "Guard armor",
+  "description": "Take 50% less damage; move 10% slower.",
+  "technology": "ironworking",
+  "job": "guard",
+  "speed": 0.9,
+  "gather": 1,
+  "taken": 0.5,
+  "trade": 1,
+  "cost": {
+    "5": 8,
+    "6": 5
+  },
+  "color": [
+    146,
+    157,
+    165
+  ],
+  "quest_only": false
+}

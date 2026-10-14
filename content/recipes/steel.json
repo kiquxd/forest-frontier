@@ -1,0 +1,11 @@
+{
+  "id": "steel",
+  "name": "Steel x3",
+  "cost": {
+    "6": 4,
+    "7": 1
+  },
+  "result": "steel",
+  "effect": "Alloy for weapons and pressure hulls",
+  "technology": "steelworking"
+}

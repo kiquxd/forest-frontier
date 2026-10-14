@@ -1,0 +1,15 @@
+{
+  "id": "apprentice",
+  "title": "An honest craft",
+  "lore": "Make two items to prove your patience. I will share my apron pattern.",
+  "objective": "craft",
+  "good": 0,
+  "target": 2,
+  "coins": 12,
+  "rewards": {},
+  "knowledge": "",
+  "recipe": "outfit_artisan",
+  "weapon": "",
+  "outfit": "",
+  "role": "carpenter"
+}

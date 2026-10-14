@@ -1,0 +1,12 @@
+{
+  "id": "ship",
+  "name": "Sailing ship",
+  "cost": {
+    "0": 45,
+    "3": 18,
+    "7": 8
+  },
+  "result": "ship",
+  "effect": "Faster than a rowboat; wider exploration radius",
+  "technology": "shipbuilding"
+}

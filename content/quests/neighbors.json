@@ -1,0 +1,15 @@
+{
+  "id": "neighbors",
+  "title": "Know your neighbors",
+  "lore": "Discover two new towns after taking this task.",
+  "objective": "discover",
+  "good": 0,
+  "target": 2,
+  "coins": 25,
+  "rewards": {},
+  "knowledge": "civic_charter",
+  "recipe": "outfit_diplomat",
+  "weapon": "",
+  "outfit": "",
+  "role": "diplomat"
+}

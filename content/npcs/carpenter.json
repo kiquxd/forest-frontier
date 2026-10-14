@@ -1,0 +1,17 @@
+{
+  "id": "carpenter",
+  "role": "Carpenter",
+  "weight": 50,
+  "rarity": 0,
+  "color": [
+    166,
+    131,
+    84
+  ],
+  "names": [
+    "Owen",
+    "Hazel",
+    "Finn"
+  ],
+  "personality": "I turn rough timber into tools and sturdy workshop fittings."
+}

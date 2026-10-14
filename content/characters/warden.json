@@ -1,0 +1,13 @@
+{
+  "id": "warden",
+  "name": "Warden",
+  "lore": "A determined protector raised near the frontier.",
+  "pros": "Attack +20%; incoming damage -10%.",
+  "cons": "10% slower; gather time +15%.",
+  "speed": 0.9,
+  "gather": 1.15,
+  "damage": 1.2,
+  "taken": 0.9,
+  "trade": 1,
+  "coins": 0
+}

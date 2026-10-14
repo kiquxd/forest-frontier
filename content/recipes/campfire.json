@@ -1,0 +1,11 @@
+{
+  "id": "campfire",
+  "name": "Campfire",
+  "cost": {
+    "0": 8,
+    "1": 4
+  },
+  "result": "campfire",
+  "effect": "B: place, heals and deters wolves",
+  "technology": ""
+}

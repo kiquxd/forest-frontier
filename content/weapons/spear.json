@@ -1,0 +1,15 @@
+{
+  "id": "spear",
+  "name": "Spear",
+  "damage": 23,
+  "reach": 155,
+  "duration": 0.72,
+  "rarity": 0,
+  "weight": 48,
+  "kind": "spear",
+  "cost": {
+    "0": 8,
+    "1": 4
+  },
+  "technology": ""
+}

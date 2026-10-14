@@ -1,0 +1,19 @@
+{
+  "id": "forge",
+  "name": "Forge Fortress",
+  "weight": 17,
+  "rarity": 1,
+  "attitude": 0,
+  "teacher": "smith",
+  "technology": "steelworking",
+  "goods": [
+    6,
+    7,
+    10
+  ],
+  "color": [
+    146,
+    126,
+    105
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "diplomat",
+  "name": "Diplomat mantle",
+  "description": "Sell 10% higher; work as an ambassador.",
+  "technology": "civic_charter",
+  "job": "ambassador",
+  "speed": 1,
+  "gather": 1,
+  "taken": 1,
+  "trade": 1.1,
+  "cost": {
+    "3": 14,
+    "5": 3
+  },
+  "color": [
+    157,
+    87,
+    119
+  ],
+  "quest_only": true
+}

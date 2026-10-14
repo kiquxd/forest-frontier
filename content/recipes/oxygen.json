@@ -1,0 +1,11 @@
+{
+  "id": "oxygen",
+  "name": "Oxygen module",
+  "cost": {
+    "10": 4,
+    "9": 3
+  },
+  "result": "oxygen",
+  "effect": "Doubles your air capacity",
+  "technology": "diving"
+}

@@ -1,0 +1,17 @@
+{
+  "id": "guard",
+  "role": "Guard",
+  "weight": 30,
+  "rarity": 0,
+  "color": [
+    112,
+    125,
+    155
+  ],
+  "names": [
+    "Gareth",
+    "Rose",
+    "Duncan"
+  ],
+  "personality": "I watch the gates and help keep the roads safe."
+}

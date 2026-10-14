@@ -1,0 +1,12 @@
+{
+  "id": "submarine",
+  "name": "Submarine",
+  "cost": {
+    "10": 24,
+    "11": 4,
+    "8": 6
+  },
+  "result": "submarine",
+  "effect": "R: dive / surface; explore the seafloor",
+  "technology": "submarine"
+}

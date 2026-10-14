@@ -1,0 +1,21 @@
+{
+  "id": "sailor",
+  "name": "Sailor jacket",
+  "description": "Move 15% faster on foot and aboard vessels.",
+  "technology": "shipbuilding",
+  "job": "fisher",
+  "speed": 1.15,
+  "gather": 1,
+  "taken": 1,
+  "trade": 1,
+  "cost": {
+    "3": 12,
+    "5": 3
+  },
+  "color": [
+    80,
+    139,
+    174
+  ],
+  "quest_only": true
+}

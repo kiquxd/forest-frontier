@@ -1,0 +1,17 @@
+{
+  "id": "ancients",
+  "name": "City of Keepers",
+  "weight": 1,
+  "rarity": 3,
+  "attitude": -10,
+  "teacher": "archivist",
+  "technology": "ancient",
+  "goods": [
+    12
+  ],
+  "color": [
+    180,
+    165,
+    104
+  ]
+}

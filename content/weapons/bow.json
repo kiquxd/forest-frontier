@@ -1,0 +1,15 @@
+{
+  "id": "bow",
+  "name": "Hunting bow",
+  "damage": 20,
+  "reach": 620,
+  "duration": 0.75,
+  "rarity": 1,
+  "weight": 24,
+  "kind": "bow",
+  "cost": {
+    "0": 9,
+    "3": 6
+  },
+  "technology": ""
+}

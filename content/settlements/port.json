@@ -1,0 +1,17 @@
+{
+  "id": "port",
+  "name": "Shipyard",
+  "weight": 22,
+  "rarity": 1,
+  "attitude": 10,
+  "teacher": "shipwright",
+  "technology": "shipbuilding",
+  "goods": [
+    7
+  ],
+  "color": [
+    89,
+    151,
+    173
+  ]
+}

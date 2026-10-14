@@ -1,0 +1,40 @@
+# Generated builds and downloaded dependencies
+/build*/
+/third_party/
+/models/
+*.gguf
+*.gguf.part
+*.o
+*.a
+*.so
+*.so.*
+*.dll
+*.exe
+/CMakeFiles/
+/CMakeCache.txt
+/Testing/
+
+# Local game state and generated diagnostics
+/logs/
+/saves/
+/assets/*.ttf
+__pycache__/
+*.pyc
+/settings.json
+/settings.json.tmp
+
+# Local credentials, assistant configuration and editor files
+.env
+.env.*
+!.env.example
+/.aws/
+/.agents/
+/.codex/
+/.ssh/
+.idea/
+.vscode/
+.cache/
+.DS_Store
+*~
+*.swp
+*.swo

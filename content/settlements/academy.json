@@ -1,0 +1,17 @@
+{
+  "id": "academy",
+  "name": "Crystal Academy",
+  "weight": 7,
+  "rarity": 2,
+  "attitude": 5,
+  "teacher": "scholar",
+  "technology": "crystallurgy",
+  "goods": [
+    8
+  ],
+  "color": [
+    143,
+    118,
+    180
+  ]
+}

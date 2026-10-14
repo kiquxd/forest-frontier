@@ -1,0 +1,15 @@
+{
+  "id": "field_medicine",
+  "title": "Field medicine",
+  "lore": "Bring ten berries for my trials. I will teach you a simpler healing brew.",
+  "objective": "deliver",
+  "good": 2,
+  "target": 10,
+  "coins": 12,
+  "rewards": {},
+  "knowledge": "",
+  "recipe": "field_brew",
+  "weapon": "",
+  "outfit": "",
+  "role": "alchemist"
+}

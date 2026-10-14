@@ -1,0 +1,17 @@
+{
+  "id": "navigator",
+  "role": "Navigator",
+  "weight": 8,
+  "rarity": 1,
+  "color": [
+    93,
+    152,
+    174
+  ],
+  "names": [
+    "Atlas",
+    "Marin",
+    "Celeste"
+  ],
+  "personality": "I chart unfamiliar shores so the next traveler has a safer journey."
+}

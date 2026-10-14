@@ -1,0 +1,15 @@
+{
+  "id": "depths",
+  "title": "Proof of the depths",
+  "lore": "Recover two pearls and learn how to make a diving suit.",
+  "objective": "deliver",
+  "good": 9,
+  "target": 2,
+  "coins": 35,
+  "rewards": {},
+  "knowledge": "",
+  "recipe": "outfit_diver",
+  "weapon": "",
+  "outfit": "",
+  "role": "pearl_diver"
+}

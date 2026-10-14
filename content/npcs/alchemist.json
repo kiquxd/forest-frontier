@@ -1,0 +1,17 @@
+{
+  "id": "alchemist",
+  "role": "Alchemist",
+  "weight": 4,
+  "rarity": 2,
+  "color": [
+    142,
+    185,
+    118
+  ],
+  "names": [
+    "Mira",
+    "Ellis",
+    "Rowan"
+  ],
+  "personality": "I study healing brews and the hidden properties of crystals."
+}

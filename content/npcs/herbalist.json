@@ -1,0 +1,17 @@
+{
+  "id": "herbalist",
+  "role": "Herbalist",
+  "weight": 50,
+  "rarity": 0,
+  "color": [
+    133,
+    158,
+    91
+  ],
+  "names": [
+    "Fern",
+    "Lily",
+    "Briar"
+  ],
+  "personality": "I gather healing plants and teach others to use them carefully."
+}

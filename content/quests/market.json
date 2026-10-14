@@ -1,0 +1,15 @@
+{
+  "id": "market",
+  "title": "Market provisions",
+  "lore": "Deliver eight berries for our visiting traders.",
+  "objective": "deliver",
+  "good": 2,
+  "target": 8,
+  "coins": 12,
+  "rewards": {},
+  "knowledge": "",
+  "recipe": "outfit_merchant",
+  "weapon": "",
+  "outfit": "",
+  "role": "merchant"
+}

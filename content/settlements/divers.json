@@ -1,0 +1,17 @@
+{
+  "id": "divers",
+  "name": "Depth Guild",
+  "weight": 7,
+  "rarity": 2,
+  "attitude": 10,
+  "teacher": "pearl_diver",
+  "technology": "diving",
+  "goods": [
+    9
+  ],
+  "color": [
+    102,
+    172,
+    170
+  ]
+}

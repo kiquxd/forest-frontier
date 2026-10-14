@@ -1,0 +1,17 @@
+{
+  "id": "wanderer",
+  "role": "Wanderer",
+  "weight": 9,
+  "rarity": 1,
+  "color": [
+    179,
+    135,
+    116
+  ],
+  "names": [
+    "Robin",
+    "Wren",
+    "Ash"
+  ],
+  "personality": "I travel between settlements and remember the paths that maps leave out."
+}

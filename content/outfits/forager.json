@@ -1,0 +1,21 @@
+{
+  "id": "forager",
+  "name": "Forager coat",
+  "description": "Gather time -20%; movement +5%.",
+  "technology": "",
+  "job": "gatherer",
+  "speed": 1.05,
+  "gather": 0.8,
+  "taken": 1,
+  "trade": 1,
+  "cost": {
+    "0": 8,
+    "3": 5
+  },
+  "color": [
+    103,
+    151,
+    87
+  ],
+  "quest_only": true
+}

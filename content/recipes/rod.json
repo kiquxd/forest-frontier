@@ -1,0 +1,11 @@
+{
+  "id": "rod",
+  "name": "Fishing rod",
+  "cost": {
+    "0": 4,
+    "3": 3
+  },
+  "result": "rod",
+  "effect": "Catch fish in the shallows",
+  "technology": ""
+}

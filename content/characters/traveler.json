@@ -1,0 +1,13 @@
+{
+  "id": "traveler",
+  "name": "Traveler",
+  "lore": "A balanced explorer learning to lead a town.",
+  "pros": "No penalties; flexible build.",
+  "cons": "No specialist bonus.",
+  "speed": 1,
+  "gather": 1,
+  "damage": 1,
+  "taken": 1,
+  "trade": 1,
+  "coins": 0
+}

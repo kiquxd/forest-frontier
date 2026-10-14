@@ -1,0 +1,17 @@
+{
+  "id": "scholar",
+  "role": "Scholar",
+  "weight": 10,
+  "rarity": 1,
+  "color": [
+    152,
+    131,
+    187
+  ],
+  "names": [
+    "Quinn",
+    "Thea",
+    "Felix"
+  ],
+  "personality": "I study crystals and share what I learn with those willing to help."
+}

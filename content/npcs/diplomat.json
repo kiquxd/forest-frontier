@@ -1,0 +1,17 @@
+{
+  "id": "diplomat",
+  "role": "Diplomat",
+  "weight": 5,
+  "rarity": 2,
+  "color": [
+    163,
+    104,
+    143
+  ],
+  "names": [
+    "Clara",
+    "Edmund",
+    "Vera"
+  ],
+  "personality": "I carry news between towns and try to settle quarrels before they become wars."
+}

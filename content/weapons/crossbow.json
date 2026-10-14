@@ -1,0 +1,16 @@
+{
+  "id": "crossbow",
+  "name": "Crossbow",
+  "damage": 48,
+  "reach": 850,
+  "duration": 1.25,
+  "rarity": 2,
+  "weight": 6,
+  "kind": "bow",
+  "cost": {
+    "0": 8,
+    "10": 9,
+    "3": 5
+  },
+  "technology": "steelworking"
+}

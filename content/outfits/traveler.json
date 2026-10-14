@@ -1,0 +1,18 @@
+{
+  "id": "traveler",
+  "name": "Travel clothes",
+  "description": "Plain clothes. No perks or penalties.",
+  "technology": "",
+  "job": "",
+  "speed": 1,
+  "gather": 1,
+  "taken": 1,
+  "trade": 1,
+  "cost": {},
+  "color": [
+    205,
+    174,
+    112
+  ],
+  "quest_only": false
+}

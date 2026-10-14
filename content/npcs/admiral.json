@@ -1,0 +1,17 @@
+{
+  "id": "admiral",
+  "role": "Admiral",
+  "weight": 3,
+  "rarity": 2,
+  "color": [
+    103,
+    120,
+    175
+  ],
+  "names": [
+    "Drake",
+    "Morgan",
+    "Helena"
+  ],
+  "personality": "I organize voyages beyond familiar shores and keep our fleet ready."
+}

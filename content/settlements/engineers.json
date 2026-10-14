@@ -1,0 +1,17 @@
+{
+  "id": "engineers",
+  "name": "Engineering City",
+  "weight": 4,
+  "rarity": 2,
+  "attitude": 0,
+  "teacher": "engineer",
+  "technology": "submarine",
+  "goods": [
+    11
+  ],
+  "color": [
+    169,
+    151,
+    99
+  ]
+}

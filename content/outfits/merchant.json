@@ -1,0 +1,21 @@
+{
+  "id": "merchant",
+  "name": "Merchant coat",
+  "description": "Sell goods for 15% more.",
+  "technology": "",
+  "job": "trader",
+  "speed": 1,
+  "gather": 1,
+  "taken": 1,
+  "trade": 1.15,
+  "cost": {
+    "3": 10,
+    "5": 2
+  },
+  "color": [
+    159,
+    101,
+    155
+  ],
+  "quest_only": true
+}

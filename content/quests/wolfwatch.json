@@ -1,0 +1,17 @@
+{
+  "id": "wolfwatch",
+  "title": "Wolf watch",
+  "lore": "Wolves threaten our paths. Defeat one after accepting this task.",
+  "objective": "kills",
+  "good": 0,
+  "target": 1,
+  "coins": 18,
+  "rewards": {
+    "5": 2
+  },
+  "knowledge": "",
+  "recipe": "outfit_hunter",
+  "weapon": "",
+  "outfit": "",
+  "role": "hunter"
+}

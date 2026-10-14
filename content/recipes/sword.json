@@ -1,0 +1,11 @@
+{
+  "id": "sword",
+  "name": "Stone sword",
+  "cost": {
+    "0": 6,
+    "1": 4
+  },
+  "result": "weapon:wood_sword",
+  "effect": "Sword: damage 25, reach 115",
+  "technology": ""
+}

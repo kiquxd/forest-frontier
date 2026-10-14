@@ -1,0 +1,17 @@
+{
+  "id": "hunter",
+  "role": "Hunter",
+  "weight": 50,
+  "rarity": 0,
+  "color": [
+    118,
+    134,
+    101
+  ],
+  "names": [
+    "Archer",
+    "Freya",
+    "Colin"
+  ],
+  "personality": "I track wolves and protect travelers who stray beyond the town."
+}

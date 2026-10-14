@@ -1,0 +1,13 @@
+{
+  "id": "envoy",
+  "name": "Envoy",
+  "lore": "A persuasive traveler with a little seed money.",
+  "pros": "Sell +20%; start with 10 coins.",
+  "cons": "15% weaker attacks.",
+  "speed": 1,
+  "gather": 1,
+  "damage": 0.85,
+  "taken": 1,
+  "trade": 1.2,
+  "coins": 10
+}

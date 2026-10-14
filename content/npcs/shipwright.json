@@ -1,0 +1,17 @@
+{
+  "id": "shipwright",
+  "role": "Shipwright",
+  "weight": 14,
+  "rarity": 1,
+  "color": [
+    113,
+    159,
+    163
+  ],
+  "names": [
+    "Boris",
+    "Marina",
+    "Cedric"
+  ],
+  "personality": "I shape timber into ships and teach crews to respect the currents."
+}

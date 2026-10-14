@@ -1,0 +1,15 @@
+{
+  "id": "dagger",
+  "name": "Dagger",
+  "damage": 18,
+  "reach": 80,
+  "duration": 0.38,
+  "rarity": 0,
+  "weight": 55,
+  "kind": "blade",
+  "cost": {
+    "0": 4,
+    "1": 3
+  },
+  "technology": ""
+}

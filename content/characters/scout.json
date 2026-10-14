@@ -1,0 +1,13 @@
+{
+  "id": "scout",
+  "name": "Scout",
+  "lore": "A trail runner who knows how to survive long journeys.",
+  "pros": "12% faster on foot.",
+  "cons": "15% more incoming damage.",
+  "speed": 1.12,
+  "gather": 1,
+  "damage": 1,
+  "taken": 1.15,
+  "trade": 1,
+  "coins": 0
+}

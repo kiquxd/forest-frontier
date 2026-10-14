@@ -1,0 +1,12 @@
+{
+  "id": "wood_sword",
+  "name": "Stone sword",
+  "damage": 25,
+  "reach": 115,
+  "duration": 0.58,
+  "rarity": 0,
+  "weight": 60,
+  "kind": "blade",
+  "cost": {},
+  "technology": ""
+}

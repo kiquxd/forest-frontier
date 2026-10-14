@@ -1,0 +1,15 @@
+{
+  "id": "supplies",
+  "title": "Forest supplies",
+  "lore": "Help us restock the workshop. Bring six wood.",
+  "objective": "deliver",
+  "good": 0,
+  "target": 6,
+  "coins": 10,
+  "rewards": {},
+  "knowledge": "",
+  "recipe": "outfit_forager",
+  "weapon": "",
+  "outfit": "",
+  "role": "forester"
+}

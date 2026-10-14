@@ -1,0 +1,15 @@
+{
+  "id": "iron_axe",
+  "name": "Battle axe",
+  "damage": 46,
+  "reach": 110,
+  "duration": 0.85,
+  "rarity": 1,
+  "weight": 18,
+  "kind": "axe",
+  "cost": {
+    "0": 5,
+    "6": 10
+  },
+  "technology": "ironworking"
+}

@@ -1,0 +1,15 @@
+{
+  "id": "rapier",
+  "name": "Steel rapier",
+  "damage": 42,
+  "reach": 145,
+  "duration": 0.43,
+  "rarity": 2,
+  "weight": 7,
+  "kind": "blade",
+  "cost": {
+    "10": 8,
+    "7": 3
+  },
+  "technology": "steelworking"
+}

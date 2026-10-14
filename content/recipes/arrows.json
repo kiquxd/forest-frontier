@@ -1,0 +1,11 @@
+{
+  "id": "arrows",
+  "name": "Arrows x10",
+  "cost": {
+    "0": 3,
+    "1": 1
+  },
+  "result": "ammo",
+  "effect": "Ammunition for bows and crossbows",
+  "technology": ""
+}

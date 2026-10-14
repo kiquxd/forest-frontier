@@ -1,0 +1,16 @@
+{
+  "id": "relic_sword",
+  "name": "Ancient blade",
+  "damage": 95,
+  "reach": 160,
+  "duration": 0.75,
+  "rarity": 3,
+  "weight": 1,
+  "kind": "blade",
+  "cost": {
+    "10": 10,
+    "12": 4,
+    "8": 6
+  },
+  "technology": "ancient"
+}

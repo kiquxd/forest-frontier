@@ -1,0 +1,11 @@
+{
+  "id": "armor",
+  "name": "Leather armor",
+  "cost": {
+    "0": 2,
+    "5": 6
+  },
+  "result": "armor",
+  "effect": "Reduces damage taken",
+  "technology": ""
+}

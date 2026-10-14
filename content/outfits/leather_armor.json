@@ -1,0 +1,21 @@
+{
+  "id": "leather_armor",
+  "name": "Leather armor",
+  "description": "Take 40% less damage; suitable for defenders.",
+  "technology": "",
+  "job": "guard",
+  "speed": 1,
+  "gather": 1,
+  "taken": 0.6,
+  "trade": 1,
+  "cost": {
+    "0": 6,
+    "5": 6
+  },
+  "color": [
+    143,
+    112,
+    78
+  ],
+  "quest_only": false
+}

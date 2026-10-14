@@ -1,0 +1,17 @@
+{
+  "id": "merchant",
+  "role": "Merchant",
+  "weight": 35,
+  "rarity": 0,
+  "color": [
+    164,
+    135,
+    165
+  ],
+  "names": [
+    "Elias",
+    "Mabel",
+    "Jasper"
+  ],
+  "personality": "I bring supplies to market and value an honest, useful bargain."
+}

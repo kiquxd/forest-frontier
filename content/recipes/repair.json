@@ -1,0 +1,11 @@
+{
+  "id": "repair",
+  "name": "Repair kit",
+  "cost": {
+    "0": 3,
+    "6": 2
+  },
+  "result": "repair",
+  "effect": "J: repair your vessel hull",
+  "technology": "ironworking"
+}

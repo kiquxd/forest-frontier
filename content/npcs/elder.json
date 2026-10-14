@@ -1,0 +1,17 @@
+{
+  "id": "elder",
+  "role": "Elder",
+  "weight": 40,
+  "rarity": 0,
+  "color": [
+    166,
+    115,
+    89
+  ],
+  "names": [
+    "Martha",
+    "Walter",
+    "Agnes"
+  ],
+  "personality": "I look after our town and remember the promises made by its neighbors."
+}

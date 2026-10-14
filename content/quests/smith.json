@@ -1,0 +1,15 @@
+{
+  "id": "smith",
+  "title": "A smith's trust",
+  "lore": "Bring eight stone. Your reward is a spare stone sword.",
+  "objective": "deliver",
+  "good": 1,
+  "target": 8,
+  "coins": 8,
+  "rewards": {},
+  "knowledge": "",
+  "recipe": "",
+  "weapon": "wood_sword",
+  "outfit": "",
+  "role": "smith"
+}

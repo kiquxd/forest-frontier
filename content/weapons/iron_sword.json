@@ -1,0 +1,15 @@
+{
+  "id": "iron_sword",
+  "name": "Iron sword",
+  "damage": 38,
+  "reach": 130,
+  "duration": 0.6,
+  "rarity": 1,
+  "weight": 20,
+  "kind": "blade",
+  "cost": {
+    "0": 4,
+    "6": 8
+  },
+  "technology": "ironworking"
+}

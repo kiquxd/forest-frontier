@@ -1,0 +1,15 @@
+{
+  "id": "club",
+  "name": "War hammer",
+  "damage": 32,
+  "reach": 100,
+  "duration": 0.9,
+  "rarity": 0,
+  "weight": 40,
+  "kind": "hammer",
+  "cost": {
+    "0": 6,
+    "1": 9
+  },
+  "technology": ""
+}

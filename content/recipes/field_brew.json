@@ -1,0 +1,12 @@
+{
+  "id": "field_brew",
+  "name": "Field healing brew",
+  "cost": {
+    "2": 3,
+    "3": 2
+  },
+  "result": "potion",
+  "effect": "H: +45 health; a recipe taught by an alchemist",
+  "technology": "",
+  "quest_only": true
+}

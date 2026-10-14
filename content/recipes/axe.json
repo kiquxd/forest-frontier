@@ -1,0 +1,11 @@
+{
+  "id": "axe",
+  "name": "Axe",
+  "cost": {
+    "0": 5,
+    "1": 2
+  },
+  "result": "axe",
+  "effect": "Harvest wood faster",
+  "technology": ""
+}

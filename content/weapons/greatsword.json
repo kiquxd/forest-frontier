@@ -1,0 +1,15 @@
+{
+  "id": "greatsword",
+  "name": "Greatsword",
+  "damage": 65,
+  "reach": 155,
+  "duration": 1.1,
+  "rarity": 2,
+  "weight": 6,
+  "kind": "blade",
+  "cost": {
+    "10": 14,
+    "5": 3
+  },
+  "technology": "steelworking"
+}

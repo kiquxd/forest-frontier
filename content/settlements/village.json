@@ -1,0 +1,17 @@
+{
+  "id": "village",
+  "name": "Forest Village",
+  "weight": 65,
+  "rarity": 0,
+  "attitude": 20,
+  "teacher": "forester",
+  "technology": "ironworking",
+  "goods": [
+    6
+  ],
+  "color": [
+    109,
+    151,
+    101
+  ]
+}

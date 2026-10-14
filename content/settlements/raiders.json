@@ -1,0 +1,17 @@
+{
+  "id": "raiders",
+  "name": "Raider Fortress",
+  "weight": 12,
+  "rarity": 1,
+  "attitude": -55,
+  "teacher": "guard",
+  "technology": "fortification",
+  "goods": [
+    6
+  ],
+  "color": [
+    168,
+    99,
+    86
+  ]
+}

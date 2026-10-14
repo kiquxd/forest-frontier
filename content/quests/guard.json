@@ -1,0 +1,15 @@
+{
+  "id": "guard",
+  "title": "Outfit the watch",
+  "lore": "Deliver three leather to help our defenders.",
+  "objective": "deliver",
+  "good": 5,
+  "target": 3,
+  "coins": 15,
+  "rewards": {},
+  "knowledge": "",
+  "recipe": "",
+  "weapon": "",
+  "outfit": "hunter",
+  "role": "guard"
+}

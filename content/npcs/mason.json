@@ -1,0 +1,17 @@
+{
+  "id": "mason",
+  "role": "Mason",
+  "weight": 50,
+  "rarity": 0,
+  "color": [
+    156,
+    143,
+    115
+  ],
+  "names": [
+    "Bram",
+    "Petra",
+    "Grant"
+  ],
+  "personality": "I build with stone because a good wall should outlast its builder."
+}

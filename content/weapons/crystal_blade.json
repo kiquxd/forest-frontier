@@ -1,0 +1,15 @@
+{
+  "id": "crystal_blade",
+  "name": "Crystal blade",
+  "damage": 70,
+  "reach": 145,
+  "duration": 0.62,
+  "rarity": 3,
+  "weight": 2,
+  "kind": "blade",
+  "cost": {
+    "10": 10,
+    "8": 8
+  },
+  "technology": "crystallurgy"
+}

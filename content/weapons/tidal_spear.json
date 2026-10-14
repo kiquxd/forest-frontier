@@ -1,0 +1,15 @@
+{
+  "id": "tidal_spear",
+  "name": "Tidal spear",
+  "damage": 58,
+  "reach": 190,
+  "duration": 0.7,
+  "rarity": 2,
+  "weight": 4,
+  "kind": "spear",
+  "cost": {
+    "7": 8,
+    "9": 5
+  },
+  "technology": "diving"
+}

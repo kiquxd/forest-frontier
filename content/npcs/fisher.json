@@ -1,0 +1,17 @@
+{
+  "id": "fisher",
+  "role": "Fisher",
+  "weight": 40,
+  "rarity": 0,
+  "color": [
+    99,
+    146,
+    158
+  ],
+  "names": [
+    "Nell",
+    "Arthur",
+    "Reed"
+  ],
+  "personality": "I mend our nets and know the quiet places where fish gather."
+}

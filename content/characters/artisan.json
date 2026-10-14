@@ -1,0 +1,13 @@
+{
+  "id": "artisan",
+  "name": "Artisan",
+  "lore": "A patient maker with a gift for gathering materials.",
+  "pros": "20% shorter gather time.",
+  "cons": "10% slower; 15% weaker attacks.",
+  "speed": 0.9,
+  "gather": 0.8,
+  "damage": 0.85,
+  "taken": 1,
+  "trade": 1,
+  "coins": 0
+}

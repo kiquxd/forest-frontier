@@ -1,0 +1,17 @@
+{
+  "id": "pearl_diver",
+  "role": "Pearl diver",
+  "weight": 5,
+  "rarity": 2,
+  "color": [
+    119,
+    179,
+    174
+  ],
+  "names": [
+    "Pearl",
+    "Coral",
+    "Dylan"
+  ],
+  "personality": "I know the dangers below the surface and keep our diving methods alive."
+}

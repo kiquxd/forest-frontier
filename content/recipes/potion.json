@@ -1,0 +1,10 @@
+{
+  "id": "potion",
+  "name": "Healing potion",
+  "cost": {
+    "2": 4
+  },
+  "result": "potion",
+  "effect": "H: +45 health",
+  "technology": ""
+}

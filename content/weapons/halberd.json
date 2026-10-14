@@ -1,0 +1,15 @@
+{
+  "id": "halberd",
+  "name": "Halberd",
+  "damage": 43,
+  "reach": 175,
+  "duration": 0.95,
+  "rarity": 1,
+  "weight": 14,
+  "kind": "spear",
+  "cost": {
+    "0": 7,
+    "6": 10
+  },
+  "technology": "ironworking"
+}

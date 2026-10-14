@@ -1,0 +1,17 @@
+{
+  "id": "archivist",
+  "role": "Archivist",
+  "weight": 2,
+  "rarity": 3,
+  "color": [
+    175,
+    162,
+    101
+  ],
+  "names": [
+    "Alden",
+    "Iris",
+    "Sage"
+  ],
+  "personality": "I preserve fragments of old machines and stories from the sunken ruins."
+}

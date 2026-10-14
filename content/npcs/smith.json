@@ -1,0 +1,17 @@
+{
+  "id": "smith",
+  "role": "Blacksmith",
+  "weight": 18,
+  "rarity": 1,
+  "color": [
+    130,
+    128,
+    139
+  ],
+  "names": [
+    "Hugh",
+    "Greta",
+    "Flint"
+  ],
+  "personality": "I work the forge and keep our tools and weapons in good condition."
+}

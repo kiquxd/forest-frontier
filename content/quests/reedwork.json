@@ -1,0 +1,15 @@
+{
+  "id": "reedwork",
+  "title": "Reeds for the docks",
+  "lore": "Bring eight reeds and learn how sailors stitch their jackets.",
+  "objective": "deliver",
+  "good": 3,
+  "target": 8,
+  "coins": 14,
+  "rewards": {},
+  "knowledge": "",
+  "recipe": "outfit_sailor",
+  "weapon": "",
+  "outfit": "",
+  "role": "shipwright"
+}

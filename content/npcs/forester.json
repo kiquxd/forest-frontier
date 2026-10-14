@@ -1,0 +1,17 @@
+{
+  "id": "forester",
+  "role": "Forester",
+  "weight": 60,
+  "rarity": 0,
+  "color": [
+    96,
+    146,
+    105
+  ],
+  "names": [
+    "Silas",
+    "Willow",
+    "Glen"
+  ],
+  "personality": "I keep forest paths open and harvest only what the woods can spare."
+}

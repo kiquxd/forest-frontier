@@ -1,0 +1,15 @@
+{
+  "id": "scholar",
+  "title": "A map worth teaching",
+  "lore": "Explore forty new map cells. I will share the scholars' robe pattern.",
+  "objective": "explore",
+  "good": 0,
+  "target": 40,
+  "coins": 20,
+  "rewards": {},
+  "knowledge": "",
+  "recipe": "outfit_scholar",
+  "weapon": "",
+  "outfit": "",
+  "role": "scholar"
+}

@@ -1,0 +1,21 @@
+{
+  "id": "scholar",
+  "name": "Scholar robes",
+  "description": "Gather time -10%; work as a scholar.",
+  "technology": "crystallurgy",
+  "job": "scholar",
+  "speed": 1,
+  "gather": 0.9,
+  "taken": 1,
+  "trade": 1,
+  "cost": {
+    "3": 12,
+    "8": 2
+  },
+  "color": [
+    131,
+    123,
+    186
+  ],
+  "quest_only": true
+}

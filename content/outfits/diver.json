@@ -1,0 +1,22 @@
+{
+  "id": "diver",
+  "name": "Diver suit",
+  "description": "Take 20% less damage; air drains 25% slower.",
+  "technology": "diving",
+  "job": "engineer",
+  "speed": 1,
+  "gather": 1,
+  "taken": 0.8,
+  "trade": 1,
+  "cost": {
+    "5": 8,
+    "7": 5,
+    "9": 2
+  },
+  "color": [
+    84,
+    152,
+    144
+  ],
+  "quest_only": true
+}
