@@ -143,16 +143,16 @@ int main() {
     for (int i = 0; i < 3; i++) {
       game.Advance(1);
       Check(game.Attack(world, save).ok, "Sword attack");
-      game.Advance(.18f);
-      game.Combat(world, save, .18f);
+      game.Advance(.32f);
+      game.Combat(world, save, .32f);
     }
     Check(save.defeated.contains(999) && save.inventory.leather == 2 &&
               save.coins == 23,
           "Three sword hits defeat wolf with one loot drop");
     game.Advance(1);
     game.Attack(world, save);
-    game.Advance(.18f);
-    game.Combat(world, save, .18f);
+    game.Advance(.32f);
+    game.Combat(world, save, .32f);
     Check(save.inventory.leather == 2, "Defeated wolf cannot drop twice");
     auto& enemy = world.chunks.at({0, 0}).enemies[0];
     save.defeated.clear();

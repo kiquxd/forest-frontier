@@ -1,0 +1,11 @@
+{
+  "number": 5,
+  "id": "raft",
+  "name": "Reed raft",
+  "speed": 0.65,
+  "view": 700,
+  "length": 35,
+  "width": 27,
+  "prestige": 0,
+  "coins": 0
+}

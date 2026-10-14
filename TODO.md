@@ -125,26 +125,24 @@ Remove an item only after its full scope is implemented and validated. Split it 
 - [ ] Animals wander/flee locally, without breeding, food chains or persistent population simulation.
 - [ ] Terrain is flat, without caves, elevation or physical geology. Weather, seasons and a day/night simulation are absent.
 
-## Collision and navigation
+## Collision geometry
 
-- [ ] Collision is a two-dimensional radius test against simplified obstacles, not shape-accurate geometry or rigid bodies.
-- [ ] Actors have no complete body-to-body collision model; gravity and elevation are absent.
-- [ ] Navigation searches a bounded area of loaded terrain and approaches distant goals in short segments, rather than planning full world routes for caravans/armies.
-- [ ] There is no hierarchical routing or complete handling of distant blocked/unloaded destinations.
+- [ ] Body contacts use local disc separation rather than a general rigid-body simulation. Vessels use radius footprints rather than a separate collision hull for each persistent craft.
+
 
 ## Map and exploration
 
-- [ ] Surface exploration follows the viewport, without line-of-sight occlusion. Window size/zoom affect exploration counters.
-- [ ] Cartography is a cached coarse raster, without continuous detail at every scale.
-- [ ] There are no manual annotations, route planning, strategic orders or complete political/economic overlays.
+- [ ] Cartography uses scale-dependent cached raster detail and exploration cells, not an unlimited-resolution geographic model.
+- [ ] Political/economic layers show discovered towns and remembered deposits; complete regional borders, production forecasts and strategic orders await the deferred resident-command/navigation systems.
 - [ ] Road detail inherits the incomplete world road network.
+
 
 ## Graphics, animation and audio
 
-- [ ] Sprites/drawing primitives do not provide real 3D buildings, geometric depth, dynamic lighting or physical shadows.
-- [ ] Houses share limited variants/repeated layouts. NPCs share limited animation; complete job, interaction and combat animation sets are absent.
-- [ ] Water graphics do not simulate waves, vessel wakes or physically changing shores.
-- [ ] Music, sound effects and spatial audio are not implemented.
+- [ ] Buildings have twelve facade/detail variants and fade when they occlude the player; interiors, more architectural styles and complete profession/interaction animation sets remain incomplete.
+- [ ] Water has animated ripples, foam and vessel wakes; physical waves, tides and changing shores are not simulated.
+- [ ] Audio provides three synthesized music loops and event/ambient effects with independent volume controls and distance/pan for nearby hits, wolves and fires; a larger soundtrack, a full ambient mixing system and smooth soundtrack crossfades are not implemented.
+
 
 ## Menus, controls and save management
 
@@ -167,3 +165,9 @@ Remove an item only after its full scope is implemented and validated. Split it 
 - [ ] Windows/macOS packaging, platform validation and a complete distribution workflow are not established by the Linux build.
 - [ ] Linux source setup is available and tested, but there is no standalone relocatable package: assets/content/default writable paths remain bound to the checkout at build time. System packages must be installed separately.
 - [ ] Downloads use HTTPS, curl success and a GGUF header check for the model, without pinned checksums or complete model validation. The model/font URLs track upstream main, and existing dependency files/source checkouts are reused rather than reverified against a lock manifest.
+
+## Navigation and autonomous movement (deferred)
+
+- [ ] Full destination orders and route planning are deferred until command systems exist for owned and foreign residents/professions, caravans and armies; current job/equipment assignments are timer-based prototypes, not this prerequisite.
+- [ ] Navigation searches a bounded area of loaded terrain and approaches distant goals in short segments, rather than planning full world routes for caravans/armies.
+- [ ] There is no hierarchical routing or complete handling of distant blocked/unloaded destinations.

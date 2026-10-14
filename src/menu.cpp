@@ -318,6 +318,7 @@ std::optional<std::filesystem::path> MainMenu(MenuOptions& options) {
     }
     bool operation_opened_this_frame = false;
     const auto frame_page = page;
+    renderer.UpdateAudio();
     BeginDrawing();
     ClearBackground(kBackground);
     Landscape(scene, w, h);

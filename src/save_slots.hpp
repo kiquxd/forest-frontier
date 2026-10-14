@@ -21,6 +21,9 @@ struct Settings {
   bool debug{true};
   float text_scale{1.f};
   bool high_contrast{};
+  int music_mode{};
+  float music_volume{.45f};
+  float effects_volume{.65f};
   Bindings bindings{DefaultBindings()};
   std::string last_save;
 };

@@ -1,0 +1,12 @@
+{
+  "id": "vessel_canoe",
+  "name": "Canoe",
+  "cost": {
+    "0": 24,
+    "3": 10,
+    "5": 4
+  },
+  "result": "vessel:canoe",
+  "technology": "",
+  "effect": "Light, narrow hull for exploration."
+}

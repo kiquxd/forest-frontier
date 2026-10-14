@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "adventure.hpp"
+#include "atlas_notes.hpp"
 #include "dialogue.hpp"
 #include "gameplay.hpp"
 #include "input.hpp"
@@ -32,6 +33,7 @@
 #include "render.hpp"
 #include "rlgl.h"
 #include "settings_ui.hpp"
+#include "vessels.hpp"
 #include "world.hpp"
 
 namespace {
@@ -195,10 +197,11 @@ Options Parse(int argc, char** argv) {
     throw std::runtime_error("Invalid spawn");
   }
   const std::vector<std::string> previews = {
-      "menu",   "newgame",   "saves",     "settings", "quests",
-      "skills", "clothes",   "residents", "houses",   "craft",
-      "trade",  "city",      "map",       "talk",     "ruler",
-      "ship",   "submarine", "weapons",   "combat"};
+      "menu",   "newgame",   "saves",     "settings",   "quests",
+      "skills", "clothes",   "residents", "houses",     "craft",
+      "trade",  "city",      "map",       "talk",       "ruler",
+      "ship",   "submarine", "weapons",   "combat",     "raft",
+      "canoe",  "skiff",     "cutter",    "brigantine", "flagship"};
   if (!options.preview.empty() &&
       std::find(previews.begin(), previews.end(), options.preview) ==
           previews.end()) {
@@ -363,12 +366,21 @@ int Play(const Options& options) {
     save.inventory.sword = true;
     save.inventory.weapons.insert("wood_sword");
     save.inventory.weapon_id = "wood_sword";
-    if (options.preview == "ship" || options.preview == "submarine") {
+    if (options.preview == "ship" || options.preview == "submarine" ||
+        options.preview == "raft" || options.preview == "canoe" ||
+        options.preview == "skiff" || options.preview == "cutter" ||
+        options.preview == "brigantine" || options.preview == "flagship") {
       save.inventory.boat = true;
       save.inventory.ship = true;
       save.inventory.submarine = true;
       save.inventory.sonar = true;
-      save.vehicle = options.preview == "ship" ? 2 : 3;
+      save.vehicle = options.preview == "ship" ? 2
+                     : options.preview == "submarine"
+                         ? 3
+                         : frontier::Vessel(options.preview).number;
+      if (save.vehicle > 3) {
+        save.vessels.insert(options.preview);
+      }
       save.submerged = options.preview == "submarine";
       if (!options.spawn) {
         save.player = {1100, -1100};
@@ -571,6 +583,15 @@ int Play(const Options& options) {
           {"biome",
            frontier::TerrainName(frontier::TerrainAt(save.player, save.seed))},
           {"submerged", save.submerged},
+          {"audio_ready", renderer.AudioReady()},
+          {"music_mode", frontier::ActiveSettings().music_mode},
+          {"music_volume", frontier::ActiveSettings().music_volume},
+          {"effects_volume", frontier::ActiveSettings().effects_volume},
+          {"map_notes", save.map_notes.size()},
+          {"map_open", ui.cartography},
+          {"map_overlay", ui.map_overlay},
+          {"new_vessels", save.vessels.size()},
+          {"visible_surface_cells", save.visible_surface.size()},
           {"known_surface_cells", save.explored.size()},
           {"known_underwater_cells", save.explored_underwater.size()},
           {"home_city", save.home_city},
@@ -684,7 +705,7 @@ int Play(const Options& options) {
                   ? completed.output_tokens * 1000 / completed.generation_ms
                   : 0}});
       }
-      if (!ui.settings_open &&
+      if (!ui.settings_open && !ui.map_journal &&
           frontier::ActionPressed(frontier::InputAction::kDebug)) {
         ui.debug = !ui.debug;
       }
@@ -706,7 +727,10 @@ int Play(const Options& options) {
         next_plan = 0;
       }
       if (frontier::MenuBack() && !ui.settings_open) {
-        if (ui.progression) {
+        if (ui.map_journal) {
+          ui.map_journal = false;
+          ui.note_edit = false;
+        } else if (ui.progression) {
           ui.summary.requested_node.clear();
           ui.summary.requested_assignment = false;
           ui.progression = false;
@@ -728,7 +752,7 @@ int Play(const Options& options) {
           ui.pause_error.clear();
         }
       }
-      if (!ui.settings_open &&
+      if (!ui.settings_open && !ui.map_journal &&
           frontier::ActionPressed(frontier::InputAction::kProgress)) {
         bool opened = !ui.progression;
         ui.npc = -1;
@@ -835,12 +859,13 @@ int Play(const Options& options) {
         }
       }
       const frontier::Resource* resource = nullptr;
-      if (!ui.paused && !ui.progression && !quit && !pause_was_active) {
+      if (!ui.paused && !ui.progression && !ui.map_journal && !quit &&
+          !pause_was_active) {
         game.Advance(dt);
         if (ui.cartography) {
           ui.map_range = std::clamp(
               ui.map_range * (1 - GetMouseWheelMove() * .12f), 900.f, 18000.f);
-          if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+          if (IsMouseButtonDown(MOUSE_BUTTON_MIDDLE)) {
             auto delta = GetMouseDelta();
             ui.map_center =
                 ui.map_center -
@@ -1050,6 +1075,7 @@ int Play(const Options& options) {
           if (frontier::ActionPressed(frontier::InputAction::kMap)) {
             ui.cartography = !ui.cartography;
             ui.map_center = save.player;
+            ui.map_range = std::max(900.f, frontier::SightRange(save) * 1.6f);
             ui.crafting = ui.trading = ui.civic = ui.equipment =
                 ui.progression = ui.wardrobe = ui.journal = false;
           }
@@ -1345,7 +1371,8 @@ int Play(const Options& options) {
         }
         if (now >= next_explore) {
           game.Explore(save, static_cast<float>(GetScreenWidth()),
-                       static_cast<float>(GetScreenHeight()), camera.zoom);
+                       static_cast<float>(GetScreenHeight()), camera.zoom,
+                       &world);
           next_explore = now + .2;
         }
         if (!game.notice.empty()) {
@@ -1513,6 +1540,13 @@ int Play(const Options& options) {
             hint_action(frontier::InputAction::kResidentAssign, "Assign");
           }
           ui.actions.push_back({"Esc", "Close conversation"});
+        } else if (ui.cartography) {
+          hint_action(frontier::InputAction::kMap, "Close map");
+          ui.actions.push_back({"Click", "Write / open note"});
+          ui.actions.push_back({"Tab", "Journal"});
+          ui.actions.push_back({"Middle mouse", "Pan"});
+          ui.actions.push_back({"Wheel", "Zoom"});
+          ui.actions.push_back({"1 / 2 / 3", "Map layers"});
         } else if (ui.Blocked()) {
           ui.actions.push_back({"Enter / Esc", "Confirm / close"});
         } else {
@@ -1548,8 +1582,7 @@ int Play(const Options& options) {
           if (!save.submerged && !frontier::Watercraft(save)) {
             hint_action(frontier::InputAction::kAttack, "Attack");
           }
-          if (save.inventory.boat || save.inventory.ship ||
-              save.inventory.submarine) {
+          if (frontier::Watercraft(save)) {
             hint_action(frontier::InputAction::kVehicle, "Vessel");
           }
           if (save.inventory.submarine && frontier::ActiveVehicle(save) == 3) {
@@ -1582,8 +1615,8 @@ int Play(const Options& options) {
                        frontier::GatherTimeMultiplier(save))
                 : 0;
       }
-      if (!options.no_save && !ui.paused && !ui.progression && !quit &&
-          now - last_save > 30) {
+      if (!options.no_save && !ui.paused && !ui.progression &&
+          !ui.map_journal && !quit && now - last_save > 30) {
         auto t = frontier::Clock::now();
         frontier::WriteSave(options.save_path, save);
         last_save = now;
@@ -1621,13 +1654,14 @@ int Play(const Options& options) {
       }
       double update_ms = frontier::ElapsedMilliseconds(update_start);
       auto render_start = frontier::Clock::now();
+      renderer.UpdateAudio(&save, &game, ui.Blocked(), &world);
       BeginDrawing();
       ClearBackground(save.submerged ? Color{12, 28, 39, 255}
                                      : Color{41, 58, 42, 255});
       BeginMode2D(camera);
       ui.visible = renderer.DrawWorld(world, save, game, camera, now,
                                       static_cast<float>(sim_accumulator / .1),
-                                      resource);
+                                      resource, ui.harvest_progress);
       EndMode2D();
       renderer.DrawLabels(world, save, ui, camera);
       renderer.DrawUi(world, save, ui, camera);

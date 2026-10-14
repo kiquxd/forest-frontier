@@ -17,6 +17,7 @@
 #include "adventure.hpp"
 #include "input.hpp"
 #include "json.hpp"
+#include "vessels.hpp"
 
 namespace frontier {
 static constexpr Color kInk{222, 231, 213, 255};
@@ -33,7 +34,9 @@ Renderer::Renderer() {
   // One texture atlas means grass, trees, people and huts share raylib's draw
   // batch.
   const int outfit_start = 64 + static_cast<int>(GetContent().npcs.size()) * 5;
-  int count = outfit_start + static_cast<int>(GetContent().outfits.size()) * 5;
+  const int building_start =
+      outfit_start + static_cast<int>(GetContent().outfits.size()) * 5;
+  int count = building_start + 12;
   sprites_.resize(count);
   Image atlas = GenImageColor(1024, ((count + 7) / 8) * 160, BLANK);
   for (int index = 0; index < count; index++) {
@@ -54,7 +57,13 @@ Renderer::Renderer() {
       frame = (index - 48) % 4 + 1;
     }
     int npc = index >= 64 && index < outfit_start ? (index - 64) / 5 : -1;
-    int clothing = index >= outfit_start ? (index - outfit_start) / 5 : -1;
+    int clothing = index >= outfit_start && index < building_start
+                       ? (index - outfit_start) / 5
+                       : -1;
+    int building = index >= building_start ? index - building_start : -1;
+    if (building >= 0) {
+      base = 18 + building % 2;
+    }
     if (clothing >= 0) {
       base = 16;
       frame = (index - outfit_start) % 5;
@@ -128,6 +137,14 @@ Renderer::Renderer() {
       tri(40, 72, 64, 9, 61, 72, {68, 110, 68, 255});
       line(45, 103, 78, 103, {73, 109, 63, 255});
       line(51, 79, 69, 79, {79, 118, 72, 255});
+      for (int branch = 0; branch < 12; branch++) {
+        int px = 42 + (branch * 13) % 38, py = 64 + (branch * 17) % 61;
+        line(px, py, px + 9, py + 3, {65, 100, 56, 255});
+      }
+      for (int bark = 0; bark < 6; bark++) {
+        line(61 + bark % 3, 118 + bark * 4, 64 + bark % 3, 122 + bark * 4,
+             {63, 51, 40, 255});
+      }
     } else if (base == 11) {
       tri(41, 146, 85, 146, 73, 154, {18, 32, 25, 65});
       tri(42, 144, 45, 125, 71, 117, {127, 138, 131, 255});
@@ -166,6 +183,11 @@ Renderer::Renderer() {
       rect(57, 87 - bob, 17, 6, {65, 55, 45, 255});
       rect(65, 97 - bob, 2, 2, {45, 44, 34, 255});
       rect(58, 116 - bob, 16, 3, {74, 66, 47, 255});
+      rect(58, 109 - bob, 5, 5, {89, 87, 62, 255});
+      rect(68, 109 - bob, 5, 5, {89, 87, 62, 255});
+      line(64, 106 - bob, 64, 115 - bob, {190, 171, 117, 255});
+      rect(58 - stride, 141 - stride, 7, 3, {75, 58, 43, 255});
+      rect(68 + stride, 141 + stride, 7, 3, {75, 58, 43, 255});
       if (base == 16) {
         rect(53, 105 - bob, 6, 19, {107, 80, 48, 255});
         rect(59, 83 - bob, 16, 5, {173, 128, 68, 255});
@@ -226,6 +248,35 @@ Renderer::Renderer() {
       for (int i = 0; i < 5; i++) {
         line(24 + i * 7, 70 - i * 5, 61, 100 - i * 9, {115, 75, 47, 255});
         line(67, 99 - i * 9, 105 - i * 6, 78 - i * 5, {86, 67, 47, 255});
+      }
+      // Weathered siding, nail heads, brick joints and varied paint colors.
+      int variant = building < 0 ? base - 18 : building;
+      for (int row = 0; row < 5; row++) {
+        for (int col = 0; col < 4; col++) {
+          int px = 22 + col * 10, py = 88 + row * 8 + col * 5;
+          circle(px, py, 1, {203, 171, 119, 255});
+          if (variant % 3 == 1) {
+            line(px, py - 2, px, py + 5, {103, 79, 64, 255});
+          }
+        }
+      }
+      Color trim = variant % 3 == 0   ? Color{122, 174, 165, 255}
+                   : variant % 3 == 1 ? Color{224, 180, 114, 255}
+                                      : Color{191, 123, 109, 255};
+      line(19, 78, 63, 100, trim);
+      line(65, 100, 109, 78, trim);
+      if (variant % 3 == 2) {
+        quad(25, 110, 48, 120, 48, 126, 25, 116, {83, 108, 61, 255});
+        circle(31, 111, 3, {193, 116, 119, 255});
+        circle(43, 117, 3, {208, 164, 94, 255});
+      }
+      if (variant % 4 == 1) {
+        quad(68, 107, 84, 99, 96, 107, 80, 115, trim);
+        line(68, 108, 80, 115, {231, 216, 167, 255});
+      }
+      if (variant % 4 == 2) {
+        rect(48, 48, 10, 27, {124, 110, 92, 255});
+        rect(46, 45, 14, 5, {171, 157, 121, 255});
       }
       // Windows sit on their respective isometric wall planes.
       quad(28, 89, 45, 98, 45, 112, 28, 103, {62, 111, 125, 255});
@@ -309,6 +360,23 @@ Renderer::Renderer() {
       }
     }
   }
+  // Deterministic fine grain enriches every material without new GPU textures.
+  for (int index = 0; index < count; index++) {
+    for (int grain = 0; grain < 180; grain++) {
+      auto bits = Hash(index * 701 + grain);
+      int x = (index % 8) * 128 + bits % 128,
+          y = (index / 8) * 160 + (bits / 128) % 160;
+      Color c = GetImageColor(atlas, x, y);
+      if (c.a != 255) {
+        continue;
+      }
+      int shade = static_cast<int>((bits >> 20) % 11) - 5;
+      c.r = static_cast<unsigned char>(std::clamp(c.r + shade, 0, 255));
+      c.g = static_cast<unsigned char>(std::clamp(c.g + shade, 0, 255));
+      c.b = static_cast<unsigned char>(std::clamp(c.b + shade, 0, 255));
+      ImageDrawPixel(&atlas, x, y, c);
+    }
+  }
   atlas_ = LoadTextureFromImage(atlas);
   UnloadImage(atlas);
   SetTextureFilter(atlas_, TEXTURE_FILTER_POINT);
@@ -355,6 +423,7 @@ Renderer::Renderer() {
     icon_ids_[ids[i]] = i;
   }
   items_.reserve(4096);
+  ground_details_.reserve(4096);
 }
 Renderer::~Renderer() {
   for (auto& f : fonts_) {
@@ -463,9 +532,10 @@ bool Renderer::Visible(Vec position, const Camera2D& c, float margin) const {
 size_t Renderer::DrawWorld(const World& world, const Save& save,
                            const Gameplay& game, const Camera2D& camera,
                            double time, float alpha,
-                           const Resource* highlighted) {
+                           const Resource* highlighted, float gathering) {
   const int outfit_start = 64 + static_cast<int>(GetContent().npcs.size()) * 5;
   items_.clear();
+  ground_details_.clear();
   size_t count = 0;
   for (auto& [coord, chunk] : world.chunks) {
     // Chunk bounds first, then individual tile bounds, all in projected
@@ -515,6 +585,11 @@ size_t Renderer::DrawWorld(const World& world, const Save& save,
           }
         }
         Sprite(image, position, tint);
+        uint64_t detail = ObjectId(coord.x * kChunkTiles + x,
+                                   coord.y * kChunkTiles + y, save.seed);
+        if (!save.submerged) {
+          ground_details_.push_back({position, detail, t.terrain, t.path});
+        }
         count++;
       }
     }
@@ -566,8 +641,40 @@ size_t Renderer::DrawWorld(const World& world, const Save& save,
                                     : 25);
       if (Visible(position, camera)) {
         items_.push_back({position, image,
-                          enemy.flash > 0 ? Color{255, 160, 135, 255} : WHITE,
+                          enemy.flash > 0    ? Color{255, 160, 135, 255}
+                          : enemy.windup > 0 ? Color{236, 188, 130, 255}
+                                             : WHITE,
                           Project(enemy.pos - enemy.previous).x < 0});
+      }
+    }
+  }
+  // Draw decoration after all terrain sprites to keep the atlas batch intact.
+  for (const auto& tile : ground_details_) {
+    Vec position = tile.position;
+    uint64_t detail = tile.id;
+    if ((tile.terrain == Terrain::kDeep || tile.terrain == Terrain::kShallow)) {
+      float phase = static_cast<float>(time) * 1.7f + (detail % 97) * .1f;
+      Vec ripple = position + Vec{std::sin(phase) * 8,
+                                  static_cast<float>(detail % 13) - 6};
+      DrawLineEx(
+          ToVector2(ripple - Vec{12, 0}),
+          ToVector2(ripple + Vec{8, std::sin(phase) * 2}), 1.5f,
+          {135, 201, 206,
+           static_cast<unsigned char>(60 + 45 * (1 + std::sin(phase)) * .5f)});
+      if (tile.terrain == Terrain::kShallow && detail % 3 == 0) {
+        DrawEllipseLines(static_cast<int>(ripple.x), static_cast<int>(ripple.y),
+                         20, 5, {204, 224, 196, 100});
+      }
+    } else if (tile.terrain == Terrain::kForest && !tile.path &&
+               detail % 3 == 0) {
+      for (int blade = 0; blade < 3; blade++) {
+        DrawLineEx(
+            ToVector2(position + Vec{static_cast<float>(blade * 3), 3}),
+            ToVector2(position + Vec{static_cast<float>(blade * 3 - 2), -3}), 1,
+            {78, 122, 65, 180});
+      }
+      if (detail % 11 == 0) {
+        DrawCircleV(ToVector2(position + Vec{5, -3}), 2, {225, 192, 130, 240});
       }
     }
   }
@@ -575,7 +682,23 @@ size_t Renderer::DrawWorld(const World& world, const Save& save,
     for (auto& b : world.buildings) {
       auto position = Project(b.pos);
       if (Visible(position, camera)) {
-        items_.push_back({position, b.hall ? 58 : 18 + b.variant % 2, WHITE});
+        const int building_start =
+            outfit_start + static_cast<int>(GetContent().outfits.size()) * 5;
+        Color tint = WHITE;
+        auto head = Project(save.player) + Vec{0, -35};
+        if (head.x > position.x - 58 && head.x < position.x + 58 &&
+            head.y > position.y - 135 && head.y < position.y - 15) {
+          tint.a = 110;
+        }
+        items_.push_back(
+            {position,
+             b.hall ? 58
+                    : building_start +
+                          static_cast<int>(ObjectId(static_cast<int>(b.pos.x),
+                                                    static_cast<int>(b.pos.y),
+                                                    save.seed) %
+                                           12),
+             tint});
       }
     }
   }
@@ -602,7 +725,7 @@ size_t Renderer::DrawWorld(const World& world, const Save& save,
     bool flip = n.id == world.talking_npc ? Project(save.player - n.pos).x < 0
                                           : Project(n.pos - n.previous).x < 0;
     if (Visible(position, camera)) {
-      items_.push_back({position, image, WHITE, flip});
+      items_.push_back({position, image, WHITE, flip, n.id});
     }
   }
   if (!save.submerged) {
@@ -652,6 +775,28 @@ size_t Renderer::DrawWorld(const World& world, const Save& save,
             [](auto& a, auto& b) { return a.pos.y < b.pos.y; });
   for (auto& item : items_) {
     Sprite(item.sprite, item.pos, item.tint, item.flip);
+    if (item.worker >= 0) {
+      auto resident = GetCitizen(save, item.worker);
+      if (resident && resident->trained && resident->job != "idle") {
+        float phase = std::sin(time * 5 + item.worker);
+        auto hand = ToVector2(item.pos + Vec{14, -28 + phase * 3});
+        DrawLineEx({item.pos.x + 9, item.pos.y - 31}, hand, 4,
+                   {206, 165, 122, 255});
+        if (resident->job == "fisher") {
+          DrawLineEx(hand, {hand.x + 16, hand.y - 32}, 2, {181, 144, 83, 255});
+        } else if (resident->job == "scholar" ||
+                   resident->job == "ambassador" || resident->job == "trader") {
+          DrawRectangle(static_cast<int>(hand.x - 5),
+                        static_cast<int>(hand.y - 8), 10, 12,
+                        {201, 187, 135, 255});
+        } else {
+          DrawLineEx(hand, {hand.x + phase * 13, hand.y - 20}, 3,
+                     {149, 116, 70, 255});
+          DrawCircleV({hand.x + phase * 13, hand.y - 20}, 4,
+                      {162, 180, 177, 255});
+        }
+      }
+    }
   }
   if (!save.submerged) {
     for (auto& resident : save.citizens) {
@@ -691,6 +836,40 @@ size_t Renderer::DrawWorld(const World& world, const Save& save,
                      wall_color);
         }
         DrawLineEx({a.x, a.y - 14}, {b.x, b.y - 14}, 4, {93, 67, 43, 255});
+      }
+    }
+  }
+  if (gathering > 0 && highlighted) {
+    float phase = std::sin(time * 10);
+    Vec direction = Normalized(Project(highlighted->pos - save.player));
+    Vec hand = player + Vec{direction.x * 15, -26},
+        tip = hand + Vec{phase * 18, -18 + phase * 15};
+    DrawLineEx(ToVector2(player + Vec{0, -26}), ToVector2(hand), 4,
+               {205, 167, 124, 255});
+    DrawLineEx(ToVector2(hand), ToVector2(tip), 3, {161, 120, 64, 255});
+    DrawLineEx(ToVector2(tip - Vec{7, 2}), ToVector2(tip + Vec{7, -2}), 6,
+               {183, 194, 176, 255});
+  }
+  for (const auto& effect : game.hit_effects) {
+    auto p = Project(effect.position);
+    if (effect.defeated) {
+      auto image = sprites_[effect.kind ? 14 : 25];
+      image.x += effect.kind ? 50 : 28;
+      image.y += effect.kind ? 89 : 98;
+      image.width = effect.kind ? 34 : 84;
+      image.height = effect.kind ? 59 : 48;
+      DrawTexturePro(
+          atlas_, image, {p.x - 28, p.y - 14, 56, 24}, {0, 0}, 0,
+          {129, 137, 118,
+           static_cast<unsigned char>(200 * (1 - effect.age / 1.5f))});
+    } else {
+      for (int i = 0; i < 6; i++) {
+        float angle = i * 6.2831853f / 6;
+        DrawCircleV({p.x + std::cos(angle) * effect.age * 80,
+                     p.y - 24 + std::sin(angle) * effect.age * 45},
+                    2,
+                    {239, 194, 105,
+                     static_cast<unsigned char>(220 * (1 - effect.age / .3f))});
       }
     }
   }
@@ -862,12 +1041,8 @@ void Renderer::Vehicle(const Save& save, const Gameplay& game, Vec position,
   int type = ActiveVehicle(save);
   Vec direction = Normalized(Project(game.facing)),
       side{-direction.y, direction.x};
-  float size = type == 2   ? 88.f
-               : type == 3 ? 64.f
-                           : 48.f,
-        width = type == 2   ? 30.f
-                : type == 3 ? 23.f
-                            : 21.f;
+  const auto& vessel = Vessel(type);
+  float size = vessel.length, width = vessel.width;
   auto point = [&](float x, float y) {
     return ToVector2(position + direction * x + side * y);
   };
@@ -877,15 +1052,30 @@ void Renderer::Vehicle(const Save& save, const Gameplay& game, Vec position,
     }
     DrawTriangle(a, b, c, color);
   };
-  if (game.moving) {
-    for (int i = 0; i < 3; i++) {
+  if (save.submerged) {
+    for (int bubble = 0; bubble < 9; bubble++) {
+      float age =
+          std::fmod(static_cast<float>(time) * .65f + bubble * .13f, 1.f);
+      auto p = position -
+               direction * (size + age * (game.moving ? 120.f : 25.f)) +
+               side * (std::sin(bubble * 3.f) * 12) + Vec{0, -age * 28};
+      DrawCircleLines(
+          static_cast<int>(p.x), static_cast<int>(p.y), 2 + age * 5,
+          {161, 218, 224, static_cast<unsigned char>(170 * (1 - age))});
+    }
+  }
+  if (game.moving && !save.submerged) {
+    for (int i = 0; i < 5; i++) {
       auto trail = position - direction * (size + i * 13.f);
       DrawLineEx(ToVector2(trail - side * (width + i * 5)),
                  ToVector2(trail + side * (width + i * 5)), 1,
-                 {159, 215, 211, static_cast<uint8_t>(95 - i * 20)});
+                 {159, 215, 211, static_cast<uint8_t>(110 - i * 20)});
     }
   }
-  Color hull = type == 3   ? Color{133, 154, 155, 255}
+  Color hull = type == 9   ? Color{61, 87, 114, 255}
+               : type == 8 ? Color{97, 66, 46, 255}
+               : type == 4 ? Color{113, 72, 42, 255}
+               : type == 3 ? Color{133, 154, 155, 255}
                : type == 2 ? Color{122, 82, 50, 255}
                            : Color{162, 108, 59, 255};
   std::vector<Vector2> outline;
@@ -955,7 +1145,7 @@ void Renderer::Vehicle(const Save& save, const Gameplay& game, Vec position,
     }
     return;
   }
-  if (type == 2) {
+  if (type == 2 || type >= 7) {
     for (int sign : {-1, 1}) {
       DrawLineEx(point(-size * .8f, sign * width * .7f),
                  point(size * .55f, sign * width * .7f), 2,
@@ -981,7 +1171,21 @@ void Renderer::Vehicle(const Save& save, const Gameplay& game, Vec position,
                 {static_cast<uint8_t>(coat[0]), static_cast<uint8_t>(coat[1]),
                  static_cast<uint8_t>(coat[2]), 255});
   DrawCircleV({position.x, position.y - 32}, 7, {208, 169, 131, 255});
-  if (type == 1) {
+  if (type == 5) {
+    for (int i = -3; i <= 3; i++) {
+      DrawLineEx(point(-size, i * width / 4), point(size, i * width / 4), 5,
+                 {169, 130, 69, 255});
+      DrawLineEx(point(-size * .6f, -width), point(-size * .6f, width), 2,
+                 {81, 75, 49, 255});
+      DrawLineEx(point(size * .6f, -width), point(size * .6f, width), 2,
+                 {81, 75, 49, 255});
+    }
+  }
+  if (type == 6) {
+    DrawCircleV(point(-size * .5f, 0), 9, {161, 116, 67, 255});
+    DrawCircleV(point(size * .5f, 0), 5, {230, 204, 127, 255});
+  }
+  if (type == 1 || type == 4 || type == 6 || type == 5) {
     float stroke = game.moving ? std::sin(time * 5) * 16 : 0;
     for (int sign : {-1, 1}) {
       auto pivot = position + side * (static_cast<float>(sign) * 13) -
@@ -992,23 +1196,50 @@ void Renderer::Vehicle(const Save& save, const Gameplay& game, Vec position,
       DrawCircleV(ToVector2(blade), 4, {213, 177, 113, 255});
     }
   } else {
-    DrawLineEx({position.x, position.y}, {position.x, position.y - 116}, 5,
-               {152, 120, 75, 255});
-    triangle({position.x + 2, position.y - 118},
-             {position.x + 23, position.y - 113},
-             {position.x + 2, position.y - 106}, {175, 76, 51, 255});
-    float wind = std::sin(time * 1.2) * 4;
-    triangle({position.x + 5, position.y - 112},
-             {position.x + 54 + wind, position.y - 40},
-             {position.x + 5, position.y - 40}, {227, 225, 198, 255});
-    for (int i = 0; i < 3; i++) {
-      DrawLineEx({position.x + 6, position.y - 93 + i * 17.f},
-                 {position.x + 18 + i * 12.f, position.y - 75 + i * 17.f}, 1,
-                 {166, 165, 145, 255});
+    const int masts = type == 9 ? 3 : type == 8 ? 2 : 1;
+    for (int mast = 0; mast < masts; mast++) {
+      auto foot = point((mast - (masts - 1) * .5f) * size * .62f, 0);
+      float height = type == 9   ? 132.f
+                     : type == 8 ? 120.f
+                     : type == 7 ? 96.f
+                                 : 116.f;
+      Vector2 top{foot.x, foot.y - height};
+      DrawLineEx(foot, top, 4, {154, 120, 75, 255});
+      float wind = std::sin(time * 1.3 + mast) * 5;
+      Color cloth =
+          type == 9 ? Color{232, 224, 193, 255} : Color{223, 212, 178, 255};
+      triangle({top.x + 4, top.y + 6}, {top.x + 50 + wind, foot.y - 28},
+               {top.x + 4, foot.y - 20}, cloth);
+      for (int seam = 0; seam < 4; seam++) {
+        DrawLineEx({top.x + 6, top.y + 20 + seam * 17},
+                   {top.x + 14 + seam * 10 + wind, top.y + 28 + seam * 17}, 1,
+                   {170, 158, 123, 200});
+      }
+      DrawLineEx(top, point(size * .8f, 0), 1, {189, 174, 136, 255});
+      DrawLineEx(top, point(-size * .8f, 0), 1, {189, 174, 136, 255});
+      triangle({top.x + 2, top.y}, {top.x + 25, top.y + 6},
+               {top.x + 2, top.y + 12},
+               type == 9 ? Color{75, 107, 159, 255} : Color{180, 84, 59, 255});
+      if (type == 9) {
+        DrawCircleV({top.x + 13, top.y + 6}, 3, {230, 190, 98, 255});
+      }
     }
-    triangle({position.x - 4, position.y - 99},
-             {position.x - 40 + wind, position.y - 46},
-             {position.x - 4, position.y - 46}, {201, 210, 190, 255});
+    if (type >= 8) {
+      for (int i = -3; i <= 3; i++) {
+        for (int sign : {-1, 1}) {
+          DrawCircleV(point(i * size * .2f, sign * width * .83f), 3,
+                      {237, 198, 116, 255});
+        }
+      }
+      auto stern = point(-size * .65f, 0);
+      DrawRectangleRounded({stern.x - 15, stern.y - 30, 30, 22}, .1f, 4,
+                           {106, 75, 47, 255});
+      for (int i = -1; i <= 1; i++) {
+        DrawRectangle(static_cast<int>(stern.x + i * 8 - 2),
+                      static_cast<int>(stern.y - 27), 4, 8,
+                      {172, 218, 219, 255});
+      }
+    }
   }
 }
 int Renderer::MenuPageRows() {
@@ -1043,7 +1274,7 @@ Rectangle Renderer::MenuBounds(int rows) {
   return {(GetScreenWidth() - width) * .5f, (GetScreenHeight() - height) * .5f,
           width, height};
 }
-void Renderer::DrawUi(const World& world, const Save& save, Ui& ui,
+void Renderer::DrawUi(const World& world, Save& save, Ui& ui,
                       const Camera2D& camera) {
   float w = static_cast<float>(GetScreenWidth()),
         h = static_cast<float>(GetScreenHeight());
@@ -1078,9 +1309,7 @@ void Renderer::DrawUi(const World& world, const Save& save, Ui& ui,
     equipment += " · Armor";
   }
   if (Watercraft(save)) {
-    equipment += ActiveVehicle(save) == 3   ? " · Submarine"
-                 : ActiveVehicle(save) == 2 ? " · Ship"
-                                            : " · Boat";
+    equipment += " · " + Vessel(ActiveVehicle(save)).name;
   }
   Wrapped(equipment, 38, 291, 354, 16, kInk, 2);
   DrawRectangleRounded({20, 372, 390, 102}, .1f, 6, kPanel);
@@ -1377,8 +1606,8 @@ void Renderer::DrawUi(const World& world, const Save& save, Ui& ui,
                       (!r.technology.empty() &&
                        !save.technologies.contains(r.technology));
         Text(r.name, px + 24, y, 17,
-             Equipped(save.inventory, i) || locked ? kMuted : kInk);
-        Wrapped(Equipped(save.inventory, i) ? "Crafted"
+             Equipped(save, i) || locked ? kMuted : kInk);
+        Wrapped(Equipped(save, i) ? "Crafted"
                 : locked ? "Requires: " +
                                (!RecipeKnown(save, r)
                                     ? std::string("NPC quest reward")
@@ -1565,9 +1794,12 @@ void Renderer::DrawUi(const World& world, const Save& save, Ui& ui,
     Text(save.submerged ? "Seafloor map" : "Map of the explored world", map.x,
          map.y - 38, 24, kGold);
     DrawMap(save, ui, camera, map, true);
-    Text("Wheel: zoom · Drag: pan · " + ActionKey(InputAction::kMap) +
-             " / Esc: close",
+    Text("Wheel: zoom · Middle drag: pan · Click: note · Tab: journal · " +
+             ActionKey(InputAction::kMap) + " / Esc: close",
          map.x, map.y + map.height + 16, 16, kMuted);
+  }
+  if (ui.cartography) {
+    DrawMapJournal(save, ui);
   }
   if (ui.progression) {
     DrawRectangle(0, 0, static_cast<int>(w), static_cast<int>(h),

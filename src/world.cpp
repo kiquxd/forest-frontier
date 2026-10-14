@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "adventure.hpp"
+#include "geometry.hpp"
 #include "json.hpp"
 #include "progress.hpp"
 
@@ -348,7 +349,7 @@ Save LoadSave(const std::filesystem::path& path) {
   nlohmann::json json;
   f >> json;
   int version = json.at("version").get<int>();
-  if (version < 1 || version > 6) {
+  if (version < 1 || version > 7) {
     throw std::runtime_error("Unsupported save version");
   }
   save.seed = json.at("seed").get<uint64_t>();
@@ -478,7 +479,7 @@ Save LoadSave(const std::filesystem::path& path) {
     save.vehicle = json.at("vehicle");
     if (!std::isfinite(save.oxygen) || save.oxygen < 0 || save.oxygen > 200 ||
         save.hull < 1 || save.hull > 100 || save.vehicle < 0 ||
-        save.vehicle > 3) {
+        save.vehicle > (version >= 7 ? 9 : 3)) {
       throw std::runtime_error("Invalid vessel state");
     }
     for (int n : save.inventory.rare) {
@@ -616,6 +617,46 @@ Save LoadSave(const std::filesystem::path& path) {
       }
     }
   }
+  if (version >= 7) {
+    save.vessels = json.at("vessels").get<decltype(save.vessels)>();
+    for (const auto& id : save.vessels) {
+      if (id != "raft" && id != "canoe" && id != "skiff" && id != "cutter" &&
+          id != "brigantine" && id != "flagship") {
+        throw std::runtime_error("Invalid vessel ID");
+      }
+    }
+    auto deposits = json.value("known_deposits", nlohmann::json::array());
+    if (!deposits.is_array() || deposits.size() > 4096) {
+      throw std::runtime_error("Invalid known deposits");
+    }
+    for (const auto& row : deposits) {
+      uint64_t id = row.at("id");
+      KnownDeposit site{
+          {row.at("x"), row.at("y")}, row.at("good"), row.at("underwater")};
+      if (!std::isfinite(site.position.x) || !std::isfinite(site.position.y) ||
+          Length(site.position) > 2e6f || site.good < 6 ||
+          site.good >= kGoodTypes ||
+          !save.known_deposits.emplace(id, site).second) {
+        throw std::runtime_error("Invalid known deposit");
+      }
+    }
+    const auto& notes = json.at("map_notes");
+    if (!notes.is_array() || notes.size() > 128) {
+      throw std::runtime_error("Invalid map journal");
+    }
+    for (const auto& row : notes) {
+      MapNote note{{row.at("x"), row.at("y")},
+                   row.at("underwater"),
+                   row.at("title"),
+                   row.at("text")};
+      if (!std::isfinite(note.position.x) || !std::isfinite(note.position.y) ||
+          Length(note.position) > 2e6f || note.title.empty() ||
+          note.title.size() > 64 || note.text.size() > 2048) {
+        throw std::runtime_error("Invalid map note");
+      }
+      save.map_notes.push_back(std::move(note));
+    }
+  }
   if (version >= 6) {
     save.known_goods = json.at("known_goods").get<decltype(save.known_goods)>();
     const auto& history = json.at("history");
@@ -697,7 +738,7 @@ void WriteSave(const std::filesystem::path& path, const Save& save) {
                      {"b", {w.b.x, w.b.y}},
                      {"hp", w.hp}});
   }
-  nlohmann::json json = {{"version", 6},
+  nlohmann::json json = {{"version", 7},
                          {"seed", save.seed},
                          {"player", {save.player.x, save.player.y}},
                          {"wood", save.inventory.wood},
@@ -754,6 +795,29 @@ void WriteSave(const std::filesystem::path& path, const Save& save) {
                                 {"outfit", resident.outfit},
                                 {"trained", resident.trained}});
   }
+  json["known_deposits"] = nlohmann::json::array();
+  std::vector<uint64_t> deposit_ids;
+  for (const auto& [id, site] : save.known_deposits) {
+    deposit_ids.push_back(id);
+  }
+  std::sort(deposit_ids.begin(), deposit_ids.end());
+  for (auto id : deposit_ids) {
+    const auto& site = save.known_deposits.at(id);
+    json["known_deposits"].push_back({{"id", id},
+                                      {"x", site.position.x},
+                                      {"y", site.position.y},
+                                      {"good", site.good},
+                                      {"underwater", site.underwater}});
+  }
+  json["vessels"] = save.vessels;
+  json["map_notes"] = nlohmann::json::array();
+  for (const auto& note : save.map_notes) {
+    json["map_notes"].push_back({{"x", note.position.x},
+                                 {"y", note.position.y},
+                                 {"underwater", note.underwater},
+                                 {"title", note.title},
+                                 {"text", note.text}});
+  }
   json["known_goods"] = save.known_goods;
   json["history"] = nlohmann::json::array();
   for (const auto& event : save.history) {
@@ -768,7 +832,7 @@ void WriteSave(const std::filesystem::path& path, const Save& save) {
     int old_version = previous.is_object() ? previous.value("version", 0) : 0;
     auto backup = path;
     backup += ".v" + std::to_string(old_version) + ".bak";
-    if (old_version > 0 && old_version < 6 &&
+    if (old_version > 0 && old_version < 7 &&
         !std::filesystem::exists(backup)) {
       std::filesystem::copy_file(path, backup);
     }
@@ -927,6 +991,32 @@ void World::Tick(float dt, const Save& save, double time) {
       npc.walk += Length(npc.pos - npc.previous) / 10;
     }
   }
+  // Local disc contacts affect positions, not schedules or destinations.
+  for (size_t i = 0; i < npcs.size(); i++) {
+    if (npcs[i].ruler || Length(npcs[i].pos - save.player) > 1800) {
+      continue;
+    }
+    for (size_t j = i + 1; j < npcs.size(); j++) {
+      auto& a = npcs[i];
+      auto& b = npcs[j];
+      if (b.ruler) {
+        continue;
+      }
+      Vec d = b.pos - a.pos;
+      float distance = Length(d);
+      if (distance >= 20) {
+        continue;
+      }
+      Vec normal = distance > .001f ? d * (1 / distance) : Vec{1, 0};
+      float overlap = 20 - distance;
+      float share = a.id == talking_npc ? 0 : b.id == talking_npc ? 1 : .5f;
+      Vec old_a = a.pos, old_b = b.pos;
+      a.pos = Move(a.pos, normal * (-overlap * share), save, 10);
+      b.pos = Move(b.pos, normal * (overlap * (1 - share)), save, 10);
+      a.previous = a.previous + (a.pos - old_a);
+      b.previous = b.previous + (b.pos - old_b);
+    }
+  }
   for (auto& [coord, c] : chunks) {
     for (auto& a : c.animals) {
       if (Length(a.home - player) < 1100) {
@@ -1025,25 +1115,32 @@ void World::BeginConversation(int id, const Save& save) {
 }
 bool World::Clear(Vec position, const Save& save, float radius,
                   bool boat) const {
-  for (Vec offset : std::array<Vec, 5>{
-           {{0, 0}, {radius, 0}, {-radius, 0}, {0, radius}, {0, -radius}}}) {
-    Vec sample = position + offset;
-    Coord coord = ChunkAt(sample);
-    auto it = chunks.find(coord);
-    if (it == chunks.end()) {
-      return false;
-    }
-    int x = static_cast<int>(std::floor(sample.x / kTileSize)) -
-            coord.x * kChunkTiles;
-    int y = static_cast<int>(std::floor(sample.y / kTileSize)) -
-            coord.y * kChunkTiles;
-    auto terrain = it->second.tiles[y * kChunkTiles + x].terrain;
-    if (save.submerged && terrain != Terrain::kDeep &&
-        terrain != Terrain::kShallow) {
-      return false;
-    }
-    if (!save.submerged && !boat && terrain == Terrain::kDeep) {
-      return false;
+  int lx = static_cast<int>(std::floor((position.x - radius) / kTileSize)),
+      hx = static_cast<int>(std::floor((position.x + radius) / kTileSize));
+  int ly = static_cast<int>(std::floor((position.y - radius) / kTileSize)),
+      hy = static_cast<int>(std::floor((position.y + radius) / kTileSize));
+  for (int y = ly; y <= hy; y++) {
+    for (int x = lx; x <= hx; x++) {
+      BoxShape tile{{x * kTileSize, y * kTileSize},
+                    {(x + 1) * kTileSize, (y + 1) * kTileSize}};
+      if (!CircleBox(position, radius, tile)) {
+        continue;
+      }
+      auto center = (tile.low + tile.high) * .5f;
+      Coord coord = ChunkAt(center);
+      auto it = chunks.find(coord);
+      if (it == chunks.end()) {
+        return false;
+      }
+      int tx = x - coord.x * kChunkTiles, ty = y - coord.y * kChunkTiles;
+      auto terrain = it->second.tiles[ty * kChunkTiles + tx].terrain;
+      if (save.submerged && terrain != Terrain::kDeep &&
+          terrain != Terrain::kShallow) {
+        return false;
+      }
+      if (!save.submerged && !boat && terrain == Terrain::kDeep) {
+        return false;
+      }
     }
   }
   if (save.submerged) {
@@ -1054,19 +1151,14 @@ bool World::Clear(Vec position, const Save& save, float radius,
     return d.x * d.x + d.y * d.y < r * r;
   };
   for (auto& b : buildings) {
-    if (std::abs(b.pos.x - position.x) < radius + 42 &&
-        std::abs(b.pos.y - position.y) < radius + 42 &&
-        close(b.pos, radius + 42)) {
+    if (CircleBox(position, radius, BuildingFootprint(b)) &&
+        CirclePolygon(position, radius, BuildingOutline(b))) {
       return false;
     }
   }
   for (auto& wall : save.walls) {
     if (wall.hp > 0) {
-      Vec ab = wall.b - wall.a, ap = position - wall.a;
-      float square = ab.x * ab.x + ab.y * ab.y;
-      float t = std::clamp((ap.x * ab.x + ap.y * ab.y) / std::max(square, 1.f),
-                           0.f, 1.f);
-      if (close(wall.a + ab * t, radius + 7)) {
+      if (CircleCapsule(position, radius, {wall.a, wall.b, 7})) {
         return false;
       }
     }
@@ -1088,14 +1180,86 @@ bool World::Clear(Vec position, const Save& save, float radius,
         if (save.harvested.contains(resource.id)) {
           continue;
         }
-        if (close(resource.pos,
-                  radius + (resource.kind == ResourceKind::kTree ? 10 : 14))) {
+        const std::array<Vec, 6> rock = {
+            resource.pos + Vec{-14, -6}, resource.pos + Vec{-5, -13},
+            resource.pos + Vec{10, -10}, resource.pos + Vec{15, 4},
+            resource.pos + Vec{4, 14},   resource.pos + Vec{-12, 10}};
+        bool overlap = resource.kind == ResourceKind::kTree
+                           ? close(resource.pos, radius + 9)
+                           : CirclePolygon(position, radius, rock);
+        if (overlap) {
           return false;
         }
       }
     }
   }
   return true;
+}
+void World::ResolvePlayerContacts(Save& save) {
+  if (save.submerged) {
+    return;
+  }
+  auto terrain = TerrainAt(save.player, save.seed);
+  if (terrain == Terrain::kDeep || terrain == Terrain::kShallow) {
+    return;
+  }
+  for (auto& npc : npcs) {
+    if (npc.ruler) {
+      continue;
+    }
+    Vec d = save.player - npc.pos;
+    float distance = Length(d);
+    if (distance >= 22) {
+      continue;
+    }
+    Vec normal = distance > .001f ? d * (1 / distance) : Vec{1, 0};
+    float overlap = 22 - distance;
+    if (npc.id != talking_npc) {
+      Vec old = npc.pos;
+      npc.pos = Move(npc.pos, normal * (-overlap * .5f), save, 10);
+      npc.previous = npc.previous + (npc.pos - old);
+    }
+    save.player = Move(
+        save.player, normal * std::max(0.f, 22 - Length(save.player - npc.pos)),
+        save, 12);
+  }
+  for (auto& [coord, chunk] : chunks) {
+    for (auto& enemy : chunk.enemies) {
+      if (save.defeated.contains(enemy.id)) {
+        continue;
+      }
+      Vec d = save.player - enemy.pos;
+      float distance = Length(d);
+      if (distance < 22 && distance > .001f) {
+        save.player =
+            Move(save.player, d * ((22 - distance) / distance), save, 12);
+      }
+    }
+  }
+}
+bool World::SightBlocked(Vec start, Vec end, const Save& save) const {
+  if (save.submerged) {
+    return false;
+  }
+  for (const auto& b : buildings) {
+    if (SegmentBox(start, end, BuildingFootprint(b)) &&
+        SegmentPolygon(start, end, BuildingOutline(b))) {
+      return true;
+    }
+  }
+  for (const auto& w : save.walls) {
+    if (w.hp > 0) {
+      BoxShape bounds{{std::min(w.a.x, w.b.x) - 7, std::min(w.a.y, w.b.y) - 7},
+                      {std::max(w.a.x, w.b.x) + 7, std::max(w.a.y, w.b.y) + 7}};
+      if (!SegmentBox(start, end, bounds)) {
+        continue;
+      }
+      if (SegmentsDistance(start, end, w.a, w.b) < 7) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 Vec World::Move(Vec position, Vec displacement, const Save& save, float radius,
                 bool boat) const {
@@ -1132,16 +1296,17 @@ std::vector<Vec> World::Path(Vec start, Vec goal, const Save& save) const {
   Coord from = cell(start), to = cell(goal);
   if (!Clear(center(to), save, 12,
              (save.inventory.boat || save.inventory.ship ||
-              save.inventory.submarine))) {
+              save.inventory.submarine || !save.vessels.empty()))) {
     float best = 1e9;
     Coord candidate = from;
     for (int y = -5; y <= 5; y++) {
       for (int x = -5; x <= 5; x++) {
         Coord coord{to.x + x, to.y + y};
         float d = Length(center(coord) - goal);
-        if (d < best && Clear(center(coord), save, 12,
-                              (save.inventory.boat || save.inventory.ship ||
-                               save.inventory.submarine))) {
+        if (d < best &&
+            Clear(center(coord), save, 12,
+                  (save.inventory.boat || save.inventory.ship ||
+                   save.inventory.submarine || !save.vessels.empty()))) {
           best = d;
           candidate = coord;
         }
@@ -1191,7 +1356,7 @@ std::vector<Vec> World::Path(Vec start, Vec goal, const Save& save) const {
         }
         if (!Clear(center(next), save, 12,
                    (save.inventory.boat || save.inventory.ship ||
-                    save.inventory.submarine))) {
+                    save.inventory.submarine || !save.vessels.empty()))) {
           continue;
         }
         if (x && y &&
@@ -1200,7 +1365,7 @@ std::vector<Vec> World::Path(Vec start, Vec goal, const Save& save) const {
                      save.inventory.submarine)) ||
              !Clear(center({coord.x, coord.y + y}), save, 12,
                     (save.inventory.boat || save.inventory.ship ||
-                     save.inventory.submarine)))) {
+                     save.inventory.submarine || !save.vessels.empty())))) {
           continue;
         }
         float weight =

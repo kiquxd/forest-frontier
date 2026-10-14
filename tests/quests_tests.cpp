@@ -172,8 +172,8 @@ int main() {
       chunk.enemies.push_back(target);
       game.Advance(1);
       game.Attack(world, save);
-      game.Advance(.2f);
-      game.Combat(world, save, .2f);
+      game.Advance(.32f);
+      game.Combat(world, save, .32f);
       Check(chunk.enemies[0].hp == 30,
             "Warden attack bonus applies to real hits");
       save.character_id = "traveler";

@@ -1,0 +1,15 @@
+{
+  "id": "vessel_flagship",
+  "name": "Royal flagship",
+  "cost": {
+    "0": 150,
+    "3": 65,
+    "7": 25,
+    "10": 20,
+    "11": 2,
+    "12": 1
+  },
+  "result": "vessel:flagship",
+  "technology": "guild_charter",
+  "effect": "Prestige ship: fastest surface travel and widest view; costs 300 coins and requires Shipbuilding and Navigation school."
+}

@@ -18,6 +18,7 @@ const char* GoodName(int good);
 int& GoodCount(Inventory& inventory, int good);
 int GoodCount(const Inventory& inventory, int good);
 bool Equipped(const Inventory& inventory, int recipe);
+bool Equipped(const Save& save, int recipe);
 void EnsureCityState(Save& save);
 void InitializeCampaign(Save& save, bool legacy = false);
 bool OwnsCity(const Save& save, int city);
@@ -69,7 +70,8 @@ class Gameplay {
   Vec MovePlayer(World& world, Save& save, Vec displacement);
   void Tick(World& world, Save& save, float dt, double time);
   void Combat(World& world, Save& save, float dt);
-  void Explore(Save& save, float width, float height, float zoom);
+  void Explore(Save& save, float width, float height, float zoom,
+               const World* world = nullptr);
   Action Attack(World& world, Save& save);
   Action PlaceCampfire(World& world, Save& save);
   bool RepairSpawn(const World& world, Save& save) const;
@@ -89,12 +91,20 @@ class Gameplay {
     int damage;
   };
   std::vector<Projectile> projectiles;
+  struct HitEffect {
+    Vec position;
+    float age{};
+    bool defeated{};
+    int kind{};
+  };
+  std::vector<HitEffect> hit_effects;
   const WeaponDef& SwingingWeapon() const {
     return attack_weapon_;
   }
   bool moving{};
   int attacks{};
   int kills{};
+  int hits{};
   int damage_taken{};
   int collisions{};
   int respawns{};

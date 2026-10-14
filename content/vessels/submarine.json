@@ -1,0 +1,11 @@
+{
+  "number": 3,
+  "id": "submarine",
+  "name": "Submarine",
+  "speed": 1.05,
+  "view": 850,
+  "length": 64,
+  "width": 23,
+  "prestige": 5,
+  "coins": 0
+}

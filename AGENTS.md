@@ -21,6 +21,7 @@ Follow the [Google C++ Style Guide](https://google.github.io/styleguide/cppguide
 - Migrate legacy code in reviewable changes. Keep broad formatting/renaming separate from gameplay changes; do not reformat third_party or generated files. Run relevant checks after refactoring.
 
 ## Implementation
+- Local collision geometry stays in 2D. Long-distance routing, caravans/armies and autonomous destination planning are deferred until command systems for owned/foreign residents and professions exist. Current timer jobs/equipment assignment do not satisfy this prerequisite. Track navigation separately from collision work.
 - Read relevant source and content before changing behavior. Stable content IDs and NPC IDs are part of saved-world compatibility.
 - Keep authoritative quests, rewards, equipment allocation and progression deterministic. Language-model output cannot mutate game state.
 - GPU work stays on the render thread. World generation stays on the worker. Do not reconfigure global world metadata while that worker is alive.
@@ -29,4 +30,6 @@ Follow the [Google C++ Style Guide](https://google.github.io/styleguide/cppguide
 - Default to windowed mode. Fullscreen must be explicitly selected; respect the tiling window manager.
 
 ## Validation
-Run the affected core tests and `ctest --test-dir build --output-on-failure`. For UI changes, check real raylib screenshots and the isolated menu smoke test when applicable. Run a compact performance benchmark for rendering/simulation changes. Target 60 FPS; user accepts a worst-window p95 ceiling of 30 ms. Log aggregates and meaningful events, not every function call.
+Keep validation proportional to the change. Build and run affected core tests; run `ctest --test-dir build --output-on-failure` once after the final related changes. For UI changes, use a short focused real-window smoke and inspect a relevant raylib screenshot. `scripts/world-smoke.py` defaults to a quick check; extended UI workflows are opt-in for changes to those workflows or release preparation. Do not repeat long idle simulations after cosmetic or small reversible edits.
+
+Performance measurements are occasional, not a mandatory check for every rendering/simulation edit. Measure when there is an observed slowdown or a credible new load: major rendering/geometry algorithms, near-3D graphics, large asset/actor counts, lighting or model integration. Start with one 5–10 second sample after the final changes; use longer scenarios only when the result or a specific regression calls for them. Keep 60 FPS and a worst-window p95 ceiling of 30 ms as development targets; do not spend routine iteration analyzing p95/p99. Log aggregates and meaningful events, not every function call.

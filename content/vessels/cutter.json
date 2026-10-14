@@ -1,0 +1,11 @@
+{
+  "number": 7,
+  "id": "cutter",
+  "name": "Sailing cutter",
+  "speed": 1.45,
+  "view": 1050,
+  "length": 72,
+  "width": 25,
+  "prestige": 3,
+  "coins": 40
+}

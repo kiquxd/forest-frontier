@@ -1,0 +1,12 @@
+{
+  "id": "vessel_skiff",
+  "name": "Coastal skiff",
+  "cost": {
+    "0": 35,
+    "3": 14,
+    "6": 4
+  },
+  "result": "vessel:skiff",
+  "technology": "",
+  "effect": "A faster coastal boat; costs 15 coins."
+}

@@ -192,6 +192,17 @@ struct HistoryEntry {
   int64_t timestamp{};
   int city{-1};
 };
+struct MapNote {
+  Vec position;
+  bool underwater{};
+  std::string title;
+  std::string text;
+};
+struct KnownDeposit {
+  Vec position;
+  int good;
+  bool underwater;
+};
 struct Save {
   Vec player{120, 140};
   Inventory inventory;
@@ -235,6 +246,11 @@ struct Save {
   int wolf_kills{};
   std::array<bool, kGoodTypes> known_goods{};
   std::vector<HistoryEntry> history;
+  std::vector<MapNote> map_notes;
+  std::unordered_map<uint64_t, KnownDeposit> known_deposits;
+  std::unordered_set<Coord, CoordHash> visible_surface;
+  std::unordered_set<Coord, CoordHash> visible_underwater;
+  std::unordered_set<std::string> vessels;
 };
 Save LoadSave(const std::filesystem::path& path);
 void WriteSave(const std::filesystem::path& path, const Save& save);
@@ -259,6 +275,8 @@ class World {
   int talking_npc{-1};
   bool Clear(Vec position, const Save& save, float radius = 12,
              bool boat = false) const;
+  void ResolvePlayerContacts(Save& save);
+  bool SightBlocked(Vec start, Vec end, const Save& save) const;
   Vec Move(Vec position, Vec displacement, const Save& save, float radius = 12,
            bool boat = false) const;
   std::vector<Vec> Path(Vec start, Vec goal, const Save& save) const;

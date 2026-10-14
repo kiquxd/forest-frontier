@@ -19,6 +19,7 @@ You begin with basic clothing and no learned skills, tools or weapons. Open **K 
 ### Exploration and survival
 
 - Forests, lakes, shoreline and a northern coast, with paths, towns and resource sites.
+- Exploration uses a fixed world-space sight range, with reduced forest visibility and building/wall occlusion; window size and zoom cannot reveal more terrain.
 - Persistent fog of exploration on surface and underwater maps. Lakes and towns appear only as far as you have explored them; towns are drawn as miniature settlements.
 - Trees, stone, berries, reeds, fish, ore and rarer materials. Tools improve gathering or enable specific activities; harvested sites remain depleted.
 - Wolves with attack wind-up, lunges and pursuit; directional melee swings, knockback and ranged weapons with consumable ammunition.
@@ -44,7 +45,17 @@ You begin with basic clothing and no learned skills, tools or weapons. Open **K 
 
 ### Water exploration
 
-Craft a boat, ship or submarine through progression. Switch vessels, sail across deep water, and use a submarine to explore the underwater layer. Oxygen, hull damage, reefs and emergency surfacing affect exploration. Unlock sonar and oxygen modules, collect pearls and crystals, and recover underwater salvage.
+Craft a reed raft, canoe, rowboat, coastal skiff, sailing cutter, sailing ship, brigantine, royal flagship or submarine through progression. Basic craft opens early water travel; advanced ships offer more speed, wider sight and elaborate decks/masts. Brigantines require Shipbuilding and Navigation school plus 120 coins; the flagship additionally requires Guild charter, 300 coins and rare materials. These vessels remain owned travel modes, with independent persistent craft/crews/storage still unfinished. Switch vessels, sail across deep water, and use a submarine to explore the underwater layer. Oxygen, hull damage, reefs and emergency surfacing affect exploration. Unlock sonar and oxygen modules, collect pearls and crystals, and recover underwater salvage.
+
+### Map journal, presentation and audio
+
+Press **M** for the map; click an explored location to write a titled note, or click its marker to reopen it. **Tab / Journal** lists your notes across both layers. **Tab** switches title/text fields, **Ctrl+Enter** saves, and the mouse wheel scrolls longer notes. Clipboard select/copy/paste works; you can edit/delete notes and retain up to 128 in each saved world. Notes are manual entries, not automated quest guidance.
+
+Map **1/2/3** switches Terrain/Politics/Economy. Known town ownership/treaties/specialties and remembered explored deposits are shown; unknown areas stay masked. **Middle mouse drag** pans, wheel zooms. Route orders are deferred until resident command systems exist.
+
+Buildings have twelve facade/detail variations and fade when obscuring your character. Materials, outfits and vegetation have added detail; gathering, resident tools and combat have additional animation/feedback. Water has animated ripples, foam and wakes; larger ships have multiple masts, rails and cabins.
+
+Settings includes **Background music: Automatic / Forest / Harbor / Depths / Off**, **Music volume** and **Effects volume**. Three original synthesized 32-second loops ship with the game; automatic selection follows land, surface water or diving. Footsteps, swings/hits, gathering, interface cues and ambient forest/water/bubbles have separate effects volume. Audio gracefully stays silent when no device is available. Regenerate the original assets using `python3 scripts/generate-audio.py`; see [audio assets](assets/audio/README.md).
 
 ### Menus and saves
 
@@ -54,7 +65,7 @@ The tree shows icons, dependency links, acquired/locked/readiness markers and ex
 
 Saved-world summaries are read-only. **F2** expands the selected summary; **F6/F7** rename/copy, **F8/F9** export/import, **F10** opens recovery, and **Delete** confirms deletion into `saves/.trash/`. Import/export dialogs accept filesystem paths (clipboard paste supported); export destinations must be new `.json` files. Recovery lists deleted saves and migration backups and restores a new slot without overwriting your current world or the recovery source.
 
-**Save & return saves the world first.** If saving fails, the session stays open for retry. Saves are atomic; v1–v5 worlds retain progression when written as v6 and keep a migration backup. Active worlds autosave periodically. New saves remember resource discovery and the last 512 significant campaign events; older saves cannot recover their past history.
+**Save & return saves the world first.** If saving fails, the session stays open for retry. Saves are atomic; v1–v6 worlds retain progression when written as v7 and keep a migration backup. Active worlds autosave periodically. New saves remember resource discovery and the last 512 significant campaign events; older saves cannot recover their past history.
 
 Settings are available both in the lobby and on pause: fullscreen, window size, frame cap, camera zoom, performance HUD, text size (100/120/140% on top of the existing enlarged font), tree contrast and keyboard bindings. Every gameplay action has a primary key and optional alternate; conflicts offer an explicit swap, and defaults can be restored. Enter, Esc, F5 and paging/editing keys remain reserved for menus. Ordinary gameplay has no language-model conversation setting.
 
@@ -79,7 +90,11 @@ These are the defaults; keyboard actions can be rebound in Settings. The bottom 
 | V / R | Select vessel / Dive or surface |
 | G / J | Sonar / Repair vessel |
 | M | Map |
-| Mouse wheel | Zoom the world/map; scroll a summary |
+| Mouse wheel | Zoom the world/map; scroll summaries or longer notes |
+| Middle mouse drag in M map | Pan |
+| Click / Tab in M map | Create/open a note / Journal |
+| 1 / 2 / 3 in M map | Terrain / Politics / Economy |
+| Ctrl+Enter in note editor | Save note |
 | Shift + wheel / Middle drag | Pan the skill graph |
 | Enter / Shift + Enter | Selected action / Sell in the trade menu |
 | Page Up / Page Down | Page through menus or scroll summaries |
@@ -260,35 +275,33 @@ The mechanics below are working prototypes or incomplete systems. Their current 
 - Animals wander/flee locally, without breeding, food chains or persistent population simulation.
 - Terrain is flat, without caves, elevation or physical geology. Weather, seasons and a day/night simulation are absent.
 
-#### Collision and navigation
+#### Collision geometry
 
-**Working:** bounded substep movement, obstacle/wall collision, sliding, water restrictions and local A* plans.
+**Working:** circle bodies, four-point isometric building foundations with box broad-phase checks, thick wall segments/capsules, polygonal rock footprints and tile-boundary geometry, with substepped sliding and local player/NPC/enemy contacts. Nearby NPCs also separate without adding destinations or orders. The world intentionally retains 2D physics.
 
 **Incomplete:**
-- Collision is a two-dimensional radius test against simplified obstacles, not shape-accurate geometry or rigid bodies.
-- Actors have no complete body-to-body collision model; gravity and elevation are absent.
-- Navigation searches a bounded area of loaded terrain and approaches distant goals in short segments, rather than planning full world routes for caravans/armies.
-- There is no hierarchical routing or complete handling of distant blocked/unloaded destinations.
+- Body contacts use local disc separation rather than a general rigid-body simulation. Vessels use radius footprints rather than a separate collision hull for each persistent craft.
+
 
 #### Map and exploration
 
-**Working:** persistent fog on both layers, terrain, town miniatures, partially revealed world features/lakes, roads and save-preview maps.
+**Working:** exploration independent of window/zoom, fixed world-space sight ranges, forest-limited sight and building/wall occlusion. Current visibility and explored memory are separate; older exploration stays intact. Maps adapt raster detail to scale, preserve partially explored lakes/towns, provide terrain/politics/economy views, retain up to 4096 known deposits after chunks unload, and remember up to 128 titled surface/seafloor notes. Clicking a marker opens its journal entry; notes can be edited/deleted and viewed through Journal/Tab.
 
 **Incomplete:**
-- Surface exploration follows the viewport, without line-of-sight occlusion. Window size/zoom affect exploration counters.
-- Cartography is a cached coarse raster, without continuous detail at every scale.
-- There are no manual annotations, route planning, strategic orders or complete political/economic overlays.
+- Cartography uses scale-dependent cached raster detail and exploration cells, not an unlimited-resolution geographic model.
+- Political/economic layers show discovered towns and remembered deposits; complete regional borders, production forecasts and strategic orders await the deferred resident-command/navigation systems.
 - Road detail inherits the incomplete world road network.
+
 
 #### Graphics, animation and audio
 
-**Working:** isometric atlas, detailed roof/wall planes, painted shadows, movement frames, outfit colors, weapon effects and distinct vessel drawings. Interface text is 1.25 times its previous effective size, rasterized at matching integer sizes. Menus use rounder buttons and four randomly selected procedural landscapes.
+**Working:** detailed roof/wall/facade variants, material grain, clothing details, grass/flowers/bark, occlusion fading, animated harvesting/resident tools and combat impact/defeat feedback. Sword impact now occurs when the animated swing crosses its facing direction; damage is still an authoritative one-hit phase. Water includes ripples/foam/wakes; nine vessel definitions have distinct hull, oar, sail/mast and deck details. Original Forest/Harbor/Depths music can follow terrain or be selected/off, with separate music/effects volume and synthesized footsteps, gathering, combat, UI and environment sounds.
 
 **Incomplete:**
-- Sprites/drawing primitives do not provide real 3D buildings, geometric depth, dynamic lighting or physical shadows.
-- Houses share limited variants/repeated layouts. NPCs share limited animation; complete job, interaction and combat animation sets are absent.
-- Water graphics do not simulate waves, vessel wakes or physically changing shores.
-- Music, sound effects and spatial audio are not implemented.
+- Buildings have twelve facade/detail variants and fade when they occlude the player; interiors, more architectural styles and complete profession/interaction animation sets remain incomplete.
+- Water has animated ripples, foam and vessel wakes; physical waves, tides and changing shores are not simulated.
+- Audio provides three synthesized music loops and event/ambient effects with independent volume controls and distance/pan for nearby hits, wolves and fires; a larger soundtrack, a full ambient mixing system and smooth soundtrack crossfades are not implemented.
+
 
 #### Menus, controls and save management
 
@@ -302,7 +315,7 @@ Saved worlds can be renamed, copied, imported/exported as JSON, deleted into tra
 
 #### Persistence and content identity
 
-**Working:** atomic saves, v1-v5 migration to v6 with backups, persistent quests/gear/roles/unlocks/relations/maps and harvested/defeated IDs.
+**Working:** atomic saves, v1-v6 migration to v7 with backups, persistent quests/gear/roles/unlocks/relations/maps and harvested/defeated IDs.
 
 **Incomplete:**
 - Living enemy health, position and attack state are transient; chunk regeneration/reload can reset a surviving enemy. NPC/animal movement and active projectiles are also transient.
@@ -326,9 +339,19 @@ Saved worlds can be renamed, copied, imported/exported as JSON, deleted into tra
 - Linux source setup is available and tested, but there is no standalone relocatable package: assets/content/default writable paths remain bound to the checkout at build time. System packages must be installed separately.
 - Downloads use HTTPS, curl success and a GGUF header check for the model, without pinned checksums or complete model validation. The model/font URLs track upstream main, and existing dependency files/source checkouts are reused rather than reverified against a lock manifest.
 
+#### Navigation and autonomous movement (deferred)
+
+**Working:** the existing bounded debug/benchmark auto-route remains available. Destination-order systems and long-distance agent simulation are deliberately deferred.
+
+**Incomplete / prerequisites:**
+- Full destination orders and route planning are deferred until command systems exist for owned and foreign residents/professions, caravans and armies; current job/equipment assignments are timer-based prototypes, not this prerequisite.
+- Navigation searches a bounded area of loaded terrain and approaches distant goals in short segments, rather than planning full world routes for caravans/armies.
+- There is no hierarchical routing or complete handling of distant blocked/unloaded destinations.
+
 Weapons intentionally have no durability, equipment swaps work anywhere, and ordinary NPC interactions use authored English content. Those are implemented design choices. Multiplayer and a space/planet simulation are outside the current scope.
 
 The tracked [TODO.md checklist](TODO.md) lists remaining work item by item. Remove completed items after implementation and validation, splitting partial completions so remaining scope is retained. Maintain it and this section alongside [ai/PLACEHOLDERS.md](ai/PLACEHOLDERS.md) whenever implementation changes.
+
 
 ## Installation
 
@@ -469,11 +492,13 @@ cmake --build build -j 4
 ctest --test-dir build --output-on-failure
 ```
 
-Tests cover world generation, gameplay, campaigns, quests/equipment, save compatibility, controls, tree unlocks, resource memory, save-file workflows, summaries, dialogue transport and launcher lifecycle. A real-window menu regression harness is available on Linux/X11 or XWayland:
+Tests cover world generation, gameplay, campaigns, quests/equipment, save compatibility, controls, tree unlocks, resource memory, save-file workflows, summaries, dialogue transport and launcher lifecycle. Run checks once after related changes are complete. A short real-window journal/save check is available on Linux/X11 or XWayland; screenshot capture requires Wayland and grim. Longer workflow checks are optional when changing those workflows or preparing a release:
 
 ```sh
+python3 scripts/world-smoke.py  # Quick journal/save check
+# Optional extended workflows:
+python3 scripts/world-smoke.py --extended
 python3 scripts/menu-smoke.py
-# Extended workflows + screenshots (X11/XWayland on Wayland; requires grim):
 python3 scripts/menu-workflow-smoke.py
 ```
 
@@ -489,14 +514,14 @@ ctest --test-dir build-core --output-on-failure
 
 Performance targets are **60 FPS** and a worst-window frame p95 ceiling of **30 ms**. These are development targets, not a guarantee for every machine. Logs contain aggregate frame timings, memory and meaningful gameplay/model events rather than function-call traces.
 
-Run a short windowed community benchmark without a model:
+Profile only after an observed slowdown or changes with a credible performance impact, such as major renderer/geometry changes, near-3D graphics, large asset/actor counts or model integration. Small cosmetic changes do not require benchmarks. Start with a short windowed sample without a model:
 
 ```sh
-./scripts/run.sh --no-model -- --benchmark 55 --benchmark-community
+./scripts/run.sh --no-model -- --benchmark 8
 python3 scripts/summarize-perf.py
 ```
 
-Measure the same scenario with model generation enabled:
+For release preparation or a specific regression, optionally exercise the longer community scenario with model generation enabled:
 
 ```sh
 ./scripts/run.sh -- --benchmark 55 --benchmark-community --benchmark-llm

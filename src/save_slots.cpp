@@ -25,6 +25,10 @@ void Validate(const Settings& settings) {
       settings.port < 1 || settings.port > 65535 ||
       !std::isfinite(settings.text_scale) || settings.text_scale < 1 ||
       settings.text_scale > 1.4f || !ValidBindings(settings.bindings) ||
+      settings.music_mode < 0 || settings.music_mode > 4 ||
+      !std::isfinite(settings.music_volume) || settings.music_volume < 0 ||
+      settings.music_volume > 1 || !std::isfinite(settings.effects_volume) ||
+      settings.effects_volume < 0 || settings.effects_volume > 1 ||
       !std::isfinite(settings.zoom) || settings.zoom < .65f ||
       settings.zoom > 1.7f) {
     throw std::runtime_error("Invalid settings");
@@ -50,6 +54,9 @@ Settings LoadSettings(const std::filesystem::path& path) {
     settings.debug = json.value("debug", settings.debug);
     settings.text_scale = json.value("text_scale", 1.f);
     settings.high_contrast = json.value("high_contrast", false);
+    settings.music_mode = json.value("music_mode", 0);
+    settings.music_volume = json.value("music_volume", .45f);
+    settings.effects_volume = json.value("effects_volume", .65f);
     if (json.contains("bindings")) {
       for (const auto& action : InputActions()) {
         if (json["bindings"].contains(action.id)) {
@@ -81,6 +88,9 @@ void WriteSettings(const std::filesystem::path& path,
                          {"debug", settings.debug},
                          {"text_scale", settings.text_scale},
                          {"high_contrast", settings.high_contrast},
+                         {"music_mode", settings.music_mode},
+                         {"music_volume", settings.music_volume},
+                         {"effects_volume", settings.effects_volume},
                          {"last_save", settings.last_save}};
   json["bindings"] = nlohmann::json::object();
   for (const auto& action : InputActions()) {

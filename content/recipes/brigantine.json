@@ -1,0 +1,13 @@
+{
+  "id": "vessel_brigantine",
+  "name": "Brigantine",
+  "cost": {
+    "0": 85,
+    "3": 35,
+    "7": 15,
+    "10": 8
+  },
+  "result": "vessel:brigantine",
+  "technology": "navigation_school",
+  "effect": "Two masts, broad view and high speed; costs 120 coins and requires Shipbuilding."
+}

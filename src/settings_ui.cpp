@@ -1,6 +1,7 @@
 #include "settings_ui.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <exception>
 #include <vector>
@@ -149,18 +150,29 @@ bool DrawSettingsPanel(Renderer& renderer, SettingsPanel& panel,
             "%",
         std::string("Tree contrast: ") +
             (panel.draft.high_contrast ? "high" : "standard"),
-        "Keyboard controls"};
+        "Keyboard controls",
+        std::string("Background music: ") +
+            std::array<const char*, 5>{"Automatic", "Forest", "Harbor",
+                                       "Depths", "Off"}[panel.draft.music_mode],
+        "Music volume: " +
+            std::to_string(static_cast<int>(panel.draft.music_volume * 100)) +
+            "%",
+        "Effects volume: " +
+            std::to_string(static_cast<int>(panel.draft.effects_volume * 100)) +
+            "%"};
     if (MenuUp()) {
-      panel.selection = (panel.selection + 7) % 8;
+      panel.selection = (panel.selection + 10) % 11;
     }
     if (MenuDown()) {
-      panel.selection = (panel.selection + 1) % 8;
+      panel.selection = (panel.selection + 1) % 11;
     }
-    for (int i = 0; i < 8; ++i) {
-      if (SettingButton(
-              renderer,
-              {60, box.y + 50 + i * 48, std::min(box.width - 40, 740.f), 40},
-              labels[i], panel.selection == i) ||
+    int rows = std::max(1, static_cast<int>((box.height - 60) / 48));
+    int first = panel.selection / rows * rows;
+    for (int i = first; i < std::min(first + rows, 11); ++i) {
+      if (SettingButton(renderer,
+                        {60, box.y + 50 + (i - first) * 48,
+                         std::min(box.width - 40, 740.f), 40},
+                        labels[i], panel.selection == i) ||
           (panel.selection == i &&
            (MenuConfirm() || MenuLeft() || MenuRight()))) {
         panel.selection = i;
@@ -202,6 +214,17 @@ bool DrawSettingsPanel(Renderer& renderer, SettingsPanel& panel,
         }
         if (i == 6) {
           panel.draft.high_contrast = !panel.draft.high_contrast;
+        }
+        if (i == 8) {
+          panel.draft.music_mode = (panel.draft.music_mode + delta + 5) % 5;
+        }
+        if (i == 9) {
+          panel.draft.music_volume =
+              std::clamp(panel.draft.music_volume + delta * .1f, 0.f, 1.f);
+        }
+        if (i == 10) {
+          panel.draft.effects_volume =
+              std::clamp(panel.draft.effects_volume + delta * .1f, 0.f, 1.f);
         }
         if (i == 7) {
           panel.controls = true;

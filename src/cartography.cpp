@@ -4,6 +4,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "atlas_notes.hpp"
+#include "gameplay.hpp"
 #include "render.hpp"
 
 namespace frontier {
@@ -33,7 +35,7 @@ Color LandColor(Vec position, const Save& save, bool submerged) {
 }
 }  // namespace
 
-void Renderer::DrawMap(const Save& save, const Ui& ui, const Camera2D& camera,
+void Renderer::DrawMap(const Save& save, const Ui& ui, const Camera2D&,
                        Rectangle box, bool large, bool show_viewport) {
   const bool submerged = ui.map_layer_override < 0
                              ? save.submerged
@@ -43,10 +45,17 @@ void Renderer::DrawMap(const Save& save, const Ui& ui, const Camera2D& camera,
                       : Vec{std::floor(save.player.x / 384) * 384,
                             std::floor(save.player.y / 384) * 384};
   float range = large ? ui.map_range : 2100;
-  constexpr int kPixels = 256;
+  const int kPixels = large ? (range < 1800 ? 768 : 512) : 256;
   if (cache.seed != save.seed || cache.refresh < 0 ||
       ui.time - cache.refresh > .3 || cache.submerged != submerged ||
-      cache.range != range || Length(cache.center - desired) > 100) {
+      cache.range != range || cache.pixels != kPixels ||
+      cache.overlay != ui.map_overlay || Length(cache.center - desired) > 1) {
+    if (cache.pixels != kPixels && cache.texture.id) {
+      UnloadTexture(cache.texture);
+      cache.texture = {};
+    }
+    cache.pixels = kPixels;
+    cache.overlay = ui.map_overlay;
     cache.seed = save.seed;
     cache.center = desired;
     cache.range = range;
@@ -59,6 +68,20 @@ void Renderer::DrawMap(const Save& save, const Ui& ui, const Camera2D& camera,
           (position.x - cache.center.x + range) / (2 * range) * kPixels,
           (position.y - cache.center.y + range) / (2 * range) * kPixels};
     };
+    if (large) {
+      constexpr int block = 4;
+      for (int y = 0; y < kPixels; y += block) {
+        for (int x = 0; x < kPixels; x += block) {
+          Vec position{
+              cache.center.x - range + (x + block * .5f) / kPixels * range * 2,
+              cache.center.y - range + (y + block * .5f) / kPixels * range * 2};
+          if (ExploredAt(explored, position)) {
+            ImageDrawRectangle(&image, x, y, block, block,
+                               LandColor(position, save, submerged));
+          }
+        }
+      }
+    }
     auto low = MapCell(cache.center - Vec{range, range}),
          high = MapCell(cache.center + Vec{range, range});
     for (int y = low.y; y <= high.y; y++) {
@@ -75,8 +98,10 @@ void Renderer::DrawMap(const Save& save, const Ui& ui, const Camera2D& camera,
             top = static_cast<int>(std::floor(a.y)),
             right = static_cast<int>(std::ceil(b.x)),
             bottom = static_cast<int>(std::ceil(b.y));
-        ImageDrawRectangle(&image, left, top, right - left, bottom - top,
-                           color);
+        if (!large) {
+          ImageDrawRectangle(&image, left, top, right - left, bottom - top,
+                             color);
+        }
         auto terrain = TerrainAt(world, save.seed);
         if (!submerged && terrain == Terrain::kForest && !PathAt(world) &&
             ObjectId(x, y, save.seed) % 5 == 0 && right - left >= 4) {
@@ -89,7 +114,8 @@ void Renderer::DrawMap(const Save& save, const Ui& ui, const Camera2D& camera,
         }
         // Neighboring cells share edges; shore boundaries follow the actual
         // terrain.
-        if (terrain == Terrain::kDeep || terrain == Terrain::kShallow) {
+        if (!large &&
+            (terrain == Terrain::kDeep || terrain == Terrain::kShallow)) {
           auto above = TerrainAt(world - Vec{0, kMapCellSize}, save.seed),
                side = TerrainAt(world - Vec{kMapCellSize, 0}, save.seed);
           if (above == Terrain::kForest || above == Terrain::kSand) {
@@ -156,13 +182,7 @@ void Renderer::DrawMap(const Save& save, const Ui& ui, const Camera2D& camera,
         if (!ExploredAt(explored, world)) {
           ImageDrawPixel(&image, x, y, {11, 19, 22, 255});
         } else {
-          auto relative = Project(world - save.player);
-          bool current =
-              std::abs(relative.x) <= GetScreenWidth() / (2 * camera.zoom) &&
-              std::abs(relative.y) <= GetScreenHeight() / (2 * camera.zoom);
-          if (submerged && Length(world - save.player) > 650) {
-            current = false;
-          }
+          bool current = show_viewport && VisibleAt(save, world, submerged);
           if (!current) {
             auto* colors = static_cast<Color*>(image.data);
             auto& color = colors[y * kPixels + x];
@@ -187,24 +207,12 @@ void Renderer::DrawMap(const Save& save, const Ui& ui, const Camera2D& camera,
                    box.y + (position.y - cache.center.y + cache.range) /
                                (2 * cache.range) * box.height};
   };
-  DrawTexturePro(cache.texture, {0, 0, 256, 256}, box, {0, 0}, 0, WHITE);
+  DrawTexturePro(cache.texture,
+                 {0, 0, static_cast<float>(cache.pixels),
+                  static_cast<float>(cache.pixels)},
+                 box, {0, 0}, 0, WHITE);
   BeginScissorMode(static_cast<int>(box.x), static_cast<int>(box.y),
                    static_cast<int>(box.width), static_cast<int>(box.height));
-  std::array<Vector2, 4> corners = {
-      Vector2{0, 0}, Vector2{static_cast<float>(GetScreenWidth()), 0},
-      Vector2{static_cast<float>(GetScreenWidth()),
-              static_cast<float>(GetScreenHeight())},
-      Vector2{0, static_cast<float>(GetScreenHeight())}};
-  std::array<Vector2, 4> viewport;
-  for (int i = 0; i < 4; i++) {
-    auto p = GetScreenToWorld2D(corners[i], camera);
-    viewport[i] = map_pos(Unproject({p.x, p.y}));
-  }
-  if (show_viewport) {
-    for (int i = 0; i < 4; i++) {
-      DrawLineEx(viewport[i], viewport[(i + 1) % 4], 1, {204, 217, 184, 180});
-    }
-  }
   auto player = map_pos(save.player);
   DrawCircleV(player, 4, {248, 221, 141, 255});
   DrawCircleLines(static_cast<int>(player.x), static_cast<int>(player.y), 6,
@@ -217,9 +225,52 @@ void Renderer::DrawMap(const Save& save, const Ui& ui, const Camera2D& camera,
     for (size_t i = 0; i < Settlements().size(); i++) {
       if (ExploredAt(save.explored, Settlements()[i].pos)) {
         auto point = map_pos(Settlements()[i].pos);
-        Text(Settlements()[i].name, point.x + 10, point.y + 12, 16,
-             {235, 227, 195, 255});
+        Color color =
+            ui.map_overlay == 1
+                ? (OwnsCity(save, i)               ? Color{166, 214, 124, 255}
+                   : save.relations[i].opinion < 0 ? Color{229, 133, 116, 255}
+                                                   : Color{236, 207, 143, 255})
+                : Color{235, 227, 195, 255};
+        std::string label = Settlements()[i].name;
+        if (ui.map_overlay == 1) {
+          label +=
+              " · " + std::string(OwnsCity(save, i)
+                                      ? "yours"
+                                      : TreatyName(save.relations[i].treaty));
+        }
+        if (ui.map_overlay == 2) {
+          const auto& type = GetContent().towns[Settlements()[i].type];
+          label += " · " + type.name;
+          for (int good : type.goods) {
+            label += " / " + std::string(GoodName(good));
+          }
+        }
+        DrawCircleV(point, 5, color);
+        Wrapped(label, point.x + 10, point.y + 12, 270, 16, color, 2);
       }
+    }
+  }
+  if (large && ui.map_overlay == 2) {
+    for (const auto& [id, site] : save.known_deposits) {
+      if (site.underwater != submerged || save.harvested.contains(id)) {
+        continue;
+      }
+      auto p = map_pos(site.position);
+      Icon(save.known_goods[site.good] ? "good_" + std::to_string(site.good)
+                                       : "good_1",
+           {p.x - 8, p.y - 8, 16, 16});
+    }
+  }
+  for (size_t i = 0; i < save.map_notes.size(); i++) {
+    const auto& note = save.map_notes[i];
+    if (note.underwater != submerged) {
+      continue;
+    }
+    auto p = map_pos(note.position);
+    DrawCircleV(p, 8, {221, 173, 92, 255});
+    DrawCircleV(p, 3, {48, 59, 42, 255});
+    if (large) {
+      Wrapped(note.title, p.x + 12, p.y - 12, 190, 16, {240, 210, 151, 255}, 1);
     }
   }
   EndScissorMode();

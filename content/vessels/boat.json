@@ -1,0 +1,11 @@
+{
+  "number": 1,
+  "id": "boat",
+  "name": "Rowboat",
+  "speed": 0.85,
+  "view": 850,
+  "length": 48,
+  "width": 21,
+  "prestige": 1,
+  "coins": 0
+}

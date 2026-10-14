@@ -1,0 +1,11 @@
+{
+  "id": "vessel_raft",
+  "name": "Reed raft",
+  "cost": {
+    "0": 10,
+    "3": 6
+  },
+  "result": "vessel:raft",
+  "technology": "",
+  "effect": "Basic lake crossing; slow and narrow vision."
+}

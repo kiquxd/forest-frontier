@@ -1,0 +1,11 @@
+{
+  "number": 2,
+  "id": "ship",
+  "name": "Sailing ship",
+  "speed": 1.65,
+  "view": 1100,
+  "length": 88,
+  "width": 30,
+  "prestige": 4,
+  "coins": 0
+}

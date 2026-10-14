@@ -1,6 +1,6 @@
 # Incomplete systems and placeholders
 
-Audit of the current 0.6 implementation. This inventory covers working prototypes, missing parts of requested mechanics and technical limitations. It is not a commitment to implement every possible extension. A working menu or prerequisite does not mean the underlying simulation is complete.
+Audit of the current 0.7 implementation. This inventory covers working prototypes, missing parts of requested mechanics and technical limitations. It is not a commitment to implement every possible extension. A working menu or prerequisite does not mean the underlying simulation is complete.
 
 Keep this inventory current whenever mechanics change. Remove a limitation only after implementation and relevant validation. Deliberate scope choices belong in [DECISIONS.md](DECISIONS.md).
 
@@ -209,41 +209,33 @@ Sources: [gameplay.cpp](../src/gameplay.cpp), [render.cpp](../src/render.cpp).
 
 Source: [world.cpp](../src/world.cpp).
 
-## Collision and navigation
+## Collision geometry
 
-**Working:** bounded substep movement, obstacle/wall collision, sliding, water restrictions and local A* plans.
+**Working:** circle bodies, four-point isometric building foundations with box broad-phase checks, thick wall segments/capsules, polygonal rock footprints and tile-boundary geometry, with substepped sliding and local player/NPC/enemy contacts. Nearby NPCs also separate without adding destinations or orders. The world intentionally retains 2D physics.
 
 **Incomplete:**
-- Collision is a two-dimensional radius test against simplified obstacles, not shape-accurate geometry or rigid bodies.
-- Actors have no complete body-to-body collision model; gravity and elevation are absent.
-- Navigation searches a bounded area of loaded terrain and approaches distant goals in short segments, rather than planning full world routes for caravans/armies.
-- There is no hierarchical routing or complete handling of distant blocked/unloaded destinations.
+- Body contacts use local disc separation rather than a general rigid-body simulation. Vessels use radius footprints rather than a separate collision hull for each persistent craft.
 
-Source: [world.cpp](../src/world.cpp).
 
 ## Map and exploration
 
-**Working:** persistent fog on both layers, terrain, town miniatures, partially revealed world features/lakes, roads and save-preview maps.
+**Working:** exploration independent of window/zoom, fixed world-space sight ranges, forest-limited sight and building/wall occlusion. Current visibility and explored memory are separate; older exploration stays intact. Maps adapt raster detail to scale, preserve partially explored lakes/towns, provide terrain/politics/economy views, retain up to 4096 known deposits after chunks unload, and remember up to 128 titled surface/seafloor notes. Clicking a marker opens its journal entry; notes can be edited/deleted and viewed through Journal/Tab.
 
 **Incomplete:**
-- Surface exploration follows the viewport, without line-of-sight occlusion. Window size/zoom affect exploration counters.
-- Cartography is a cached coarse raster, without continuous detail at every scale.
-- There are no manual annotations, route planning, strategic orders or complete political/economic overlays.
+- Cartography uses scale-dependent cached raster detail and exploration cells, not an unlimited-resolution geographic model.
+- Political/economic layers show discovered towns and remembered deposits; complete regional borders, production forecasts and strategic orders await the deferred resident-command/navigation systems.
 - Road detail inherits the incomplete world road network.
 
-Sources: [cartography.cpp](../src/cartography.cpp), [gameplay.cpp](../src/gameplay.cpp), [menu.cpp](../src/menu.cpp).
 
 ## Graphics, animation and audio
 
-**Working:** isometric atlas, detailed roof/wall planes, painted shadows, movement frames, outfit colors, weapon effects and distinct vessel drawings. Interface text is 1.25 times its previous effective size, rasterized at matching integer sizes. Menus use rounder buttons and four randomly selected procedural landscapes.
+**Working:** detailed roof/wall/facade variants, material grain, clothing details, grass/flowers/bark, occlusion fading, animated harvesting/resident tools and combat impact/defeat feedback. Sword impact now occurs when the animated swing crosses its facing direction; damage is still an authoritative one-hit phase. Water includes ripples/foam/wakes; nine vessel definitions have distinct hull, oar, sail/mast and deck details. Original Forest/Harbor/Depths music can follow terrain or be selected/off, with separate music/effects volume and synthesized footsteps, gathering, combat, UI and environment sounds.
 
 **Incomplete:**
-- Sprites/drawing primitives do not provide real 3D buildings, geometric depth, dynamic lighting or physical shadows.
-- Houses share limited variants/repeated layouts. NPCs share limited animation; complete job, interaction and combat animation sets are absent.
-- Water graphics do not simulate waves, vessel wakes or physically changing shores.
-- Music, sound effects and spatial audio are not implemented.
+- Buildings have twelve facade/detail variants and fade when they occlude the player; interiors, more architectural styles and complete profession/interaction animation sets remain incomplete.
+- Water has animated ripples, foam and vessel wakes; physical waves, tides and changing shores are not simulated.
+- Audio provides three synthesized music loops and event/ambient effects with independent volume controls and distance/pan for nearby hits, wolves and fires; a larger soundtrack, a full ambient mixing system and smooth soundtrack crossfades are not implemented.
 
-Source: [render.cpp](../src/render.cpp).
 
 ## Menus, controls and save management
 
@@ -259,7 +251,7 @@ Sources: [menu.cpp](../src/menu.cpp), [settings_ui.cpp](../src/settings_ui.cpp),
 
 ## Persistence and content identity
 
-**Working:** atomic saves, v1-v5 migration to v6 with backups, persistent quests/gear/roles/unlocks/relations/maps and harvested/defeated IDs.
+**Working:** atomic saves, v1-v6 migration to v7 with backups, persistent quests/gear/roles/unlocks/relations/maps and harvested/defeated IDs.
 
 **Incomplete:**
 - Living enemy health, position and attack state are transient; chunk regeneration/reload can reset a surviving enemy. NPC/animal movement and active projectiles are also transient.
@@ -288,6 +280,15 @@ Sources: [dialogue.cpp](../src/dialogue.cpp), [main.cpp](../src/main.cpp).
 - Downloads use HTTPS, curl success and a GGUF header check for the model, without pinned checksums or complete model validation. The model/font URLs track upstream main, and existing dependency files/source checkouts are reused rather than reverified against a lock manifest.
 
 Sources: [perf.cpp](../src/perf.cpp), [PROGRESS.md](PROGRESS.md), [README.md](../README.md).
+
+## Navigation and autonomous movement (deferred)
+
+**Working:** the existing bounded debug/benchmark auto-route remains available. Long-distance agent simulation is deferred behind resident command systems.
+
+**Incomplete / prerequisites:**
+- Full destination orders and route planning are deferred until command systems exist for owned and foreign residents/professions, caravans and armies; current job/equipment assignments are timer-based prototypes, not this prerequisite.
+- Navigation searches a bounded area of loaded terrain and approaches distant goals in short segments, rather than planning full world routes for caravans/armies.
+- There is no hierarchical routing or complete handling of distant blocked/unloaded destinations.
 
 ## Intentional choices, not unfinished mechanics
 

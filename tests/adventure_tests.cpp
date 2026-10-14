@@ -188,8 +188,8 @@ int main() {
     game.Advance(.1f);
     game.Combat(world, save, .1f);
     Check(enemies[0].hp == 60, "Windup is harmless");
-    game.Advance(.1f);
-    game.Combat(world, save, .1f);
+    game.Advance(.2f);
+    game.Combat(world, save, .2f);
     Check(enemies[0].hp == 35, "Blade deals damage in active phase");
     game.Combat(world, save, .1f);
     Check(enemies[0].hp == 35, "One hit per swing");

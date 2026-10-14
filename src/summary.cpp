@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+#include "vessels.hpp"
+
 namespace frontier {
 std::vector<SummaryEntry> InventorySummary(const Save& save) {
   std::vector<SummaryEntry> rows;
@@ -54,6 +56,14 @@ std::vector<SummaryEntry> InventorySummary(const Save& save) {
           {"outfit_" + item.id, item.name,
            (save.outfit_id == item.id ? "Worn · " : "") + item.description,
            found->second});
+    }
+  }
+  for (const auto& v : Vessels()) {
+    if (v.number > 3 && OwnsVessel(save, v.number)) {
+      rows.push_back({"ship", v.name,
+                      "Prestige " + std::to_string(v.prestige) + " · sight " +
+                          std::to_string(static_cast<int>(v.view)),
+                      1});
     }
   }
   return rows;

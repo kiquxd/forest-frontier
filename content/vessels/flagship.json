@@ -1,0 +1,11 @@
+{
+  "number": 9,
+  "id": "flagship",
+  "name": "Royal flagship",
+  "speed": 2.15,
+  "view": 1350,
+  "length": 132,
+  "width": 42,
+  "prestige": 9,
+  "coins": 300
+}

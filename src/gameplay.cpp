@@ -9,7 +9,9 @@
 #include <vector>
 
 #include "adventure.hpp"
+#include "atlas_notes.hpp"
 #include "progress.hpp"
+#include "vessels.hpp"
 
 namespace frontier {
 const char* GoodName(int good) {
@@ -259,7 +261,13 @@ std::string RecipeSkill(const Recipe& r) {
   if (a == "rod") {
     return "fishing";
   }
-  if (a == "boat" || a == "ship") {
+  if (a == "vessel:raft") {
+    return "crafting";
+  }
+  if (a == "vessel:canoe") {
+    return "tools";
+  }
+  if (a == "boat" || a == "ship" || a.starts_with("vessel:")) {
     return "sailing";
   }
   if (a == "potion") {
@@ -309,6 +317,9 @@ bool Equipped(const Inventory& inventory, int recipe) {
   if (result.starts_with("weapon:") || result.starts_with("outfit:")) {
     return false;
   }
+  if (result.starts_with("vessel:")) {
+    return false;
+  }
   if (result == "axe") {
     return inventory.axe;
   }
@@ -338,6 +349,11 @@ bool Equipped(const Inventory& inventory, int recipe) {
   }
   return false;
 }
+bool Equipped(const Save& save, int recipe) {
+  const auto& result = Recipes().at(recipe).result;
+  return result.starts_with("vessel:") ? save.vessels.contains(result.substr(7))
+                                       : Equipped(save.inventory, recipe);
+}
 Action Craft(Save& save, int recipe) {
   if (recipe < 0 || recipe >= static_cast<int>(Recipes().size())) {
     return {false, "Unknown recipe"};
@@ -355,8 +371,26 @@ Action Craft(Save& save, int recipe) {
     return {false, "Town technology required: " +
                        std::string(TechnologyName(r.technology))};
   }
-  if (Equipped(save.inventory, recipe)) {
+  if (Equipped(save, recipe)) {
     return {false, "Already crafted"};
+  }
+  int vessel_coins = 0;
+  if (r.result.starts_with("vessel:")) {
+    const auto v = Vessel(r.result.substr(7));
+    if (save.vessels.contains(v.id)) {
+      return {false, "You already own this vessel"};
+    }
+    if (v.prestige >= 6 && !Knows(save, "shipbuilding")) {
+      return {false, "Learn Shipbuilding from a specialist town first"};
+    }
+    if (v.id == "flagship" && !Knows(save, "navigation_school")) {
+      return {false, "Research Navigation school first"};
+    }
+    vessel_coins = v.coins;
+    if (save.coins < vessel_coins) {
+      return {false, "Vessel commissioning requires " +
+                         std::to_string(vessel_coins) + " coins"};
+    }
   }
   for (int i = 0; i < kGoodTypes; i++) {
     if (GoodCount(save.inventory, i) < r.cost[i]) {
@@ -373,8 +407,14 @@ Action Craft(Save& save, int recipe) {
   for (int i = 0; i < kGoodTypes; i++) {
     GoodCount(save.inventory, i) -= r.cost[i];
   }
+  save.coins -= vessel_coins;
   auto& result = r.result;
-  if (result.starts_with("weapon:")) {
+  if (result.starts_with("vessel:")) {
+    const auto v = Vessel(result.substr(7));
+    save.vessels.insert(v.id);
+    save.vehicle = v.number;
+    RecordHistory(save, "vessel", "Commissioned " + v.name);
+  } else if (result.starts_with("weapon:")) {
     save.inventory.weapon_id = result.substr(7);
     save.inventory.weapons.insert(save.inventory.weapon_id);
     save.weapon_copies[save.inventory.weapon_id]++;
@@ -789,39 +829,34 @@ Action Diplomacy(Save& save, int city, int action) {
   return {false, "Unknown action"};
 }
 bool Watercraft(const Save& save) {
-  return save.inventory.boat || save.inventory.ship || save.inventory.submarine;
+  return save.inventory.boat || save.inventory.ship ||
+         save.inventory.submarine || !save.vessels.empty();
 }
 int ActiveVehicle(const Save& save) {
   if (save.submerged) {
     return 3;
   }
-  if (save.vehicle == 3 && save.inventory.submarine) {
-    return 3;
+  if (save.vehicle >= 1 && save.vehicle <= 9 &&
+      OwnsVessel(save, save.vehicle)) {
+    return save.vehicle;
   }
-  if (save.vehicle == 2 && save.inventory.ship) {
-    return 2;
+  for (int id : {3, 2, 1, 9, 8, 7, 6, 5, 4}) {
+    if (OwnsVessel(save, id)) {
+      return id;
+    }
   }
-  if (save.vehicle == 1 && save.inventory.boat) {
-    return 1;
-  }
-  return save.inventory.submarine ? 3
-         : save.inventory.ship    ? 2
-         : save.inventory.boat    ? 1
-                                  : 0;
+  return 0;
 }
 Action CycleVehicle(Save& save) {
   if (save.submerged) {
-    return {false, "Surface with R first"};
+    return {false, "Surface before selecting another vessel"};
   }
-  for (int i = 1; i <= 3; i++) {
-    int choice = (save.vehicle + i - 1) % 3 + 1;
-    if ((choice == 1 && save.inventory.boat) ||
-        (choice == 2 && save.inventory.ship) ||
-        (choice == 3 && save.inventory.submarine)) {
-      save.vehicle = choice;
-      return {true, std::string("Selected: ") + (choice == 1   ? "boat"
-                                                 : choice == 2 ? "ship"
-                                                               : "submarine")};
+  for (int i = 1; i <= 9; i++) {
+    int id = (save.vehicle + i - 1) % 9 + 1;
+    if (OwnsVessel(save, id)) {
+      save.vehicle = id;
+      return {true, "Selected: " + Vessel(id).name + " · prestige " +
+                        std::to_string(Vessel(id).prestige)};
     }
   }
   return {false, "Craft a vessel first"};
@@ -966,6 +1001,12 @@ Action Harvest(Save& save, const Resource& resource) {
   return {true, "+" + std::to_string(amount) + " " + GoodName(good)};
 }
 void Gameplay::Advance(float dt) {
+  for (auto& effect : hit_effects) {
+    effect.age += dt;
+  }
+  std::erase_if(hit_effects, [](const auto& effect) {
+    return effect.age > (effect.defeated ? 1.5f : .3f);
+  });
   if (swing > 0) {
     attack_elapsed += dt;
     swing = std::max(0.f, attack_duration - attack_elapsed);
@@ -979,9 +1020,7 @@ Vec Gameplay::MovePlayer(World& world, Save& save, Vec displacement) {
   bool afloat = terrain == Terrain::kShallow || terrain == Terrain::kDeep;
   int vehicle = afloat ? ActiveVehicle(save) : 0;
   float factor = save.submerged                 ? 1.1f
-                 : vehicle == 2                 ? 1.65f
-                 : vehicle == 3                 ? 1.05f
-                 : vehicle == 1                 ? .85f
+                 : vehicle                      ? Vessel(vehicle).speed
                  : terrain == Terrain::kShallow ? .45f
                                                 : 1.f;
   if (swing > 0 && vehicle == 0) {
@@ -990,8 +1029,11 @@ Vec Gameplay::MovePlayer(World& world, Save& save, Vec displacement) {
   factor *=
       PlayerOutfit(save).speed * (vehicle ? 1.f : PlayerCharacter(save).speed);
   Vec previous = save.player;
-  save.player = world.Move(save.player, displacement * factor, save, 12,
-                           Watercraft(save));
+  save.player = world.Move(
+      save.player, displacement * factor, save,
+      vehicle ? std::clamp(Vessel(vehicle).width * .6f, 10.f, 25.f) : 12.f,
+      Watercraft(save));
+  world.ResolvePlayerContacts(save);
   Vec actual = save.player - previous;
   moving = Length(actual) > .001f;
   if (Length(displacement) > .001f) {
@@ -1008,38 +1050,54 @@ Vec Gameplay::MovePlayer(World& world, Save& save, Vec displacement) {
   }
   return actual;
 }
-void Gameplay::Explore(Save& save, float width, float height, float zoom) {
+void Gameplay::Explore(Save& save, float, float, float, const World* world) {
   auto& cells = save.submerged ? save.explored_underwater : save.explored;
-  auto half = Unproject({width / (2 * zoom), height / (2 * zoom)});
-  int radius = static_cast<int>(std::ceil(
-                   (std::abs(half.x) + std::abs(half.y)) / kMapCellSize)) +
-               1;
-  radius = std::min(radius, 35);
+  auto& visible =
+      save.submerged ? save.visible_underwater : save.visible_surface;
+  visible.clear();
+  const float range = SightRange(save);
+  int radius = static_cast<int>(std::ceil(range / kMapCellSize));
   auto origin = MapCell(save.player);
+  cells.insert(origin);
+  visible.insert(origin);
   for (int y = -radius; y <= radius; y++) {
     for (int x = -radius; x <= radius; x++) {
       Coord cell{origin.x + x, origin.y + y};
-      Vec pos{(cell.x + .5f) * kMapCellSize, (cell.y + .5f) * kMapCellSize};
-      auto projected = Project(pos - save.player);
-      if (std::abs(projected.x) > width / (2 * zoom) ||
-          std::abs(projected.y) > height / (2 * zoom)) {
+      Vec p{(cell.x + .5f) * kMapCellSize, (cell.y + .5f) * kMapCellSize};
+      if (Length(p - save.player) > range) {
         continue;
       }
       if (save.submerged) {
-        if (Length(pos - save.player) > 650) {
-          continue;
-        }
-        auto terrain = TerrainAt(pos, save.seed);
-        if (terrain != Terrain::kDeep && terrain != Terrain::kShallow) {
+        auto t = TerrainAt(p, save.seed);
+        if (t != Terrain::kDeep && t != Terrain::kShallow) {
           continue;
         }
       }
+      if (world && world->SightBlocked(save.player, p, save)) {
+        continue;
+      }
       cells.insert(cell);
+      visible.insert(cell);
+    }
+  }
+  if (world) {
+    for (const auto& [coord, chunk] : world->chunks) {
+      for (const auto& resource :
+           save.submerged ? chunk.underwater : chunk.resources) {
+        int good = ResourceGood(resource.kind);
+        if (good >= 6 && visible.contains(MapCell(resource.pos)) &&
+            !save.harvested.contains(resource.id) &&
+            save.known_deposits.size() < 4096) {
+          save.known_deposits.emplace(
+              resource.id, KnownDeposit{resource.pos, good, save.submerged});
+        }
+      }
     }
   }
   EnsureCityState(save);
   for (size_t i = 0; i < Settlements().size(); i++) {
-    if (ExploredAt(save.explored, Settlements()[i].pos)) {
+    if (!save.relations[i].discovered &&
+        ExploredAt(save.explored, Settlements()[i].pos)) {
       save.relations[i].discovered = true;
       RecordHistory(save, "discovery", "Discovered " + Settlements()[i].name,
                     static_cast<int>(i));
@@ -1113,6 +1171,11 @@ void Gameplay::Damage(World& world, Save& save, Enemy& enemy, int amount,
     return;
   }
   enemy.hp -= amount;
+  hits++;
+  if (hit_effects.size() >= 64) {
+    hit_effects.erase(hit_effects.begin());
+  }
+  hit_effects.push_back({enemy.pos, 0, enemy.hp <= 0, enemy.kind});
   enemy.flash = .22f;
   enemy.windup = 0;
   enemy.cooldown = std::max(enemy.cooldown, .5f);
@@ -1145,7 +1208,13 @@ void Gameplay::Damage(World& world, Save& save, Enemy& enemy, int amount,
   }
 }
 void Gameplay::Combat(World& world, Save& save, float dt) {
-  if (!hit_resolved_ && attack_elapsed >= attack_duration * .3f) {
+  if (!hit_resolved_ &&
+      attack_elapsed >=
+          attack_duration * (attack_weapon_.kind == "bow" ? .3f
+                             : attack_weapon_.kind == "spear" ||
+                                     attack_weapon_.kind == "fists"
+                                 ? .35f
+                                 : .455f)) {
     hit_resolved_ = true;
     if (attack_weapon_.kind == "bow") {
       projectiles.push_back({save.player + attack_facing * 22,

@@ -1,0 +1,11 @@
+{
+  "number": 6,
+  "id": "skiff",
+  "name": "Coastal skiff",
+  "speed": 1.2,
+  "view": 950,
+  "length": 60,
+  "width": 23,
+  "prestige": 2,
+  "coins": 15
+}

@@ -1,0 +1,11 @@
+{
+  "number": 4,
+  "id": "canoe",
+  "name": "Canoe",
+  "speed": 1,
+  "view": 850,
+  "length": 51,
+  "width": 13,
+  "prestige": 1,
+  "coins": 0
+}

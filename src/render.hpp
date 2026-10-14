@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "audio.hpp"
 #include "gameplay.hpp"
 #include "raylib.h"
 #include "summary.hpp"
@@ -74,6 +75,19 @@ struct Ui {
   bool temporary_session{};
   bool settings_open{};
   std::vector<std::pair<std::string, std::string>> actions;
+  bool map_journal{};
+  int map_overlay{};
+  int note_id{-1};
+  int note_page{};
+  float note_scroll{};
+  bool note_edit{};
+  bool note_body_focus{};
+  bool note_select_all{};
+  Vec note_position;
+  bool note_underwater{};
+  std::string note_title;
+  std::string note_text;
+  std::string note_error;
   SummaryView summary;
   int resident_job{};
   int resident_weapon{};
@@ -92,7 +106,7 @@ class Renderer {
   ~Renderer();
   size_t DrawWorld(const World& world, const Save& save, const Gameplay& game,
                    const Camera2D& camera, double time, float alpha,
-                   const Resource* highlighted);
+                   const Resource* highlighted, float gathering = 0);
   void DrawLabels(const World& world, const Save& save, const Ui& ui,
                   const Camera2D& camera) const;
   static Rectangle MenuBounds(int rows);
@@ -106,8 +120,15 @@ class Renderer {
   static constexpr float kMenuListTop = 102;
   static constexpr float kMenuFooterHeight = 155;
   static float TextSize(float size);
-  void DrawUi(const World& world, const Save& save, Ui& ui,
-              const Camera2D& camera);
+  void DrawUi(const World& world, Save& save, Ui& ui, const Camera2D& camera);
+  bool AudioReady() const {
+    return audio_.Ready();
+  }
+  void UpdateAudio(const Save* save = nullptr, const Gameplay* game = nullptr,
+                   bool paused = false, const World* world = nullptr) {
+    audio_.Update(save, game, paused, world);
+  }
+  void DrawMapJournal(Save& save, Ui& ui);
   void DrawSavedMap(const Save& save, Rectangle box, int layer = -1);
   void SummaryInput(SummaryView& view, Rectangle box,
                     bool keyboard = true) const;
@@ -132,13 +153,22 @@ class Renderer {
   std::vector<SizedFont> fonts_;
   const Font& GetFont(float size) const;
   std::vector<Rectangle> sprites_;
+  Soundscape audio_;
   struct Item {
     Vec pos;
     int sprite;
     Color tint;
     bool flip{};
+    int worker{-1};
   };
   std::vector<Item> items_;
+  struct GroundDetail {
+    Vec position;
+    uint64_t id;
+    Terrain terrain;
+    bool path;
+  };
+  std::vector<GroundDetail> ground_details_;
   void Sprite(int index, Vec position, Color tint = WHITE,
               bool flip = false) const;
   bool Visible(Vec position, const Camera2D& c, float margin = 180) const;
@@ -146,6 +176,8 @@ class Renderer {
                double time) const;
   struct MapCache {
     Texture2D texture{};
+    int pixels{256};
+    int overlay{};
     Vec center;
     float range{};
     double refresh{-1};

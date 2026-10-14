@@ -1,0 +1,11 @@
+{
+  "number": 8,
+  "id": "brigantine",
+  "name": "Brigantine",
+  "speed": 1.9,
+  "view": 1200,
+  "length": 105,
+  "width": 34,
+  "prestige": 6,
+  "coins": 120
+}

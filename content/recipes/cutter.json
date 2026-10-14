@@ -1,0 +1,12 @@
+{
+  "id": "vessel_cutter",
+  "name": "Sailing cutter",
+  "cost": {
+    "0": 45,
+    "3": 20,
+    "7": 6
+  },
+  "result": "vessel:cutter",
+  "technology": "shipbuilding",
+  "effect": "A compact sailboat; costs 40 coins."
+}
