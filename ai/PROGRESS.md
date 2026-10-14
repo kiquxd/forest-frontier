@@ -82,3 +82,8 @@ Initial Git publication preparation:
 - Expanded .gitignore for generated binaries/build artifacts, GGUF files outside models/, local credentials/assistant settings and editor caches. Publishable sources, content, icons and the font license are retained; models, saves, settings, dependencies and logs are excluded.
 - README now includes the real clone URL, complete --with-model installation and custom-GGUF setup without downloading Qwen. Documents the generic streaming API and alias, Qwen-oriented reasoning/template settings, externally started server reuse and the absence of validation for other models. No inference behavior changed.
 - All nine CTest groups pass before the initial commit. Checked the publishable file list for accidental large files and recognizable credential patterns; none found. Publication itself is performed separately after this preparation.
+
+Public incomplete-mechanics inventory:
+- Expanded the existing README Current limits subsection to cover every audited incomplete system and technical limitation in ai/PLACEHOLDERS.md, with working behavior and missing parts stated separately. Kept all four requested main sections and distinguished intentional scope/design choices from unfinished mechanics.
+- AGENTS.md now requires README updates in the same change as mechanics, content, controls, saves, dependencies or setup changes, with Current limits synchronized to the maintainer inventory. Added the reciprocal maintenance reference in ai/PLACEHOLDERS.md. Documentation only; no mechanics, save format or rendering changed.
+- Verified all 23 audited system categories appear in README Current limits, the four main sections are preserved, text is English and local links resolve. git diff --check is clean; all nine CTest groups pass.

@@ -4,6 +4,8 @@ Audit of the current 0.6 implementation. This inventory covers working prototype
 
 Keep this inventory current whenever mechanics change. Remove a limitation only after implementation and relevant validation. Deliberate scope choices belong in [DECISIONS.md](DECISIONS.md).
 
+The public counterpart is the [README Current limits section](../README.md#current-limits). Keep every incomplete system and relevant technical limitation represented there in the same change; the README must describe the limitations directly rather than only link to this file.
+
 ## Strategic warfare
 
 **Working:** war declarations, hostile local guards, wall damage, truces, alliances, union ownership, military research and equipment allocation.

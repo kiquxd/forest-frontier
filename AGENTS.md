@@ -5,6 +5,8 @@ Native C++20 / raylib game. Keep all shipped UI, content and NPC interactions in
 ## Maintainer notes
 Only the coding assistant edits `ai/DECISIONS.md`, `ai/PLACEHOLDERS.md`, `ai/PROGRESS.md` and other files in `ai/`, unless the user explicitly instructs otherwise. Update them when implementation or scope changes. These files record actual behavior; never describe a placeholder as a finished system.
 
+Keep the English `README.md` current in the same change as gameplay, content, controls, saves, dependencies, installation or launcher changes. Preserve its four main sections: What is it, Features/Gameplay, Installation and Tech Stuff. Put all unfinished mechanics and relevant technical limitations in the existing `Current limits` subsection of Features/Gameplay, synchronized with `ai/PLACEHOLDERS.md`; a link alone is insufficient. State what works and what remains incomplete. Remove a limitation only after implementation and relevant validation. Keep intentional design choices separate from missing mechanics, and do not present possible extensions as promised features.
+
 ## Implementation
 - Read relevant source and content before changing behavior. Stable content IDs and NPC IDs are part of saved-world compatibility.
 - Keep authoritative quests, rewards, equipment allocation and progression deterministic. Language-model output cannot mutate game state.
