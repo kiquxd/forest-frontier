@@ -208,7 +208,7 @@ Sources: [gameplay.cpp](../src/gameplay.cpp), [render.cpp](../src/render.cpp).
 
 ## Map and exploration
 
-**Working:** exploration independent of window/zoom, fixed world-space sight ranges, forest-limited sight and building/wall occlusion. Current visibility and explored memory are separate; older exploration stays intact. Maps adapt raster detail to scale, preserve partially explored lakes/towns, provide terrain/politics/economy views, retain up to 4096 known deposits after chunks unload, and remember up to 128 titled surface/seafloor notes. Clicking a marker opens its journal entry; notes can be edited/deleted and viewed through Journal/Tab.
+**Working:** exploration independent of window/zoom, fixed world-space sight ranges, forest-limited sight and building/wall occlusion. Current visibility and explored memory are separate; older exploration stays intact. Newly identified towns open an Esc-dismissed discovery card with their name, type, rarity, population, state relations, specialty resources, knowledge and infrastructure; multiple discoveries appear in sequence, and known towns are not announced again after reload. Maps adapt raster detail to scale, preserve partially explored lakes/towns, provide terrain/politics/economy views, retain up to 4096 known deposits after chunks unload, and remember up to 128 titled surface/seafloor notes. Clicking a marker opens its journal entry; notes can be edited/deleted and viewed through Journal/Tab.
 
 **Incomplete:**
 
@@ -239,7 +239,7 @@ Sources: [gameplay.cpp](../src/gameplay.cpp), [render.cpp](../src/render.cpp).
 
 ## Persistence and content identity
 
-**Working:** Atomic v10 saves contain resident positions/cargo/gear/health/vessels, city product stocks/housing, queues/plots/shipments, boards/escrow, arrivals and the money ledger alongside shared exploration/progression and existing roads/treaties. Versions 1-9 load with migration backups; v9 queue deadlines retain their exact remaining time when migrated to the separate production clock; legacy loose goods move to the home warehouse and legacy equipment to the first resident without resetting knowledge. Inactive controlled residents keep positions across reload; dead residents remain tombstones.
+**Working:** Atomic v10 saves contain resident positions/cargo/gear/health/vessels, city product stocks/housing, queues/plots/shipments, boards/escrow, arrivals and the money ledger alongside shared exploration/progression and existing roads/treaties. Versions 1-9 load with migration backups; v9 queue deadlines retain their exact remaining time when migrated to the separate production clock; legacy loose goods move to the home warehouse and legacy equipment to the first resident without resetting knowledge. Inactive controlled residents keep positions across reload; dead residents remain tombstones. A failed autosave keeps the current session alive, shows a warning and logs the error; automatic retries are spaced by 30 seconds, and manual Save remains available.
 
 **Incomplete:**
 

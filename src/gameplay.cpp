@@ -1166,7 +1166,9 @@ Vec Gameplay::MovePlayer(World& world, Save& save, Vec displacement) {
   }
   return actual;
 }
-void Gameplay::Explore(Save& save, float, float, float, const World* world) {
+std::vector<int> Gameplay::Explore(Save& save, float, float, float,
+                                   const World* world) {
+  std::vector<int> discovered;
   auto& cells = save.submerged ? save.explored_underwater : save.explored;
   auto& visible =
       save.submerged ? save.visible_underwater : save.visible_surface;
@@ -1221,10 +1223,12 @@ void Gameplay::Explore(Save& save, float, float, float, const World* world) {
     if (!save.relations[i].discovered &&
         ExploredAt(save.explored, Settlements()[i].pos)) {
       save.relations[i].discovered = true;
+      discovered.push_back(static_cast<int>(i));
       RecordHistory(save, "discovery", "Discovered " + Settlements()[i].name,
                     static_cast<int>(i));
     }
   }
+  return discovered;
 }
 bool Gameplay::RepairSpawn(const World& world, Save& save) const {
   if (!world.chunks.contains(ChunkAt(save.player))) {

@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "json.hpp"
+#include "progress.hpp"
 #include "summary.hpp"
 
 namespace {
@@ -26,6 +27,25 @@ int main() {
     frontier::Save save;
     frontier::InitializeCampaign(save);
     frontier::InitializeAdventure(save);
+    auto visitor_save = save;
+    visitor_save.relations[0].discovered = true;
+    frontier::Npc visitor;
+    visitor.id = 90000;
+    visitor.settlement = 0;
+    visitor.origin_city = 1;
+    frontier::Citizen absent;
+    absent.npc = visitor.id;
+    absent.city = 0;
+    absent.state = "dead";
+    visitor_save.citizens.push_back(absent);
+    Check(frontier::TownReports(visitor_save, {visitor}).front().visitors == 0,
+          "Dead visitors are excluded from town summaries");
+    visitor_save.citizens.back().state = "captive";
+    Check(frontier::TownReports(visitor_save, {visitor}).front().visitors == 0,
+          "Captive visitors are excluded from town summaries");
+    visitor_save.citizens.back().state = "active";
+    Check(frontier::TownReports(visitor_save, {visitor}).front().visitors == 1,
+          "Living visitors remain in town summaries");
     save.inventory.wood = 17;
     save.coins = 123;
     save.inventory.weapons.insert("wood_sword");

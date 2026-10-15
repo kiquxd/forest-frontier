@@ -73,8 +73,9 @@ class Gameplay {
   Vec MovePlayer(World& world, Save& save, Vec displacement);
   void Tick(World& world, Save& save, float dt, double time);
   void Combat(World& world, Save& save, float dt);
-  void Explore(Save& save, float width, float height, float zoom,
-               const World* world = nullptr);
+  // Returns only towns identified by this exploration pass, in stable ID order.
+  std::vector<int> Explore(Save& save, float width, float height, float zoom,
+                           const World* world = nullptr);
   Action Attack(World& world, Save& save);
   Action PlaceCampfire(World& world, Save& save);
   bool RepairSpawn(const World& world, Save& save) const;

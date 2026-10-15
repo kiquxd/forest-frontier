@@ -454,13 +454,25 @@ int main(int argc, char** argv) {
     }
     Check(specialist_checked, "Fresh region contains a rare-goods specialist");
     if (argc == 3 && (std::string(argv[1]) == "--fixture" ||
-                      std::string(argv[1]) == "--production-fixture")) {
+                      std::string(argv[1]) == "--production-fixture" ||
+                      std::string(argv[1]) == "--discovery-fixture")) {
       if (std::string(argv[1]) == "--production-fixture") {
         Check(
             frontier::QueueProduction(loaded, Recipe("campfire"), home).ok &&
                 frontier::QueueProduction(loaded, Recipe("campfire"), home).ok,
             "Prepare a near-complete native timer fixture");
         frontier::TickProduction(loaded, 55);
+      }
+      if (std::string(argv[1]) == "--discovery-fixture") {
+        loaded.player =
+            frontier::Settlements()[foreign].pos + frontier::Vec{120, 120};
+        loaded.explored.erase(
+            frontier::MapCell(frontier::Settlements()[foreign].pos));
+        for (auto& relation : loaded.relations) {
+          relation.discovered = true;
+        }
+        loaded.relations[foreign].discovered = false;
+        frontier::StoreControlled(loaded);
       }
       frontier::WriteSave(argv[2], loaded);
     }

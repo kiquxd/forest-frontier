@@ -18,6 +18,7 @@
 #include "input.hpp"
 #include "json.hpp"
 #include "nation.hpp"
+#include "progress.hpp"
 #include "settlement_system.hpp"
 #include "vessels.hpp"
 
@@ -1403,6 +1404,9 @@ Rectangle Renderer::MenuBounds(int rows) {
 }
 void Renderer::DrawUi(const World& world, Save& save, Ui& ui,
                       const Camera2D& camera) {
+  if (!ui.discovered_towns.empty()) {
+    return;
+  }
   float w = static_cast<float>(GetScreenWidth()),
         h = static_cast<float>(GetScreenHeight());
   const std::string title = "FOREST FRONTIER";
@@ -2074,5 +2078,66 @@ void Renderer::DrawUi(const World& world, Save& save, Ui& ui,
                 : ui.pause_error,
             box.x + 24, box.y + box.height - 90, box.width - 48, 17, kGold, 3);
   }
+}
+void Renderer::DrawDiscovery(const World& world, const Save& save,
+                             const Ui& ui) {
+  if (ui.discovered_towns.empty()) {
+    return;
+  }
+  const int city = ui.discovered_towns.front();
+  const auto reports = TownReports(save, world.npcs);
+  const auto report =
+      std::find_if(reports.begin(), reports.end(),
+                   [city](const auto& r) { return r.city == city; });
+  if (report == reports.end()) {
+    return;
+  }
+  const auto& town = Settlements()[city];
+  const auto& type = GetContent().towns[town.type];
+  const auto& relation = save.relations[city];
+  const float width = std::min(760.f, GetScreenWidth() - 48.f);
+  const float height = std::min(540.f, GetScreenHeight() - 48.f);
+  Rectangle box{(GetScreenWidth() - width) / 2,
+                (GetScreenHeight() - height) / 2, width, height};
+  DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), {0, 0, 0, 185});
+  DrawRectangleRounded(box, .07f, 16, {22, 35, 31, 255});
+  const float x = box.x + 26, text_width = width - 52;
+  Icon("town", {x, box.y + 24, 44, 44});
+  Text("TOWN DISCOVERED", x + 58, box.y + 30, 23, kGold);
+  Wrapped(town.name, x, box.y + 85, text_width, 28, kInk, 2);
+  Wrapped(report->specialty + " · " + RarityName(town.rarity) +
+              " · Residents: " + std::to_string(report->residents),
+          x, box.y + 168, text_width, 18, kMuted, 2);
+  const std::string attitude = report->owned                     ? "Your state"
+                               : relation.treaty == Treaty::kWar ? "Hostile"
+                               : relation.opinion < 0            ? "Unfriendly"
+                               : relation.opinion >= 20          ? "Friendly"
+                                                                 : "Neutral";
+  const Color color = !report->owned && (relation.treaty == Treaty::kWar ||
+                                         relation.opinion < 0)
+                          ? Color{232, 149, 133, 255}
+                          : Color{166, 205, 143, 255};
+  Wrapped("Relations with your state: " + attitude + " · Trust " +
+              std::to_string(relation.opinion) + " · " +
+              TreatyName(relation.treaty),
+          x, box.y + 232, text_width, 18, color, 2);
+  std::string goods;
+  for (int good : type.goods) {
+    if (!goods.empty()) {
+      goods += ", ";
+    }
+    goods += GoodName(good);
+  }
+  Wrapped(
+      "Specialty resources: " + goods + "\nKnowledge: " + report->technology, x,
+      box.y + 300, text_width, 18, kInk, 3);
+  Wrapped(TownInfrastructure(save, city), x, box.y + 393, text_width, 16,
+          kMuted, 2);
+  Text("Esc: continue" +
+           (ui.discovered_towns.size() > 1
+                ? " · More towns: " +
+                      std::to_string(ui.discovered_towns.size() - 1)
+                : std::string{}),
+       x, box.y + height - 49, 18, kGold);
 }
 }  // namespace frontier

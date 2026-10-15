@@ -41,6 +41,7 @@ struct Ui {
   int stone{};
   int berries{};
   int npc{-1};
+  std::vector<int> discovered_towns;
   std::string hint;
   std::string notice;
   std::string pending_notice;
@@ -112,8 +113,10 @@ struct Ui {
   int resident_weapon{};
   int resident_outfit{};
   bool Blocked() const {
-    return government || paused || npc >= 0 || crafting || trading || civic ||
-           equipment || cartography || progression || wardrobe || journal;
+    return !discovered_towns.empty() || settings_open || map_journal ||
+           road_edit || government || paused || npc >= 0 || crafting ||
+           trading || civic || equipment || cartography || progression ||
+           wardrobe || journal;
   }
   Vec map_center;
   float map_range{4000};
@@ -149,6 +152,7 @@ class Renderer {
   }
   void DrawMapJournal(Save& save, Ui& ui);
   void DrawNationPanel(Save& save, Ui& ui);
+  void DrawDiscovery(const World& world, const Save& save, const Ui& ui);
   void DrawSavedMap(const Save& save, Rectangle box, int layer = -1);
   void SummaryInput(SummaryView& view, Rectangle box,
                     bool keyboard = true) const;

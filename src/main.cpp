@@ -771,23 +771,23 @@ int Play(const Options& options) {
                   ? completed.output_tokens * 1000 / completed.generation_ms
                   : 0}});
       }
+      const bool discovery_was_open = !ui.discovered_towns.empty();
       const bool production_typing =
           ui.government && ui.gov_tab == 2 && ui.production_search_focus;
-      if (!production_typing && !ui.settings_open && !ui.map_journal &&
-          !ui.road_edit &&
+      if (!discovery_was_open && !production_typing && !ui.settings_open &&
+          !ui.map_journal && !ui.road_edit &&
           frontier::ActionPressed(frontier::InputAction::kDebug)) {
         ui.debug = !ui.debug;
       }
-      if (!production_typing && !ui.settings_open &&
+      if (!discovery_was_open && !production_typing && !ui.settings_open &&
           frontier::ActionPressed(frontier::InputAction::kFullscreen)) {
         ToggleGameFullscreen();
       }
       const bool settings_was_open = ui.settings_open;
-      const bool pause_was_active = ui.paused || ui.progression;
+      const bool pause_was_active =
+          discovery_was_open || ui.paused || ui.progression;
       if (frontier::ActionPressed(frontier::InputAction::kAutoroute) &&
-          !ui.government && !ui.paused && ui.npc < 0 && !ui.crafting &&
-          !ui.trading && !ui.civic && !ui.equipment && !ui.cartography &&
-          !ui.progression && !ui.wardrobe && !ui.journal) {
+          !ui.Blocked()) {
         ui.benchmark = !ui.benchmark;
         pause_until = now;
         route_index = 0;
@@ -795,7 +795,7 @@ int Play(const Options& options) {
         path_index = 0;
         next_plan = 0;
       }
-      if (save.nation && ui.request_control >= 0) {
+      if (save.nation && !discovery_was_open && ui.request_control >= 0) {
         auto result = frontier::SelectResident(save, ui.request_control);
         notify(result.message, now);
         ui.request_control = -1;
@@ -810,8 +810,8 @@ int Play(const Options& options) {
           frontier::SyncNationActors(world, save);
         }
       }
-      if (save.nation && !production_typing && !ui.settings_open &&
-          !ui.map_journal && !ui.road_edit) {
+      if (save.nation && !discovery_was_open && !production_typing &&
+          !ui.settings_open && !ui.map_journal && !ui.road_edit) {
         bool state_key =
             frontier::ActionPressed(frontier::InputAction::kNation);
         bool resident_key =
@@ -858,7 +858,11 @@ int Play(const Options& options) {
         }
       }
       if (frontier::MenuBack() && !ui.settings_open) {
-        if (ui.government) {
+        if (discovery_was_open) {
+          perf.Event({{"event", "discovery_dismissed"},
+                      {"city", ui.discovered_towns.front()}});
+          ui.discovered_towns.erase(ui.discovered_towns.begin());
+        } else if (ui.government) {
           ui.government = false;
           if (save.nation && !frontier::HasControlled(save)) {
             ui.paused = true;
@@ -893,8 +897,8 @@ int Play(const Options& options) {
           ui.pause_error.clear();
         }
       }
-      if (!production_typing && !ui.settings_open && !ui.map_journal &&
-          !ui.road_edit &&
+      if (!discovery_was_open && !production_typing && !ui.settings_open &&
+          !ui.map_journal && !ui.road_edit &&
           frontier::ActionPressed(frontier::InputAction::kProgress)) {
         ui.government = false;
         bool opened = !ui.progression;
@@ -1011,8 +1015,9 @@ int Play(const Options& options) {
         }
       }
       const frontier::Resource* resource = nullptr;
-      if (!ui.government && !ui.paused && !ui.progression && !ui.map_journal &&
-          !ui.road_edit && !quit && !pause_was_active) {
+      if (ui.discovered_towns.empty() && !ui.government && !ui.paused &&
+          !ui.progression && !ui.map_journal && !ui.road_edit && !quit &&
+          !pause_was_active) {
         game.Advance(dt);
         if (ui.cartography) {
           ui.map_range = std::clamp(
@@ -1530,9 +1535,17 @@ int Play(const Options& options) {
           game.Attack(world, save);
         }
         if (now >= next_explore) {
-          game.Explore(save, static_cast<float>(GetScreenWidth()),
-                       static_cast<float>(GetScreenHeight()), camera.zoom,
-                       &world);
+          auto discovered = game.Explore(
+              save, static_cast<float>(GetScreenWidth()),
+              static_cast<float>(GetScreenHeight()), camera.zoom, &world);
+          if (options.preview.empty() && !options.benchmark_gameplay &&
+              options.benchmark_seconds <= 0) {
+            for (int city : discovered) {
+              perf.Event({{"event", "town_discovered"}, {"city", city}});
+            }
+            ui.discovered_towns.insert(ui.discovered_towns.end(),
+                                       discovered.begin(), discovered.end());
+          }
           next_explore = now + .2;
         }
         if (!game.notice.empty()) {
@@ -1788,12 +1801,25 @@ int Play(const Options& options) {
           (!ui.paused && !ui.progression && !ui.map_journal && !ui.road_edit);
       if (!options.no_save && autosave_allowed && !quit &&
           now - last_save > 30) {
-        auto t = frontier::Clock::now();
-        frontier::WriteSave(options.save_path, save);
+        auto started = frontier::Clock::now();
+        // Bound retries even if the disk/path stays unavailable. A failed
+        // background save must not throw away the still-running world.
         last_save = now;
-        perf.Event({{"event", "save"},
-                    {"duration_ms", frontier::ElapsedMilliseconds(t)},
-                    {"harvested", save.harvested.size()}});
+        try {
+          frontier::WriteSave(options.save_path, save);
+          perf.Event({{"event", "save"},
+                      {"duration_ms", frontier::ElapsedMilliseconds(started)},
+                      {"harvested", save.harvested.size()}});
+        } catch (const std::exception& error) {
+          notify(
+              "Autosave failed. Your world is still open; retry Save from "
+              "the pause menu. " +
+                  std::string(error.what()),
+              now);
+          perf.Event({{"event", "save_failed"},
+                      {"reason", "autosave"},
+                      {"error", error.what()}});
+        }
       }
       auto state = dialogue.Snapshot();
       ui.busy = state.busy;
@@ -1860,6 +1886,7 @@ int Play(const Options& options) {
       renderer.DrawLabels(world, save, ui, camera);
       renderer.DrawUi(world, save, ui, camera);
       renderer.DrawNationPanel(save, ui);
+      renderer.DrawDiscovery(world, save, ui);
       if (ui.settings_open && settings_was_open) {
         DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(),
                       Color{0, 0, 0, 185});

@@ -50,6 +50,34 @@ int main() {
     frontier::ConfigureWorld(save.seed);
     frontier::InitializeCampaign(save);
     frontier::InitializeAdventure(save);
+    frontier::Gameplay discovery_game;
+    auto discovery_save = save;
+    discovery_save.player =
+        frontier::Settlements()[1].pos + frontier::Vec{100, 100};
+    discovery_save.explored.clear();
+    for (auto& relation : discovery_save.relations) {
+      relation.discovered = true;
+    }
+    discovery_save.relations[1].discovered = false;
+    const auto discoveries =
+        discovery_game.Explore(discovery_save, 900, 650, 1);
+    Check(discoveries == std::vector<int>{1} &&
+              discovery_save.relations[1].discovered,
+          "Exploration returns exactly the newly identified town");
+    Check(discovery_game.Explore(discovery_save, 900, 650, 1).empty(),
+          "Known towns never produce repeated discovery notifications");
+    auto multiple = discovery_save;
+    multiple.relations[0].discovered = false;
+    multiple.relations[2].discovered = false;
+    multiple.explored.insert(frontier::MapCell(frontier::Settlements()[0].pos));
+    multiple.explored.insert(frontier::MapCell(frontier::Settlements()[2].pos));
+    Check(discovery_game.Explore(multiple, 900, 650, 1) ==
+              std::vector<int>({0, 2}),
+          "Simultaneous discoveries retain stable order without known towns");
+    frontier::WriteSave(dir / "discovered.json", discovery_save);
+    auto reloaded_discovery = frontier::LoadSave(dir / "discovered.json");
+    Check(discovery_game.Explore(reloaded_discovery, 900, 650, 1).empty(),
+          "Loading a discovered town does not announce it again");
     frontier::World world(save.seed);
     world.buildings.clear();
     world.npcs.clear();

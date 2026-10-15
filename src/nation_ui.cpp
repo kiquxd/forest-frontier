@@ -56,7 +56,7 @@ std::string ProductName(const std::string& product) {
 }
 }  // namespace
 void Renderer::DrawNationPanel(Save& save, Ui& ui) {
-  if (!save.nation || !ui.government) {
+  if (!save.nation || !ui.government || !ui.discovered_towns.empty()) {
     return;
   }
   const float w = GetScreenWidth(), h = GetScreenHeight();

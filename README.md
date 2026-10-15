@@ -64,6 +64,8 @@ Town halls support gifts, truces, war, alliances and diplomatic union. Union tra
 
 Progress through raft, canoe, rowboat, skiff, cutter, sailing ship, brigantine, flagship and submarine. Advanced vessels require specialist knowledge, school research, materials and commissioning fees; they offer speed/sight and distinct decks/masts. Hulls use an isometric side view with raised decks, shaded visible sides and a narrower waterline; large vessels add a raised aft cabin and folded sails. Vessels remain resident-owned travel modes. Diving opens a separate underwater layer with oxygen, hull damage, reef hazards, emergency surfacing, sonar and rare salvage.
 
+Discovering a town opens a summary card with its name, population, specialties, knowledge, infrastructure and attitude toward your state. **Esc** dismisses it without opening pause. Multiple discoveries appear in sequence. The world pauses while workshop production continues; already known towns are not announced again after loading.
+
 **M** shows terrain/politics/economy layers (**1/2/3**), explored towns and remembered deposits. Click an explored location or note marker to edit a titled journal entry; **Tab / Journal** opens the list, **Ctrl+Enter** saves. Middle-drag pans and wheel zooms. Notes are manual and saved, up to 128 per world.
 
 Buildings have detailed facade variants and fade when obscuring the controlled resident. Water has animated ripples, foam and wakes; vessels show hulls, rigging and cabins. Settings provides **Automatic / Forest / Harbor / Depths / Off** music, separate music/effects volumes and three original synthesized loops. Audio-device failure permits silent play. Regenerate assets with `python3 scripts/generate-audio.py`; see [audio assets](assets/audio/README.md).
@@ -302,7 +304,7 @@ The mechanics below are working prototypes or incomplete systems. Menus, unlocks
 
 #### Map and exploration
 
-**Working:** exploration independent of window/zoom, fixed world-space sight ranges, forest-limited sight and building/wall occlusion. Current visibility and explored memory are separate; older exploration stays intact. Maps adapt raster detail to scale, preserve partially explored lakes/towns, provide terrain/politics/economy views, retain up to 4096 known deposits after chunks unload, and remember up to 128 titled surface/seafloor notes. Clicking a marker opens its journal entry; notes can be edited/deleted and viewed through Journal/Tab.
+**Working:** exploration independent of window/zoom, fixed world-space sight ranges, forest-limited sight and building/wall occlusion. Current visibility and explored memory are separate; older exploration stays intact. Newly identified towns open an Esc-dismissed discovery card with their name, type, rarity, population, state relations, specialty resources, knowledge and infrastructure; multiple discoveries appear in sequence, and known towns are not announced again after reload. Maps adapt raster detail to scale, preserve partially explored lakes/towns, provide terrain/politics/economy views, retain up to 4096 known deposits after chunks unload, and remember up to 128 titled surface/seafloor notes. Clicking a marker opens its journal entry; notes can be edited/deleted and viewed through Journal/Tab.
 
 **Incomplete:**
 
@@ -333,7 +335,7 @@ The mechanics below are working prototypes or incomplete systems. Menus, unlocks
 
 #### Persistence and content identity
 
-**Working:** Atomic v10 saves contain resident positions/cargo/gear/health/vessels, city product stocks/housing, queues/plots/shipments, boards/escrow, arrivals and the money ledger alongside shared exploration/progression and existing roads/treaties. Versions 1-9 load with migration backups; v9 queue deadlines retain their exact remaining time when migrated to the separate production clock; legacy loose goods move to the home warehouse and legacy equipment to the first resident without resetting knowledge. Inactive controlled residents keep positions across reload; dead residents remain tombstones.
+**Working:** Atomic v10 saves contain resident positions/cargo/gear/health/vessels, city product stocks/housing, queues/plots/shipments, boards/escrow, arrivals and the money ledger alongside shared exploration/progression and existing roads/treaties. Versions 1-9 load with migration backups; v9 queue deadlines retain their exact remaining time when migrated to the separate production clock; legacy loose goods move to the home warehouse and legacy equipment to the first resident without resetting knowledge. Inactive controlled residents keep positions across reload; dead residents remain tombstones. A failed autosave keeps the current session alive, shows a warning and logs the error; automatic retries are spaced by 30 seconds, and manual Save remains available.
 
 **Incomplete:**
 
@@ -524,6 +526,7 @@ python3 scripts/settings-smoke.py  # Quick Apply-button check
 python3 scripts/nation-smoke.py  # Fresh resident/warehouse/production/board check
 python3 scripts/production-smoke.py  # Catalogue, requirements, search and queue
 python3 scripts/production-clock-smoke.py  # Live/background production clock
+python3 scripts/discovery-smoke.py  # Town summary, Escape priority and reload
 # Optional extended workflows:
 python3 scripts/world-smoke.py --extended
 python3 scripts/menu-smoke.py

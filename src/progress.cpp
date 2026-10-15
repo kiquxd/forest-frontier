@@ -54,7 +54,7 @@ std::vector<TownReport> TownReports(const Save& save,
     report.specialty = type.name;
     report.technology = TechnologyName(type.technology);
     for (const auto& npc : npcs) {
-      if (npc.settlement != i) {
+      if (npc.settlement != i || !ResidentActive(save, npc.id)) {
         continue;
       }
       if (npc.origin_city >= 0) {
