@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <set>
 #include <stdexcept>
 
 #include "adventure.hpp"
@@ -47,6 +48,27 @@ int main(int argc, char** argv) {
         save.nation && frontier::HasControlled(save) &&
             save.inventory.wood == 0 && save.stocks[home][0] > 0,
         "New campaign controls a resident with city-owned starting resources");
+    std::ifstream icon_manifest(std::string(FRONTIER_ROOT) +
+                                "/assets/ui/icons.json");
+    auto icon_ids =
+        nlohmann::json::parse(icon_manifest).get<std::set<std::string>>();
+    for (int index = 0; index < static_cast<int>(frontier::Recipes().size());
+         ++index) {
+      const auto status = frontier::CheckProduction(save, index, home);
+      for (const auto& requirement : status.requirements) {
+        Check(icon_ids.contains(requirement.icon),
+              "Every material/skill/building/technology requirement has a PNG "
+              "icon");
+      }
+    }
+    auto initial_nation = frontier::WriteNation(save);
+    auto locked_production =
+        frontier::CheckProduction(save, Recipe("pickaxe"), home);
+    Check(!locked_production.missing.empty() &&
+              locked_production.requirements.size() >= 4 &&
+              frontier::WriteNation(save) == initial_nation,
+          "Read-only production quote reports skill/building/resources without "
+          "mutation");
     auto fresh_summary = frontier::InventorySummary(save);
     Check(std::none_of(fresh_summary.begin(), fresh_summary.end(),
                        [](const auto& entry) {
@@ -84,6 +106,24 @@ int main(int argc, char** argv) {
     Check(frontier::BuildFacility(save, home, "forge").ok &&
               !frontier::BuildFacility(save, home, "forge").ok,
           "Small population limits new forges");
+    auto poor = save;
+    poor.stocks[home][0] = 0;
+    auto poor_quote = frontier::CheckProduction(poor, Recipe("sword"), home);
+    auto wood_requirement = std::find_if(
+        poor_quote.requirements.begin(), poor_quote.requirements.end(),
+        [](const auto& r) { return r.icon == "good_0"; });
+    Check(
+        wood_requirement != poor_quote.requirements.end() &&
+            !wood_requirement->met && !poor_quote.missing.empty() &&
+            !frontier::QueueProduction(poor, Recipe("sword"), home).ok &&
+            poor.production.empty(),
+        "Insufficient quantity dims the material and blocks actual production");
+    auto ready_quote = frontier::CheckProduction(save, Recipe("sword"), home);
+    Check(ready_quote.missing.empty() &&
+              std::all_of(ready_quote.requirements.begin(),
+                          ready_quote.requirements.end(),
+                          [](const auto& r) { return r.met; }),
+          "Available production has no missing requirements");
     auto forge = save.facilities.back().id;
     Check(forge > 0 && frontier::MoneySupply(save) == total,
           "Building fees remain in the regional fund");

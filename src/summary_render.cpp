@@ -169,11 +169,19 @@ void Renderer::DrawSummary(const Save& save, SummaryView& view, Rectangle box,
           continue;
         }
         auto a = position(*parent), b = position(card);
+        const bool same_column = card.column == parent->column;
         Vector2 from{a.x + a.width, a.y + a.height * .5f},
-            to{b.x, b.y + b.height * .5f};
+            to{same_column ? b.x + b.width : b.x, b.y + b.height * .5f};
         Color color = parent->learned ? Color{117, 173, 102, 255}
                                       : Color{58, 90, 63, 255};
-        if (card.column - parent->column > 1) {
+        if (same_column) {
+          // A vertical dependency must not run through unrelated cells between
+          // its endpoints and imply that those cells are prerequisites too.
+          const float gutter = from.x + 10;
+          DrawLineEx(from, {gutter, from.y}, 2, color);
+          DrawLineEx({gutter, from.y}, {gutter, to.y}, 2, color);
+          DrawLineEx({gutter, to.y}, to, 2, color);
+        } else if (card.column - parent->column > 1) {
           // Route long edges through row/column gutters instead of behind
           // unrelated cells.
           float gutter = b.y + b.height + 12;
@@ -192,8 +200,9 @@ void Renderer::DrawSummary(const Save& save, SummaryView& view, Rectangle box,
           DrawLineEx({middle, from.y}, {middle, to.y}, 2, color);
           DrawLineEx({middle, to.y}, to, 2, color);
         }
-        DrawLineEx({to.x - 6, to.y - 4}, to, 2, color);
-        DrawLineEx({to.x - 6, to.y + 4}, to, 2, color);
+        const float arrow_x = to.x + (same_column ? 6 : -6);
+        DrawLineEx({arrow_x, to.y - 4}, to, 2, color);
+        DrawLineEx({arrow_x, to.y + 4}, to, 2, color);
       }
     }
     for (int i = 0; i < static_cast<int>(cards.size()); i++) {

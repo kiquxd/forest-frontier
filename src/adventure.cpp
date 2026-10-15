@@ -451,6 +451,11 @@ std::string ResearchRequirements(const Save& save, const ProgressNode& n) {
       n.cities);
   add("Avg. foreign trust", AverageTrust(save), n.trust);
   add("Quests", CompletedQuests(save), n.quests);
+  for (const auto& id : {n.prerequisite, n.second_prerequisite}) {
+    for (const auto& missing : MissingSkillPrerequisites(save, id)) {
+      out << "Learn " << SkillName(missing) << " first · ";
+    }
+  }
   out << "Needs "
       << (std::string(TechnologyName(n.prerequisite)).empty()
               ? SkillName(n.prerequisite)
@@ -463,6 +468,26 @@ std::string ResearchRequirements(const Save& save, const ProgressNode& n) {
   }
   return out.str();
 }
+namespace {
+bool ResearchPrefixKnown(const Save& save, const std::string& id) {
+  if (id.empty()) {
+    return true;
+  }
+  if (save.skills.contains(id)) {
+    return MissingSkillPrerequisites(save, id).empty();
+  }
+  if (!save.technologies.contains(id)) {
+    return false;
+  }
+  for (const auto& node : ResearchNodes()) {
+    if (node.id == id) {
+      return ResearchPrefixKnown(save, node.prerequisite) &&
+             ResearchPrefixKnown(save, node.second_prerequisite);
+    }
+  }
+  return true;
+}
+}  // namespace
 bool ResearchReady(const Save& save, const ProgressNode& n) {
   return FacilityAccess(save, CityAt(save, save.player), "school") &&
          !save.technologies.contains(n.id) && save.coins >= n.coins &&
@@ -472,11 +497,8 @@ bool ResearchReady(const Save& save, const ProgressNode& n) {
          static_cast<int>(std::count(save.owners.begin(), save.owners.end(),
                                      0)) >= n.cities &&
          AverageTrust(save) >= n.trust && CompletedQuests(save) >= n.quests &&
-         (save.skills.contains(n.prerequisite) ||
-          save.technologies.contains(n.prerequisite)) &&
-         (n.second_prerequisite.empty() ||
-          save.skills.contains(n.second_prerequisite) ||
-          save.technologies.contains(n.second_prerequisite));
+         ResearchPrefixKnown(save, n.prerequisite) &&
+         ResearchPrefixKnown(save, n.second_prerequisite);
 }
 Action Research(Save& save, int index) {
   if (index < 0 || index >= static_cast<int>(ResearchNodes().size())) {

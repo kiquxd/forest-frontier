@@ -75,3 +75,9 @@ This revision supersedes earlier hero/NPC-quest/global-cooldown/passive-job desc
 ### Vessel side volume (2026-10-15)
 
 Vessels remain procedural 2D drawings with unchanged movement/collision rules. Project heading and lateral vectors from the world plane before adding screen-vertical elevation; do not rotate an orthogonal screen-space deck footprint. Raised decks, narrower waterlines and camera-facing shaded hull walls establish volume. Rail posts and cabin walls use vertical elevation; pilots/masts sit on the deck, oar blades reach the water. Large aft cabins and folded sail faces add depth without a 3D render pass or new bitmap assets.
+
+### Production catalogue and skill prerequisites (2026-10-15)
+
+- The city-stock tab is named Resources. Production always exposes the full recipe catalogue; workshop selection affects availability rather than hiding incompatible recipes. Case-insensitive item-name search is UI state only and suppresses gameplay shortcuts while editing.
+- CheckProduction is a read-only authoritative quote shared by catalogue rendering and QueueProduction. It reports the chosen workshop/deadline/fee and individual material quantities, skills, recipe knowledge, technologies and building/queue requirements. Only unmet requirements are muted; the overall recipe/Queue action is muted when any check fails. Item/requirement PNGs use the existing atlas; hover explains icons and unavailable recipes. Dynamic row pagination accommodates wrapped requirement rows.
+- Skills() owns explicit prerequisite edges. Learning checks all ancestors as well as practice; ProgressCards uses those same edges. Resident research validates the inherited branch, and specialist teaching/projects follow the Craftsmanship prefix. Preserve older earned flags without granting new flags or resetting progress; later unlocks must still have a complete prefix. Engineering follows Construction and Trading; the tree places it to the right of Construction.

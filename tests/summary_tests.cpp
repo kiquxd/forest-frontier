@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <exception>
 #include <fstream>
 #include <functional>
@@ -48,6 +49,10 @@ int main() {
     std::ifstream manifest(std::string(FRONTIER_ROOT) +
                            "/assets/ui/icons.json");
     auto icons = nlohmann::json::parse(manifest).get<std::set<std::string>>();
+    for (const auto& recipe : frontier::Recipes()) {
+      Check(icons.contains(frontier::RecipeIcon(recipe)),
+            "Every craft item resolves to an actual PNG atlas entry");
+    }
     auto cards = frontier::ProgressCards(save);
     std::set<std::string> ids;
     std::set<std::pair<int, int>> cells;
@@ -89,6 +94,14 @@ int main() {
       }
       throw std::runtime_error("Missing progress node");
     };
+    for (const auto& skill : frontier::Skills()) {
+      for (const auto& parent : skill.prerequisites) {
+        const auto& dependencies = node(skill.id).dependencies;
+        Check(std::find(dependencies.begin(), dependencies.end(), parent) !=
+                  dependencies.end(),
+              "Tree edges match authoritative skill prerequisites");
+      }
+    }
     Check(node("gathering").ready && !node("gathering").learned &&
               !node("trading").ready,
           "Fresh tree reflects locked skills");

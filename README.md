@@ -18,11 +18,13 @@ Press **U** to choose any living, free resident of your towns, then move with **
 
 You begin without learned skills, tools or weapons. **K** opens the knowledge tree: learn **Gathering** free, gather sites, unlock **Craftsmanship**, then queue tools and equipment. Starting goods are in your town warehouse; **Y** transfers cargo on town territory. First-resident background perks are individual; other residents start as Travelers.
 
+Skill branches must be learned in order, in addition to their practice requirements: **Gathering → Craftsmanship → Tools → Construction → Engineering**, **Craftsmanship → Weaponsmithing**, **Gathering → Fishing → Seamanship**, **Gathering → Herbalism** and **Gathering → Trading → Diplomacy**. Engineering also requires Trading. A later node cannot skip an unlearned ancestor; existing earned skills in older saves are retained.
+
 ### State and town management
 
-**N** opens State with seven tabs: **Residents, Stocks, Production, Projects, Orders, Towns and Growth**. It shows town treasuries, population/capacity, relations, specialty knowledge and deliveries. **P** opens a nearby hall with the same town boards. Management, the knowledge tree and Esc pause stop simulation; close them to let production advance.
+**N** opens State with seven tabs: **Residents, Resources, Production, Projects, Orders, Towns and Growth**. It shows town treasuries, population/capacity, relations, specialty knowledge and deliveries. **P** opens a nearby hall with the same town boards. Management, the knowledge tree and Esc pause stop simulation; close them to let production advance.
 
-Each city has a separate warehouse and treasury. **Y / Stocks** deposits or withdraws goods and equipment carried by the selected resident. State knowledge and the state treasury are shared. Road-connected owned towns can send timed goods shipments, with materials reserved at dispatch. These are abstract deliveries, not autonomous caravans.
+Each city has a separate warehouse and treasury. **Y / Resources** deposits or withdraws goods and equipment carried by the selected resident. State knowledge and the state treasury are shared. Road-connected owned towns can send timed goods shipments, with materials reserved at dispatch. These are abstract deliveries, not autonomous caravans.
 
 Grow population by accepting periodic wanderers when housing and food permit. Buy housing capacity in Growth. To relocate a resident, control them, walk to another owned town and change their home there. Build an **infirmary** for treatment; medical-supplies projects unlock **Medical care**, then an accessible school and 80 coins unlock **Hospitals**. Hospitals provide stronger treatment at lower cost.
 
@@ -38,6 +40,7 @@ Coins remain in state, city, regional-market or reserved-payment accounts. Const
 
 ### Production, equipment and building
 
+- **C / Production** lists every recipe, including locked ones. Search item names without case sensitivity; **Clear** restores the full catalogue. Each row has an item PNG and resource/skill/technology/building PNGs below it. Resource counts show available/required; unmet requirements and unavailable recipes are muted. Hover an item for all missing requirements, or a requirement icon for its name and status. Queue buttons are enabled only when the authoritative checks pass.
 - Workshop jobs reserve warehouse inputs immediately and produce items later into the source city's warehouse. Canceling refunds the reserved materials and fee once.
 - Every physical workshop has a FIFO queue of up to eight jobs. Different buildings run in parallel. Rarity determines **1 / 5 / 30 / 60 / 120 game minutes**; there is no campaign-wide crafting cooldown.
 - Your first town has a **workbench**. Build **forge, tailor, school, shipyard, alchemy, infirmary or hospital** with Construction and warehouse materials. A town permits **max(1, floor(active residents / 6)) forges**; other facility types currently permit one each.
@@ -138,7 +141,7 @@ The mechanics below are working prototypes or incomplete systems. Menus, unlocks
 
 #### Resident work and production
 
-**Working:** Production uses per-building FIFO queues, up to eight jobs per workshop, with reserved warehouse inputs and commissioning fees. Separate buildings operate in parallel. Forge construction is capped at max(1, floor(active town population / 6)); existing forges are retained after population loss. Jobs take 1/5/30/60/120 simulation minutes by rarity. Output returns to the source city warehouse; cancellation refunds reserved inputs/fees once. Lost peaceful access suspends the queue. Old passive resident stock/coin generation is disabled in resident-control campaigns.
+**Working:** Production uses per-building FIFO queues, up to eight jobs per workshop, with reserved warehouse inputs and commissioning fees. Separate buildings operate in parallel. Forge construction is capped at max(1, floor(active town population / 6)); existing forges are retained after population loss. Jobs take 1/5/30/60/120 simulation minutes by rarity. Output returns to the source city warehouse; cancellation refunds reserved inputs/fees once. Lost peaceful access suspends the queue. Old passive resident stock/coin generation is disabled in resident-control campaigns. The full recipe catalogue remains visible with case-insensitive name search, item PNGs and resource/skill/technology/building requirement PNGs. Missing counts or unlocks are muted, hovering explains them, and the same read-only quote controls both UI readiness and queue validation.
 
 **Incomplete:**
 
@@ -206,7 +209,7 @@ The mechanics below are working prototypes or incomplete systems. Menus, unlocks
 
 #### Skills, research and technology exchange
 
-**Working:** Skills, technologies, recipes and explored maps belong to the state and survive resident switching/death. K opens the existing dependency tree without a duplicate skill list. Eleven base skills and seven resident research nodes use authoritative activity/population/equipment/town/trust checks. Specialist knowledge is available through town projects or paid teaching. Medical care projects unlock hospital research with an accessible school and 80 state coins.
+**Working:** Skills, technologies, recipes and explored maps belong to the state and survive resident switching/death. K opens the existing dependency tree without a duplicate skill list. Eleven base skills and seven resident research nodes use authoritative activity/population/equipment/town/trust checks. Skill prerequisites are authoritative and transitive: activity counts cannot bypass earlier skills; tree edges use the same definitions. Resident research checks its full prerequisite branch, and specialist projects/teaching require the Craftsmanship branch. Already earned save flags are preserved. Specialist knowledge is available through town projects or paid teaching. Medical care projects unlock hospital research with an accessible school and 80 state coins.
 
 **Incomplete:**
 
@@ -320,7 +323,7 @@ The mechanics below are working prototypes or incomplete systems. Menus, unlocks
 
 #### Menus, controls and save management
 
-**Working:** Esc handles Resume/Save/Save & return/Settings; K shows only state knowledge in live resident-control play. N opens State with Residents, Stocks, Production, Projects, Orders, Towns and Growth; U selects residents, Y opens cargo/warehouses, C production and L projects. P opens a nearby town hall using the same boards. Management pauses simulation. Persistent HUD shows selected-resident health and relevant underwater gauges, with stocks accessible by button. Lobby summaries remain read-only, retain overview/world/resources/towns/tree and never duplicate a skill list. Existing atomic file workflows, remapping, settings Apply and contextual footer remain.
+**Working:** Esc handles Resume/Save/Save & return/Settings; K shows only state knowledge in live resident-control play. N opens State with Residents, Resources, Production, Projects, Orders, Towns and Growth; U selects residents, Y opens cargo/warehouses, C production and L projects. P opens a nearby town hall using the same boards. Management pauses simulation. Persistent HUD shows selected-resident health and relevant underwater gauges, with stocks accessible by button. Lobby summaries remain read-only, retain overview/world/resources/towns/tree and never duplicate a skill list. Existing atomic file workflows, remapping, settings Apply and contextual footer remain.
 
 **Incomplete:**
 
@@ -518,6 +521,7 @@ Tests cover world generation, gameplay, campaigns, workshop queues, closed money
 python3 scripts/world-smoke.py  # Quick journal/save check
 python3 scripts/settings-smoke.py  # Quick Apply-button check
 python3 scripts/nation-smoke.py  # Fresh resident/warehouse/production/board check
+python3 scripts/production-smoke.py  # Catalogue, requirements, search and queue
 # Optional extended workflows:
 python3 scripts/world-smoke.py --extended
 python3 scripts/menu-smoke.py

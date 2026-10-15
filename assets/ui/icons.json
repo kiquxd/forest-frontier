@@ -85,5 +85,15 @@
   "tech_navigation_school",
   "tech_citizen_engineering",
   "tech_diplomatic_corps",
-  "tech_guild_charter"
+  "tech_guild_charter",
+  "tech_civic_charter",
+  "vessel_boat",
+  "vessel_brigantine",
+  "vessel_canoe",
+  "vessel_cutter",
+  "vessel_flagship",
+  "vessel_raft",
+  "vessel_ship",
+  "vessel_skiff",
+  "vessel_submarine"
 ]

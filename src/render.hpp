@@ -70,6 +70,8 @@ struct Ui {
   int gov_good{};
   uint64_t gov_facility{};
   std::string gov_status;
+  std::string production_search;
+  bool production_search_focus{};
   int request_control{-1};
   bool crafting{};
   bool trading{};

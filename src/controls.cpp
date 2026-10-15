@@ -51,7 +51,7 @@ const std::vector<ActionDefinition>& InputActions() {
       {InputAction::kResidents, "residents", "Select resident", {85, 0}},
       {InputAction::kInventory,
        "inventory",
-       "Resident cargo / warehouse",
+       "Resident cargo / city resources",
        {89, 0}}};
   return kActions;
 }

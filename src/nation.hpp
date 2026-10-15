@@ -21,6 +21,22 @@ bool ConnectedCities(const Save& save, int from, int to);
 Action TransferGoods(Save& save, int city, int good, int amount, bool deposit);
 Action TransferProduct(Save& save, int city, const std::string& product,
                        bool deposit);
+struct ProductionRequirement {
+  std::string icon;
+  std::string label;
+  std::string detail;
+  bool met{};
+};
+struct ProductionStatus {
+  uint64_t facility{};
+  double due{};
+  int fee{};
+  std::vector<std::string> missing;
+  std::vector<ProductionRequirement> requirements;
+};
+// Read-only quote shared by the catalogue and authoritative queue action.
+ProductionStatus CheckProduction(const Save& save, int recipe, int source,
+                                 uint64_t facility = 0);
 Action QueueProduction(Save& save, int recipe, int source = -1,
                        uint64_t facility = 0);
 Action CancelProduction(Save& save, uint64_t id);

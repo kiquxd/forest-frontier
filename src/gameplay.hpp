@@ -26,10 +26,13 @@ struct Skill {
   std::string id;
   std::string name;
   std::string requirement;
+  std::vector<std::string> prerequisites;
 };
 const std::vector<Skill>& Skills();
 bool HasSkill(const Save& save, const std::string& id);
 std::string SkillName(const std::string& id);
+std::vector<std::string> MissingSkillPrerequisites(const Save& save,
+                                                   const std::string& id);
 std::string RecipeSkill(const Recipe& recipe);
 Action TrainSkill(Save& save, int skill);
 struct LessonState {

@@ -47,6 +47,30 @@ int main() {
                            frontier::Settlements()[save.home_city].pos) < 180 &&
               save.coins == 0 && save.skills.empty(),
           "Start near own hall without skills or money");
+    for (int index = 1; index < static_cast<int>(frontier::Skills().size());
+         ++index) {
+      auto locked = save;
+      locked.gathered = locked.crafted = locked.caught = locked.orders = 100;
+      Check(!frontier::GetLessonState(locked, index).ready &&
+                !frontier::TrainSkill(locked, index).ok &&
+                locked.skills.empty(),
+            "Practice alone cannot bypass any skill branch prerequisite");
+      for (const auto& skill : frontier::Skills()) {
+        if (skill.id != frontier::Skills()[index].id) {
+          locked.skills.insert(skill.id);
+        }
+      }
+      Check(frontier::TrainSkill(locked, index).ok,
+            "Complete prefixes and practice allow every base skill");
+    }
+    auto broken_prefix = save;
+    broken_prefix.skills.insert("tools");
+    broken_prefix.crafted = 100;
+    Check(
+        !frontier::TrainSkill(broken_prefix, 8).ok &&
+            frontier::MissingSkillPrerequisites(broken_prefix, "construction")
+                    .size() == 2,
+        "A direct parent without its ancestors cannot bypass the full prefix");
     auto halls = frontier::MakeBuildings();
     Check(std::count_if(halls.begin(), halls.end(),
                         [](auto& b) { return b.hall; }) ==

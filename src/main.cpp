@@ -756,20 +756,23 @@ int Play(const Options& options) {
                   ? completed.output_tokens * 1000 / completed.generation_ms
                   : 0}});
       }
-      if (!ui.settings_open && !ui.map_journal && !ui.road_edit &&
+      const bool production_typing =
+          ui.government && ui.gov_tab == 2 && ui.production_search_focus;
+      if (!production_typing && !ui.settings_open && !ui.map_journal &&
+          !ui.road_edit &&
           frontier::ActionPressed(frontier::InputAction::kDebug)) {
         ui.debug = !ui.debug;
       }
-      if (!ui.settings_open &&
+      if (!production_typing && !ui.settings_open &&
           frontier::ActionPressed(frontier::InputAction::kFullscreen)) {
         ToggleGameFullscreen();
       }
       const bool settings_was_open = ui.settings_open;
       const bool pause_was_active = ui.paused || ui.progression;
       if (frontier::ActionPressed(frontier::InputAction::kAutoroute) &&
-          !ui.paused && ui.npc < 0 && !ui.crafting && !ui.trading &&
-          !ui.civic && !ui.equipment && !ui.cartography && !ui.progression &&
-          !ui.wardrobe && !ui.journal) {
+          !ui.government && !ui.paused && ui.npc < 0 && !ui.crafting &&
+          !ui.trading && !ui.civic && !ui.equipment && !ui.cartography &&
+          !ui.progression && !ui.wardrobe && !ui.journal) {
         ui.benchmark = !ui.benchmark;
         pause_until = now;
         route_index = 0;
@@ -792,8 +795,8 @@ int Play(const Options& options) {
           frontier::SyncNationActors(world, save);
         }
       }
-      if (save.nation && !ui.settings_open && !ui.map_journal &&
-          !ui.road_edit) {
+      if (save.nation && !production_typing && !ui.settings_open &&
+          !ui.map_journal && !ui.road_edit) {
         bool state_key =
             frontier::ActionPressed(frontier::InputAction::kNation);
         bool resident_key =
@@ -822,6 +825,7 @@ int Play(const Options& options) {
             ui.government = !ui.government || resident_key || inventory_key ||
                             projects_key || production_key || hall_key;
             ui.town_hall = hall_key;
+            ui.production_search_focus = false;
             ui.gov_city = local >= 0 ? local : save.home_city;
             ui.gov_tab = resident_key               ? 0
                          : inventory_key            ? 1
@@ -874,7 +878,8 @@ int Play(const Options& options) {
           ui.pause_error.clear();
         }
       }
-      if (!ui.settings_open && !ui.map_journal && !ui.road_edit &&
+      if (!production_typing && !ui.settings_open && !ui.map_journal &&
+          !ui.road_edit &&
           frontier::ActionPressed(frontier::InputAction::kProgress)) {
         ui.government = false;
         bool opened = !ui.progression;
@@ -1709,7 +1714,7 @@ int Play(const Options& options) {
           if (save.nation) {
             hint_action(frontier::InputAction::kNation, "State");
             hint_action(frontier::InputAction::kResidents, "Residents");
-            hint_action(frontier::InputAction::kInventory, "Cargo / stocks");
+            hint_action(frontier::InputAction::kInventory, "Cargo / resources");
           }
           hint_action(frontier::InputAction::kProgress, "State knowledge");
           hint_action(frontier::InputAction::kMap, "Map");
@@ -1822,7 +1827,7 @@ int Play(const Options& options) {
           ui.actions = {{"Esc", "Close management"},
                         {"N", "State"},
                         {"U", "Residents"},
-                        {"Y", "Cargo / stocks"}};
+                        {"Y", "Cargo / resources"}};
         }
       }
       renderer.UpdateAudio(&save, &game, ui.Blocked(), &world);

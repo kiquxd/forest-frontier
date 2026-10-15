@@ -64,18 +64,30 @@ def artwork(kind,color=GOLD):
         if kind=='pearl':circle(16,16,10,WHITE);circle(12,12,3,(250,247,225,255))
         elif kind in ('core','relic'):rect(7,8,19,18,color);rect(10,11,13,12,INK);circle(16,17,4,BLUE)
         else:poly([(6,22),(10,8),(21,5),(27,20),(18,27)],color);poly([(10,8),(16,11),(18,27),(6,22)],WHITE)
-    elif kind in ('sword','spear','axe','pickaxe','club','combat','tools','arrows'):
+    elif kind in ('sword','blade','spear','axe','pickaxe','club','hammer','combat','tools','arrows'):
         if kind=='spear':line(8,27,22,6,(159,114,67,255),2);poly([(19,8),(25,2),(24,12)],WHITE)
         elif kind in ('axe','pickaxe','tools'):line(10,27,20,6,GOLD,3);poly([(9,7),(23,4),(27,13),(15,16)],color)
-        elif kind=='club':line(10,27,20,9,GOLD,3);rect(11,5,16,8,color)
+        elif kind in ('club','hammer'):line(10,27,20,9,GOLD,3);rect(11,5,16,8,color)
         elif kind=='arrows':
             for x in (9,15,21):line(x,26,x+2,5,GOLD);poly([(x-1,7),(x+2,2),(x+5,7)],WHITE)
         else:line(7,26,12,21,GOLD,3);poly([(11,19),(23,4),(28,3),(27,9),(15,23)],color);line(8,16,20,26,GOLD,3)
     elif kind=='bow':line(9,5,9,26,WHITE);line(9,5,21,12,GOLD,2);line(21,12,21,20,GOLD,2);line(21,20,9,26,GOLD,2);line(5,16,27,16,WHITE)
     elif kind in ('outfit','militia'):
         poly([(11,5),(16,9),(21,5),(28,12),(24,17),(21,14),(22,27),(9,27),(10,14),(7,17),(3,12)],color);rect(14,12,3,12,WHITE)
-    elif kind in ('boat','ship','sailing','navigation_school'):
-        poly([(3,22),(29,22),(23,28),(9,28)],GOLD);line(16,5,16,23,WHITE,2);poly([(18,5),(28,20),(18,20)],WHITE)
+    elif kind=='raft':
+        for x in (7,13,19,25):line(x,7,x,26,GOLD,4)
+        line(4,12,28,12,GREEN,2);line(4,22,28,22,GREEN,2)
+    elif kind=='canoe':
+        poly([(2,19),(9,14),(24,14),(30,19),(24,24),(9,24)],GOLD);line(8,19,25,19,INK,3);line(11,9,22,28,WHITE,2)
+    elif kind in ('boat','skiff','ship','cutter','brigantine','flagship','sailing','navigation_school'):
+        poly([(3,22),(29,22),(23,28),(9,28)],GOLD)
+        if kind in ('boat','skiff'):
+            line(9,17,23,27,WHITE,2);line(23,17,9,27,WHITE,2)
+        else:
+            masts=3 if kind=='flagship' else 2 if kind=='brigantine' else 1
+            for mast in range(masts):
+                x=8+mast*8 if masts>1 else 16
+                line(x,5,x,23,WHITE,2);poly([(x+2,5),(x+10,20),(x+2,20)],WHITE)
     elif kind in ('submarine','diving','oxygen','sonar'):
         circle(9,19,6,color);circle(23,19,6,color);rect(9,13,14,12,color);rect(14,7,8,6,color);line(19,7,19,3,GOLD,2)
         for x in (9,16,23):circle(x,18,2,BLUE)
@@ -101,6 +113,11 @@ for key in ['gathering','trading','crafting','tools','combat','fishing','sailing
 for path in sorted((ROOT/'content/settlements').glob('*.json')):
     item=json.loads(path.read_text());add('tech_'+item['technology'],item['technology'])
 for key in ['apprenticeship','militia','commerce_school','navigation_school','citizen_engineering','diplomatic_corps','guild_charter']:add('tech_'+key,key)
+add('tech_civic_charter','civic_charter')
+for path in sorted((ROOT/'content/vessels').glob('*.json')):
+    vessel=json.loads(path.read_text())
+    kind=vessel['id']
+    add('vessel_'+vessel['id'],kind,tuple(vessel.get('color',GOLD)))
 keys=list(icons);width=16*64;height=math.ceil(len(keys)/16)*64;atlas=[(0,0,0,0)]*(width*height)
 for i,key in enumerate(keys):
     pixels=icons[key];png(DEST/(key+'.png'),64,64,pixels)

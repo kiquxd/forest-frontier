@@ -9,6 +9,20 @@
 #include "vessels.hpp"
 
 namespace frontier {
+std::string RecipeIcon(const Recipe& recipe) {
+  std::string icon = recipe.result;
+  std::replace(icon.begin(), icon.end(), ':', '_');
+  if (icon == "ammo") {
+    return "arrows";
+  }
+  if (icon == "armor") {
+    return "outfit_leather_armor";
+  }
+  if (icon == "steel") {
+    return "good_10";
+  }
+  return icon;
+}
 std::vector<SummaryEntry> InventorySummary(const Save& save) {
   std::vector<SummaryEntry> rows;
   rows.push_back({"coins", "Coins", "", save.coins});
@@ -161,19 +175,19 @@ std::vector<ProgressCard> ProgressCards(const Save& save) {
   activity("craft_items", "Craft items", save.crafted, 2);
   activity("catch_fish", "Catch fish", save.caught, 3);
   activity("town_orders", "Town orders", save.orders, 4);
-  const std::vector<std::string> parent = {"",
-                                           "gathering",
-                                           "gather_sites",
-                                           "craft_items",
-                                           "craft_items",
-                                           "gather_sites",
-                                           "catch_fish",
-                                           "gather_sites",
-                                           "craft_items",
-                                           "trading",
-                                           "town_orders"};
-  const int columns[] = {0, 1, 1, 2, 2, 1, 2, 1, 2, 2, 1},
-            rows[] = {0, 0, 1, 1, 2, 3, 3, 4, 4, 0, 5};
+  const std::vector<std::string> activity_parent = {"",
+                                                    "gathering",
+                                                    "gather_sites",
+                                                    "craft_items",
+                                                    "craft_items",
+                                                    "gather_sites",
+                                                    "catch_fish",
+                                                    "gather_sites",
+                                                    "craft_items",
+                                                    "trading",
+                                                    "town_orders"};
+  const int columns[] = {0, 1, 1, 2, 2, 1, 2, 1, 2, 2, 3},
+            rows[] = {0, 0, 1, 1, 2, 3, 3, 4, 4, 0, 4};
   for (int i = 0; i < static_cast<int>(Skills().size()); i++) {
     const auto& skill = Skills()[i];
     auto state = GetLessonState(save, i);
@@ -183,9 +197,13 @@ std::vector<ProgressCard> ProgressCards(const Save& save) {
     } else {
       detail += skill.requirement + ".";
     }
-    cards.push_back({skill.id, skill.name, "skill_" + skill.id, detail,
-                     parent[i].empty() ? std::vector<std::string>{}
-                                       : std::vector<std::string>{parent[i]},
+    auto parents = skill.prerequisites;
+    if (!activity_parent[i].empty() &&
+        std::find(parents.begin(), parents.end(), activity_parent[i]) ==
+            parents.end()) {
+      parents.push_back(activity_parent[i]);
+    }
+    cards.push_back({skill.id, skill.name, "skill_" + skill.id, detail, parents,
                      columns[i], rows[i], state.learned, state.ready});
   }
   cards.push_back({"civic_charter",
@@ -233,8 +251,9 @@ std::vector<ProgressCard> ProgressCards(const Save& save) {
         teacher = true;
       }
     }
-    bool ready =
-        !learned && teacher && HasSkill(save, "crafting") && save.coins >= 20;
+    bool ready = !learned && teacher && HasSkill(save, "crafting") &&
+                 MissingSkillPrerequisites(save, "crafting").empty() &&
+                 save.coins >= 20;
     cards.push_back({town.technology,
                      TechnologyName(town.technology),
                      "tech_" + town.technology,

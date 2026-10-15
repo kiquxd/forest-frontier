@@ -26,6 +26,7 @@ struct ProgressCard {
   bool activity{};
   int amount{};
 };
+std::string RecipeIcon(const Recipe& recipe);
 std::vector<SummaryEntry> InventorySummary(const Save& save);
 std::vector<ProgressCard> ProgressCards(const Save& save);
 }  // namespace frontier

@@ -1,8 +1,10 @@
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <functional>
 #include <map>
 #include <set>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -11,6 +13,7 @@
 #include "progress.hpp"
 #include "render.hpp"
 #include "settlement_system.hpp"
+#include "summary.hpp"
 
 namespace frontier {
 namespace {
@@ -22,6 +25,9 @@ struct NationRow {
   std::function<void()> primary{};
   std::string second{};
   std::function<void()> secondary{};
+  bool enabled{true};
+  std::string tooltip{};
+  std::vector<ProductionRequirement> requirements{};
 };
 std::string Duration(double seconds) {
   int total = static_cast<int>(std::ceil(std::max(0.0, seconds)));
@@ -109,8 +115,8 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
               (HasControlled(save) ? ResidentName(save, save.controlled_npc)
                                    : "none"),
           50, 164, w - 100, 15, {171, 191, 155, 255}, 1);
-  const std::vector<std::string> tabs = {"Residents", "Stocks", "Production",
-                                         "Projects",  "Orders", "Towns",
+  const std::vector<std::string> tabs = {"Residents", "Resources", "Production",
+                                         "Projects",  "Orders",    "Towns",
                                          "Growth"};
   float tab_width = (w - 100) / tabs.size();
   for (int i = 0; i < static_cast<int>(tabs.size()); ++i) {
@@ -119,9 +125,66 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
       ui.gov_tab = i;
       ui.gov_page = 0;
       ui.gov_status.clear();
+      ui.production_search_focus = false;
     }
   }
   Rectangle body{50, 244, w - 100, h - 380};
+  auto lowercase = [](std::string value) {
+    for (char& ch : value) {
+      ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    }
+    return value;
+  };
+  if (ui.gov_tab == 2) {
+    const Rectangle search{195, body.y, w - 365, 42};
+    const bool inside = CheckCollisionPointRec(GetMousePosition(), search);
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+      ui.production_search_focus = inside;
+    }
+    const auto before = ui.production_search;
+    if (ui.production_search_focus) {
+      if ((IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) &&
+          IsKeyPressed(KEY_A)) {
+        ui.production_search.clear();
+      }
+      for (int ch = GetCharPressed(); ch; ch = GetCharPressed()) {
+        if (ch >= 32 && ch <= 126 && ui.production_search.size() < 64) {
+          ui.production_search.push_back(static_cast<char>(ch));
+        }
+      }
+      if ((IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)) &&
+          !ui.production_search.empty()) {
+        ui.production_search.pop_back();
+      }
+      if (IsKeyPressed(KEY_ENTER)) {
+        ui.production_search_focus = false;
+      }
+    }
+    if (button({w - 150, body.y, 100, 42}, "Clear")) {
+      ui.production_search.clear();
+    }
+    if (before != ui.production_search) {
+      ui.gov_page = 0;
+    }
+    DrawRectangleRounded(search, .25f, 8,
+                         ui.production_search_focus ? Color{58, 79, 54, 255}
+                                                    : Color{33, 52, 42, 255});
+    Text("Search items", 50, body.y + 9, 16, {210, 218, 190, 255});
+    BeginScissorMode(
+        static_cast<int>(search.x + 10), static_cast<int>(search.y),
+        static_cast<int>(search.width - 20), static_cast<int>(search.height));
+    Text(ui.production_search.empty() && !ui.production_search_focus
+             ? "Item name..."
+             : ui.production_search +
+                   (ui.production_search_focus &&
+                            static_cast<int>(GetTime() * 2) % 2 == 0
+                        ? "|"
+                        : ""),
+         search.x + 10, search.y + 9, 16, {219, 226, 205, 255});
+    EndScissorMode();
+    body.y += 56;
+    body.height -= 56;
+  }
   std::vector<NationRow> rows;
   auto act = [&](const Action& result) { ui.gov_status = result.message; };
   if (ui.gov_tab == 0) {
@@ -154,7 +217,7 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
     }
   } else if (ui.gov_tab == 1) {
     bool owned = OwnsCity(save, city);
-    rows.push_back({"Resident cargo and town warehouse",
+    rows.push_back({"Resident cargo and city resources",
                     "Transfers are free and require the selected resident on "
                     "this town's territory.",
                     "chest", "Deposit all", [&] {
@@ -180,7 +243,7 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
                     }});
     for (int g = 0; g < kGoodTypes; ++g) {
       rows.push_back({GoodName(g),
-                      "Warehouse " + std::to_string(save.stocks[city][g]) +
+                      "City resources " + std::to_string(save.stocks[city][g]) +
                           " · Carried " +
                           std::to_string(GoodCount(save.inventory, g)),
                       "good_" + std::to_string(g), "Deposit",
@@ -264,22 +327,22 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
             : (*selected_workshop)->kind + " #" +
                   std::to_string((*selected_workshop)->id) + " · " +
                   Settlements()[(*selected_workshop)->city].name;
-    rows.push_back({label,
-                    "Materials come from " + Settlements()[city].name +
-                        "; output returns to this warehouse. Each workshop has "
-                        "eight queue slots.",
-                    "book", "Change", [&, workshops] {
-                      auto it = std::find_if(workshops.begin(), workshops.end(),
-                                             [&](const auto* f) {
-                                               return f->id == ui.gov_facility;
-                                             });
-                      ui.gov_facility =
-                          it == workshops.end()
-                              ? (workshops.empty() ? 0 : workshops.front()->id)
-                          : ++it == workshops.end() ? 0
-                                                    : (*it)->id;
-                      ui.gov_page = 0;
-                    }});
+    rows.push_back(
+        {label,
+         "Materials come from " + Settlements()[city].name +
+             "; output returns to these city resources. Each workshop has "
+             "eight queue slots.",
+         "book", "Change", [&, workshops] {
+           auto it = std::find_if(
+               workshops.begin(), workshops.end(),
+               [&](const auto* f) { return f->id == ui.gov_facility; });
+           ui.gov_facility =
+               it == workshops.end()
+                   ? (workshops.empty() ? 0 : workshops.front()->id)
+               : ++it == workshops.end() ? 0
+                                         : (*it)->id;
+           ui.gov_page = 0;
+         }});
     for (const auto& job : save.production) {
       if (job.source != city) {
         continue;
@@ -297,24 +360,39 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
                Duration(job.due - save.game_time) + " · reserved materials",
            "book", "Cancel", [&, id] { act(CancelProduction(save, id)); }});
     }
+    int matches = 0;
     for (int i = 0; i < static_cast<int>(Recipes().size()); ++i) {
-      const auto& r = Recipes()[i];
-      if (selected_workshop != workshops.end() &&
-          RecipeFacility(r) != (*selected_workshop)->kind) {
+      const auto& recipe = Recipes()[i];
+      if (lowercase(recipe.name).find(lowercase(ui.production_search)) ==
+          std::string::npos) {
         continue;
       }
-      std::string costs;
-      for (int g = 0; g < kGoodTypes; ++g) {
-        if (r.cost[g]) {
-          costs += std::string(GoodName(g)) + " " + std::to_string(r.cost[g]) +
-                   " · ";
+      ++matches;
+      const auto status = CheckProduction(save, i, city, ui.gov_facility);
+      const bool ready = status.missing.empty();
+      std::string tooltip = recipe.name + "\n" + recipe.effect + "\n";
+      if (ready) {
+        tooltip += "Ready to queue. Resources are reserved from this city.";
+      } else {
+        tooltip += "Missing requirements:";
+        for (const auto& missing : status.missing) {
+          tooltip += "\n- " + missing;
         }
       }
       rows.push_back(
-          {r.name,
-           RecipeFacility(r) + " · " + Duration(CraftDelay(r)) + " · " + costs,
-           "book", "Queue",
-           [&, i] { act(QueueProduction(save, i, city, ui.gov_facility)); }});
+          {recipe.name,
+           Duration(CraftDelay(recipe)) + " · resources: available / required",
+           RecipeIcon(recipe),
+           "Queue",
+           [&, i] { act(QueueProduction(save, i, city, ui.gov_facility)); },
+           "",
+           {},
+           ready,
+           tooltip,
+           status.requirements});
+    }
+    if (!matches) {
+      rows.push_back({"No matching items", "Try another item name or Clear."});
     }
   } else if (ui.gov_tab == 3 || ui.gov_tab == 4) {
     bool trade = ui.gov_tab == 4;
@@ -506,7 +584,7 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
                       [&] { act(ResearchHospital(save)); }});
       for (int good : {0, 2, 3}) {
         rows.push_back({"Plant " + std::string(GoodName(good)),
-                        "Cost: warehouse wood 2 and berries 2 · trees 10m; "
+                        "Cost: city wood 2 and berries 2 · trees 10m; "
                         "food/reeds 3m · territory limits plot count",
                         "good_" + std::to_string(good), "Plant",
                         [&, good] { act(PlantResource(save, city, good)); }});
@@ -518,7 +596,7 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
         }
         rows.push_back(
             {std::string(GoodName(p.good)) + " plot",
-             p.ready ? "Ready to harvest; goods go to the city warehouse"
+             p.ready ? "Ready to harvest; goods go to city resources"
                      : "Ready in " + Duration(p.due - save.game_time),
              "good_" + std::to_string(p.good), "Harvest",
              p.ready
@@ -543,7 +621,7 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
                           });
         rows.push_back({f.name + " · " + std::to_string(count) + "/" +
                             std::to_string(FacilityLimit(save, city, f.id)),
-                        "Build: warehouse wood " + std::to_string(f.wood) +
+                        "Build: city wood " + std::to_string(f.wood) +
                             ", stone " + std::to_string(f.stone) +
                             ", state coins " + std::to_string(f.coins),
                         "town", "Build", [&, id = f.id] {
@@ -555,10 +633,39 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
                       "town", "Expand", [&] { act(ExpandCity(save, city)); }});
     }
   }
-  float step = std::max(72.f, TextSize(16) * 2 + 30);
-  int per_page = std::max(1, static_cast<int>(body.height / step));
-  int pages =
-      std::max(1, (static_cast<int>(rows.size()) + per_page - 1) / per_page);
+  const float base_height = std::max(72.f, TextSize(16) * 2 + 30);
+  const float chip_height = TextSize(14) + 12;
+  auto chip_width = [&](const ProductionRequirement& requirement) {
+    return Measure(requirement.label, 14) + 42;
+  };
+  std::vector<float> heights;
+  std::vector<std::vector<int>> page_rows(1);
+  float occupied = 0;
+  for (int i = 0; i < static_cast<int>(rows.size()); ++i) {
+    int lines = rows[i].requirements.empty() ? 0 : 1;
+    float used = 0;
+    const float available = body.width - 66 - (rows[i].primary ? 132 : 0);
+    for (const auto& requirement : rows[i].requirements) {
+      const float width = chip_width(requirement);
+      if (used > 0 && used + width > available) {
+        ++lines;
+        used = 0;
+      }
+      used += width + 6;
+    }
+    const float height = std::min(
+        body.height, std::max(base_height, lines ? TextSize(17) + TextSize(14) +
+                                                       30 + lines * chip_height
+                                                 : base_height));
+    if (!page_rows.back().empty() && occupied + height > body.height) {
+      page_rows.emplace_back();
+      occupied = 0;
+    }
+    page_rows.back().push_back(i);
+    occupied += height;
+    heights.push_back(height);
+  }
+  const int pages = static_cast<int>(page_rows.size());
   if (IsKeyPressed(KEY_PAGE_DOWN)) {
     ++ui.gov_page;
   }
@@ -567,28 +674,63 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
   }
   ui.gov_page = std::clamp(ui.gov_page - static_cast<int>(GetMouseWheelMove()),
                            0, pages - 1);
-  for (int i = ui.gov_page * per_page;
-       i <
-       std::min(static_cast<int>(rows.size()), (ui.gov_page + 1) * per_page);
-       ++i) {
+  std::string tooltip;
+  float y = body.y;
+  for (int i : page_rows[ui.gov_page]) {
     const auto& row = rows[i];
-    float y = body.y + (i % per_page) * step;
+    const float step = heights[i];
     DrawRectangleRounded({body.x, y, body.width, step - 6}, .12f, 8,
                          {29, 48, 36, 255});
-    Icon(row.icon, {body.x + 8, y + 10, 32, 32});
+    if (!row.tooltip.empty() &&
+        CheckCollisionPointRec(GetMousePosition(),
+                               {body.x, y, body.width, step - 6})) {
+      tooltip = row.tooltip;
+    }
+    const float icon_size = row.requirements.empty() ? 32.f : 40.f;
+    Icon(row.icon, {body.x + 6, y + 8, icon_size, icon_size},
+         row.enabled ? WHITE : Color{127, 139, 132, 255});
     float actions = row.secondary ? 260 : row.primary ? 132 : 0;
     Wrapped(row.title, body.x + 50, y + 5, body.width - 66 - actions, 17,
-            {232, 213, 171, 255}, 1);
+            row.enabled ? Color{232, 213, 171, 255} : Color{137, 145, 140, 255},
+            1);
     Wrapped(row.detail, body.x + 50, y + TextSize(17) + 11,
-            body.width - 66 - actions, 14, {173, 192, 160, 255}, 1);
-    if (row.primary &&
-        button({body.x + body.width - actions, y + 14, 120, 36}, row.first)) {
+            body.width - 66 - actions, 14,
+            row.enabled ? Color{173, 192, 160, 255} : Color{127, 136, 129, 255},
+            1);
+    float chip_x = body.x + 50;
+    float chip_y = y + TextSize(17) + TextSize(14) + 23;
+    BeginScissorMode(static_cast<int>(body.x), static_cast<int>(y),
+                     static_cast<int>(body.width), static_cast<int>(step - 6));
+    for (const auto& requirement : row.requirements) {
+      const float width = chip_width(requirement);
+      if (chip_x > body.x + 50 &&
+          chip_x + width > body.x + body.width - 16 - actions) {
+        chip_x = body.x + 50;
+        chip_y += chip_height;
+      }
+      const Color tint = requirement.met ? Color{193, 215, 168, 255}
+                                         : Color{117, 124, 119, 255};
+      Icon(requirement.icon, {chip_x, chip_y + 1, 24, 24}, tint);
+      Text(requirement.label, chip_x + 29, chip_y + 2, 14, tint);
+      if (CheckCollisionPointRec(GetMousePosition(),
+                                 {chip_x, chip_y, width, chip_height}) &&
+          GetMousePosition().y < y + step - 6) {
+        tooltip =
+            requirement.detail +
+            (requirement.met ? "\nRequirement met" : "\nMissing requirement");
+      }
+      chip_x += width + 6;
+    }
+    EndScissorMode();
+    if (row.primary && button({body.x + body.width - actions, y + 14, 120, 36},
+                              row.first, row.enabled)) {
       row.primary();
     }
     if (row.secondary &&
         button({body.x + body.width - 126, y + 14, 120, 36}, row.second)) {
       row.secondary();
     }
+    y += step;
   }
   float bottom = h - 120;
   if (button({50, bottom, 120, 34}, "Previous")) {
@@ -604,5 +746,37 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
                 "and positions. Esc closes management."
               : ui.gov_status,
           50, h - 77, w - 100, 16, {238, 202, 133, 255}, 1);
+  if (!tooltip.empty()) {
+    const float width = std::min(760.f, w - 60);
+    const float line_height = TextSize(16) + 6;
+    std::vector<std::string> lines;
+    std::istringstream paragraphs(tooltip);
+    for (std::string paragraph; std::getline(paragraphs, paragraph);) {
+      std::istringstream words(paragraph);
+      std::string line;
+      for (std::string word; words >> word;) {
+        if (!line.empty() && Measure(line + " " + word, 16) > width - 28) {
+          lines.push_back(line);
+          line.clear();
+        }
+        line += (line.empty() ? "" : " ") + word;
+      }
+      lines.push_back(line);
+    }
+    const int limit = std::max(1, static_cast<int>((h - 64) / line_height));
+    if (static_cast<int>(lines.size()) > limit) {
+      lines.resize(limit);
+      lines.back() = "...";
+    }
+    const float height = lines.size() * line_height + 24;
+    const auto mouse = GetMousePosition();
+    const float x = std::clamp(mouse.x + 18, 20.f, w - width - 20);
+    const float y = std::clamp(mouse.y + 18, 20.f, h - height - 20);
+    DrawRectangleRounded({x, y, width, height}, .05f, 8, {12, 23, 19, 255});
+    for (int i = 0; i < static_cast<int>(lines.size()); ++i) {
+      Text(lines[i], x + 14, y + 12 + i * line_height, 16,
+           i == 0 ? Color{233, 204, 144, 255} : Color{202, 211, 200, 255});
+    }
+  }
 }
 }  // namespace frontier

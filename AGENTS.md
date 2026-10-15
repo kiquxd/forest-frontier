@@ -23,6 +23,7 @@ Follow the [Google C++ Style Guide](https://google.github.io/styleguide/cppguide
 ## Implementation
 - Local collision geometry stays in 2D. Long-distance routing, caravans/armies and autonomous destination planning are deferred until command systems for owned/foreign residents and professions exist. Current timer jobs/equipment assignment do not satisfy this prerequisite. Track navigation separately from collision work.
 - Read relevant source and content before changing behavior. Stable content IDs and NPC IDs are part of saved-world compatibility.
+- Skill dependencies are defined in `Skills()` and shared by authoritative learning and the tree. New unlocks must check the full ancestor branch, including research prerequisites; never enforce this only in UI. Keep already earned save flags when changing dependencies. Craft catalogue availability must use the same read-only requirements quote as queue construction.
 - Keep authoritative quests, rewards, equipment allocation and progression deterministic. Language-model output cannot mutate game state.
 - GPU work stays on the render thread. World generation stays on the worker. Do not reconfigure global world metadata while that worker is alive.
 - Save atomically, support older saves, and preserve a backup before a schema migration. Never reset an existing user's progression.

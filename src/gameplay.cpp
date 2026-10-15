@@ -124,17 +124,23 @@ bool OwnsCity(const Save& save, int city) {
 }
 const std::vector<Skill>& Skills() {
   static const std::vector<Skill> kList = {
-      {"gathering", "Gathering", "First lesson at any town hall"},
-      {"trading", "Trading", "Learn gathering"},
-      {"crafting", "Craftsmanship", "Gather from 5 resource sites"},
-      {"tools", "Tools", "Craft 2 items"},
-      {"combat", "Weaponsmithing", "Craft 2 items"},
-      {"fishing", "Fishing", "Gather from 10 resource sites"},
-      {"sailing", "Seamanship", "Catch 3 fish"},
-      {"medicine", "Herbalism", "Gather from 10 resource sites"},
-      {"construction", "Construction", "Craft 4 items"},
-      {"diplomacy", "Diplomacy", "Learn trading"},
-      {"engineering", "Engineering", "Complete a town order"}};
+      {"gathering", "Gathering", "Free introductory lesson", {}},
+      {"trading", "Trading", "Learn gathering", {"gathering"}},
+      {"crafting",
+       "Craftsmanship",
+       "Gather from 5 resource sites",
+       {"gathering"}},
+      {"tools", "Tools", "Craft 2 items", {"crafting"}},
+      {"combat", "Weaponsmithing", "Craft 2 items", {"crafting"}},
+      {"fishing", "Fishing", "Gather from 10 resource sites", {"gathering"}},
+      {"sailing", "Seamanship", "Catch 3 fish", {"fishing"}},
+      {"medicine", "Herbalism", "Gather from 10 resource sites", {"gathering"}},
+      {"construction", "Construction", "Craft 4 items", {"tools"}},
+      {"diplomacy", "Diplomacy", "Learn trading", {"trading"}},
+      {"engineering",
+       "Engineering",
+       "Complete a town order",
+       {"construction", "trading"}}};
   return kList;
 }
 std::string SkillName(const std::string& id) {
@@ -144,6 +150,27 @@ std::string SkillName(const std::string& id) {
     }
   }
   return id;
+}
+std::vector<std::string> MissingSkillPrerequisites(const Save& save,
+                                                   const std::string& id) {
+  std::vector<std::string> missing;
+  auto visit = [&](auto&& self, const std::string& current) -> void {
+    for (const auto& skill : Skills()) {
+      if (skill.id != current) {
+        continue;
+      }
+      for (const auto& parent : skill.prerequisites) {
+        self(self, parent);
+        if (!save.skills.contains(parent) &&
+            std::find(missing.begin(), missing.end(), parent) ==
+                missing.end()) {
+          missing.push_back(parent);
+        }
+      }
+    }
+  };
+  visit(visit, id);
+  return missing;
 }
 bool HasSkill(const Save& save, const std::string& id) {
   return !save.campaign || id.empty() || save.skills.contains(id);
@@ -228,14 +255,25 @@ LessonState GetLessonState(const Save& save, int index) {
   } else if (index == 10) {
     progress = save.orders;
   }
-  bool learned = save.skills.contains(skill.id), ready = progress >= target;
+  const auto missing = MissingSkillPrerequisites(save, skill.id);
+  bool learned = save.skills.contains(skill.id);
+  bool ready = progress >= target && missing.empty();
   std::string detail =
       learned      ? "Learned · available now"
       : index == 0 ? "Free introductory lesson · ready to learn"
                    : skill.requirement + " · " +
                          std::to_string(std::min(progress, target)) + " / " +
                          std::to_string(target) +
-                         (ready ? " · ready to learn" : " · practice required");
+                         (ready               ? " · ready to learn"
+                          : progress < target ? " · practice required"
+                                              : " · prerequisites required");
+  if (!learned && !missing.empty()) {
+    ready = false;
+    detail += " · Learn first: ";
+    for (size_t i = 0; i < missing.size(); ++i) {
+      detail += (i ? ", " : "") + SkillName(missing[i]);
+    }
+  }
   return {learned, ready, learned ? target : std::min(progress, target), target,
           detail};
 }
@@ -640,7 +678,8 @@ Action LearnTechnology(Save& save, int city) {
   if (save.technologies.contains(type.technology)) {
     return {false, "Technology already learned"};
   }
-  if (!HasSkill(save, "crafting")) {
+  if (!HasSkill(save, "crafting") ||
+      (save.campaign && !MissingSkillPrerequisites(save, "crafting").empty())) {
     return {false, "Learn craftsmanship at a town hall first"};
   }
   if (save.coins < 20) {

@@ -425,75 +425,140 @@ Action TransferProduct(Save& save, int city, const std::string& raw,
   StoreControlled(save);
   return {true, "Equipment transferred"};
 }
-Action QueueProduction(Save& save, int recipe, int source, uint64_t facility) {
+ProductionStatus CheckProduction(const Save& save, int recipe, int source,
+                                 uint64_t facility) {
+  ProductionStatus status;
+  auto require = [&](const std::string& icon, const std::string& label,
+                     const std::string& detail, bool met) {
+    status.requirements.push_back({icon, label, detail, met});
+    if (!met) {
+      status.missing.push_back(detail);
+    }
+  };
   if (!save.nation || recipe < 0 ||
       recipe >= static_cast<int>(Recipes().size())) {
-    return {false, "Unknown production recipe"};
+    status.missing.push_back("Unknown production recipe");
+    return status;
   }
   if (source < 0) {
     source = CityAt(save, save.player);
   }
-  const auto& r = Recipes()[recipe];
   if (!OwnsCity(save, source)) {
-    return {false, "Choose your town's warehouse as the source"};
+    status.missing.push_back("Resources must come from an owned town");
+    return status;
   }
-  if (!HasSkill(save, "crafting") || !HasSkill(save, RecipeSkill(r)) ||
-      !RecipeKnown(save, r) ||
-      (!r.technology.empty() && !save.technologies.contains(r.technology))) {
-    return {false, "State skill, recipe or specialist knowledge is missing"};
+  const auto& recipe_def = Recipes()[recipe];
+  require("skill_crafting", SkillName("crafting"),
+          "Skill: " + SkillName("crafting"), HasSkill(save, "crafting"));
+  const auto skill = RecipeSkill(recipe_def);
+  if (skill != "crafting") {
+    require("skill_" + skill, SkillName(skill), "Skill: " + SkillName(skill),
+            HasSkill(save, skill));
   }
-  const Facility* selected = nullptr;
+  if (recipe_def.quest_only ||
+      (recipe_def.result.starts_with("outfit:") &&
+       Outfit(recipe_def.result.substr(7)).quest_only)) {
+    require("book", "Recipe", "Recipe knowledge: complete a town project",
+            RecipeKnown(save, recipe_def));
+  }
+  auto technology = [&](const std::string& id) {
+    if (id.empty() ||
+        std::any_of(status.requirements.begin(), status.requirements.end(),
+                    [&](const auto& r) { return r.icon == "tech_" + id; })) {
+      return;
+    }
+    require("tech_" + id, TechnologyName(id),
+            "Technology: " + std::string(TechnologyName(id)),
+            save.technologies.contains(id));
+  };
+  technology(recipe_def.technology);
+  if (recipe_def.result.starts_with("vessel:")) {
+    const auto vessel = Vessel(recipe_def.result.substr(7));
+    status.fee = vessel.coins;
+    if (vessel.prestige >= 6) {
+      technology("shipbuilding");
+    }
+    if (vessel.id == "flagship") {
+      technology("navigation_school");
+    }
+  }
+  const std::string kind = RecipeFacility(recipe_def);
+  std::string building = kind;
+  for (const auto& definition : FacilityTypes()) {
+    if (definition.id == kind) {
+      building = definition.name;
+      break;
+    }
+  }
+  bool accessible = false;
   double earliest = 1e30;
-  for (const auto& f : save.facilities) {
-    if (f.kind != RecipeFacility(r) || (facility && f.id != facility) ||
-        !ReachableFacility(save, source, f.city)) {
+  for (const auto& workshop : save.facilities) {
+    if (workshop.kind != kind || (facility && workshop.id != facility) ||
+        !ReachableFacility(save, source, workshop.city)) {
       continue;
     }
+    accessible = true;
     int queued = 0;
     double ready = save.game_time;
     for (const auto& job : save.production) {
-      if (job.facility == f.id) {
+      if (job.facility == workshop.id) {
         ++queued;
         ready = std::max(ready, job.due);
       }
     }
     if (queued < 8 && ready < earliest) {
-      selected = &f;
+      status.facility = workshop.id;
       earliest = ready;
+      status.due = ready + CraftDelay(recipe_def);
     }
   }
-  if (!selected) {
-    return {false, "No accessible workshop with a free queue slot"};
-  }
-  if (r.result.starts_with("vessel:") &&
-      Vessel(r.result.substr(7)).prestige >= 6 &&
-      !save.technologies.contains("shipbuilding")) {
-    return {false, "Learn Shipbuilding from a specialist town first"};
-  }
-  int fee =
-      r.result.starts_with("vessel:") ? Vessel(r.result.substr(7)).coins : 0;
-  if (save.coins < fee) {
-    return {false, "State treasury cannot cover the commissioning fee"};
-  }
-  if (r.result == "vessel:flagship" &&
-      !save.technologies.contains("navigation_school")) {
-    return {false, "Navigation school is required"};
-  }
-  for (int g = 0; g < kGoodTypes; ++g) {
-    if (save.stocks[source][g] < r.cost[g]) {
-      return {false, "Warehouse needs " + std::string(GoodName(g))};
+  require("town", building,
+          status.facility ? "Building: " + building + " (accessible workshop)"
+          : accessible
+              ? "Queue full: " + building + " (8 jobs per workshop)"
+              : "Building: " + building +
+                    (facility ? " (choose Automatic or a matching workshop)"
+                              : " (local or peaceful road connection)"),
+          status.facility != 0);
+  for (int good = 0; good < kGoodTypes; ++good) {
+    if (recipe_def.cost[good] <= 0) {
+      continue;
     }
+    const std::string quantity = std::to_string(save.stocks[source][good]) +
+                                 "/" + std::to_string(recipe_def.cost[good]);
+    require("good_" + std::to_string(good), quantity,
+            std::string(GoodName(good)) + ": " + quantity + " city resources",
+            save.stocks[source][good] >= recipe_def.cost[good]);
   }
-  for (int g = 0; g < kGoodTypes; ++g) {
-    save.stocks[source][g] -= r.cost[g];
+  if (status.fee) {
+    const std::string quantity =
+        std::to_string(save.coins) + "/" + std::to_string(status.fee);
+    require("coins", quantity, "State coins: " + quantity,
+            save.coins >= status.fee);
   }
-  save.coins -= fee;
-  save.production.push_back({save.next_entity++, selected->id, source, source,
-                             r.id, earliest + CraftDelay(r), r.cost, fee});
-  RecordHistory(save, "production", "Queued " + r.name, source);
-  return {true, "Queued at " + Settlements()[selected->city].name +
-                    "; output returns to the source warehouse"};
+  return status;
 }
+Action QueueProduction(Save& save, int recipe, int source, uint64_t facility) {
+  if (source < 0) {
+    source = CityAt(save, save.player);
+  }
+  const auto status = CheckProduction(save, recipe, source, facility);
+  if (!status.missing.empty()) {
+    return {false, status.missing.front()};
+  }
+  const auto& definition = Recipes()[recipe];
+  for (int good = 0; good < kGoodTypes; ++good) {
+    save.stocks[source][good] -= definition.cost[good];
+  }
+  save.coins -= status.fee;
+  save.production.push_back({save.next_entity++, status.facility, source,
+                             source, definition.id, status.due, definition.cost,
+                             status.fee});
+  RecordHistory(save, "production", "Queued " + definition.name, source);
+  return {true, "Queued; output returns to " + Settlements()[source].name +
+                    " resources"};
+}
+
 Action CancelProduction(Save& save, uint64_t id) {
   auto it = std::find_if(save.production.begin(), save.production.end(),
                          [&](const auto& j) { return j.id == id; });
@@ -746,6 +811,17 @@ Action FinishCityTask(Save& save, uint64_t id) {
   if (it == save.city_tasks.end() || it->completed || !it->accepted ||
       !PeacefulCity(save, it->city)) {
     return {false, "No accepted task to complete"};
+  }
+  if (it->reward.starts_with("technology:")) {
+    const auto knowledge = it->reward.substr(11);
+    bool specialist =
+        std::any_of(GetContent().towns.begin(), GetContent().towns.end(),
+                    [&](const auto& t) { return t.technology == knowledge; });
+    if (specialist && (!save.skills.contains("crafting") ||
+                       !MissingSkillPrerequisites(save, "crafting").empty())) {
+      return {false,
+              "Learn Gathering and Craftsmanship before specialist knowledge"};
+    }
   }
   int city = it->city;
   if (CityAt(save, save.player) != city || !HasControlled(save)) {
