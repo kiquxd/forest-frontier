@@ -1092,13 +1092,23 @@ void Renderer::DrawLabels(const World& world, const Save& save, const Ui& ui,
 void Renderer::Vehicle(const Save& save, const Gameplay& game, Vec position,
                        double time) const {
   int type = ActiveVehicle(save);
-  Vec direction = Normalized(Project(game.facing)),
-      side{-direction.y, direction.x};
+  const Vec heading = Normalized(game.facing);
+  // Project the hull's ground plane before adding vertical height. Rotating an
+  // orthogonal screen-space footprint made every heading look top-down.
+  const Vec direction = Project(heading);
+  const Vec side = Project({-heading.y, heading.x});
   const auto& vessel = Vessel(type);
-  float size = vessel.length, width = vessel.width;
-  auto point = [&](float x, float y) {
-    return ToVector2(position + direction * x + side * y);
+  const float size = vessel.length, width = vessel.width;
+  const float hull_height = type == 5                ? 5.f
+                            : type == 3              ? 13.f
+                            : vessel.prestige >= 6   ? 28.f
+                            : type == 2 || type == 7 ? 21.f
+                                                     : 11.f;
+  auto point = [&](float x, float y, float elevation = 0) {
+    return ToVector2(position + direction * x + side * y +
+                     Vec{0, -hull_height - elevation});
   };
+  const Vec deck_center{position.x, position.y - hull_height};
   auto triangle = [](Vector2 a, Vector2 b, Vector2 c, Color color) {
     if ((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x) > 0) {
       std::swap(b, c);
@@ -1131,25 +1141,67 @@ void Renderer::Vehicle(const Save& save, const Gameplay& game, Vec position,
                : type == 3 ? Color{133, 154, 155, 255}
                : type == 2 ? Color{122, 82, 50, 255}
                            : Color{162, 108, 59, 255};
-  std::vector<Vector2> outline;
+  std::vector<Vec> shape;
   if (type == 3) {
-    for (int i = 0; i < 12; i++) {
-      float a = i * 6.2831853f / 12;
-      outline.push_back(point(std::cos(a) * size, std::sin(a) * width));
+    for (int i = 0; i < 12; ++i) {
+      const float angle = i * 6.2831853f / 12;
+      shape.push_back({std::cos(angle) * size, std::sin(angle) * width});
     }
   } else {
-    outline = {point(size, 0),
-               point(size * .4f, width),
-               point(-size * .65f, width * .85f),
-               point(-size, width * .35f),
-               point(-size, -width * .35f),
-               point(-size * .65f, -width * .85f),
-               point(size * .4f, -width)};
+    shape = {{size, 0},
+             {size * .4f, width},
+             {-size * .65f, width * .85f},
+             {-size, width * .35f},
+             {-size, -width * .35f},
+             {-size * .65f, -width * .85f},
+             {size * .4f, -width}};
   }
-  Color rim = type == 3 ? Color{181, 195, 191, 255} : Color{213, 171, 103, 255};
-  for (size_t i = 0; i < outline.size(); i++) {
-    triangle(ToVector2(position), outline[i], outline[(i + 1) % outline.size()],
-             hull);
+  auto shade = [](Color color, float light) {
+    return Color{static_cast<uint8_t>(color.r * light),
+                 static_cast<uint8_t>(color.g * light),
+                 static_cast<uint8_t>(color.b * light), color.a};
+  };
+  std::vector<Vector2> outline, waterline;
+  for (const auto& vertex : shape) {
+    outline.push_back(point(vertex.x, vertex.y));
+    waterline.push_back(point(vertex.x * .91f, vertex.y * .82f, -hull_height));
+  }
+  // Only camera-facing hull walls are visible below the deck. Their lower rim
+  // stays on the water; the narrower waterline gives the sides a curved flare.
+  for (size_t i = 0; i < outline.size(); ++i) {
+    const size_t next = (i + 1) % outline.size();
+    const auto a = outline[i], b = outline[next];
+    if (b.x >= a.x) {
+      continue;
+    }
+    const auto c = waterline[next], d = waterline[i];
+    const float light = b.y > a.y ? .62f : .82f;
+    triangle(a, b, c, shade(hull, light));
+    triangle(a, c, d, shade(hull, light));
+    for (int plank = 1; plank <= 3; ++plank) {
+      const float t = plank / 4.f;
+      DrawLineEx({a.x + (d.x - a.x) * t, a.y + (d.y - a.y) * t},
+                 {b.x + (c.x - b.x) * t, b.y + (c.y - b.y) * t}, 1,
+                 shade(hull, light * .7f));
+    }
+    DrawLineEx(d, c, 2, {48, 59, 53, 225});
+    if (type == 2 || type >= 7) {
+      const float edge_length = std::hypot(b.x - a.x, b.y - a.y);
+      const int windows = static_cast<int>(edge_length / 22);
+      for (int window = 0; window < windows; ++window) {
+        const float t = (window + .5f) / windows;
+        const Vector2 port{a.x + (b.x - a.x) * t,
+                           a.y + (b.y - a.y) * t + hull_height * .55f};
+        DrawCircleV(port, 3.5f, {207, 170, 94, 255});
+        DrawCircleV(port, 2, {39, 61, 65, 255});
+      }
+    }
+  }
+  const Color rim =
+      type == 3 ? Color{181, 195, 191, 255} : Color{213, 171, 103, 255};
+  for (size_t i = 0; i < outline.size(); ++i) {
+    triangle(ToVector2(deck_center), outline[i],
+             outline[(i + 1) % outline.size()], hull);
     DrawLineEx(outline[i], outline[(i + 1) % outline.size()], 3, rim);
   }
   for (int i = -3; i <= 3; i++) {
@@ -1177,15 +1229,16 @@ void Renderer::Vehicle(const Save& save, const Gameplay& game, Vec position,
       DrawCircleV(point(i * size * .4f, -3), 7, {104, 208, 221, 255});
       DrawCircleV(point(i * size * .4f - 2, -5), 2, {215, 250, 245, 255});
     }
-    DrawEllipse(static_cast<int>(position.x), static_cast<int>(position.y - 5),
-                22, 15, {107, 126, 131, 255});
-    DrawCircleV(ToVector2(position + direction * 24 + Vec{0, -9}), 7,
+    DrawEllipse(static_cast<int>(deck_center.x),
+                static_cast<int>(deck_center.y - 5), 22, 15,
+                {107, 126, 131, 255});
+    DrawCircleV(ToVector2(deck_center + direction * 24 + Vec{0, -9}), 7,
                 {116, 211, 218, 255});
-    DrawCircleV(ToVector2(position - direction * 19 + Vec{0, -9}), 7,
+    DrawCircleV(ToVector2(deck_center - direction * 19 + Vec{0, -9}), 7,
                 {116, 211, 218, 255});
     if (!save.submerged) {
-      DrawLineEx({position.x, position.y - 5}, {position.x, position.y - 30}, 4,
-                 {179, 183, 171, 255});
+      DrawLineEx({deck_center.x, deck_center.y - 5},
+                 {deck_center.x, deck_center.y - 30}, 4, {179, 183, 171, 255});
     } else {
       DrawCircleLines(static_cast<int>(position.x),
                       static_cast<int>(position.y),
@@ -1200,30 +1253,30 @@ void Renderer::Vehicle(const Save& save, const Gameplay& game, Vec position,
   }
   if (type == 2 || type >= 7) {
     for (int sign : {-1, 1}) {
-      DrawLineEx(point(-size * .8f, sign * width * .7f),
-                 point(size * .55f, sign * width * .7f), 2,
+      DrawLineEx(point(-size * .8f, sign * width * .7f, 10),
+                 point(size * .55f, sign * width * .7f, 10), 2,
                  {224, 199, 145, 255});
       for (int i = -3; i <= 2; i++) {
         DrawLineEx(point(i * size * .22f, sign * width * .7f),
-                   point(i * size * .22f, sign * width * .7f - 9), 2,
+                   point(i * size * .22f, sign * width * .7f, 10), 2,
                    {188, 152, 94, 255});
       }
     }
     triangle(point(-size * .45f, -width * .45f), point(-size * .8f, 0),
              point(-size * .4f, width * .45f), {100, 54, 34, 255});
     DrawCircleV(point(-size * .6f, 0), 6, {202, 176, 112, 255});
-    DrawLineEx({position.x, position.y - 114}, point(-size * .7f, -width * .6f),
-               1, {197, 184, 150, 255});
-    DrawLineEx({position.x, position.y - 114}, point(size * .7f, 0), 1,
+    DrawLineEx({deck_center.x, deck_center.y - 114},
+               point(-size * .7f, -width * .6f), 1, {197, 184, 150, 255});
+    DrawLineEx({deck_center.x, deck_center.y - 114}, point(size * .7f, 0), 1,
                {197, 184, 150, 255});
   }
   // Seated pilot is part of the vehicle; no walking legs are drawn on water.
   auto coat = PlayerOutfit(save).color;
-  DrawRectangle(static_cast<int>(position.x - 9),
-                static_cast<int>(position.y - 23), 18, 18,
+  DrawRectangle(static_cast<int>(deck_center.x - 9),
+                static_cast<int>(deck_center.y - 23), 18, 18,
                 {static_cast<uint8_t>(coat[0]), static_cast<uint8_t>(coat[1]),
                  static_cast<uint8_t>(coat[2]), 255});
-  DrawCircleV({position.x, position.y - 32}, 7, {208, 169, 131, 255});
+  DrawCircleV({deck_center.x, deck_center.y - 32}, 7, {208, 169, 131, 255});
   if (type == 5) {
     for (int i = -3; i <= 3; i++) {
       DrawLineEx(point(-size, i * width / 4), point(size, i * width / 4), 5,
@@ -1241,12 +1294,11 @@ void Renderer::Vehicle(const Save& save, const Gameplay& game, Vec position,
   if (type == 1 || type == 4 || type == 6 || type == 5) {
     float stroke = game.moving ? std::sin(time * 5) * 16 : 0;
     for (int sign : {-1, 1}) {
-      auto pivot = position + side * (static_cast<float>(sign) * 13) -
-                   direction * 5,
-           blade = position + side * (static_cast<float>(sign) * 43) +
-                   direction * stroke;
-      DrawLineEx(ToVector2(pivot), ToVector2(blade), 3, {213, 177, 113, 255});
-      DrawCircleV(ToVector2(blade), 4, {213, 177, 113, 255});
+      const auto pivot = point(-5, static_cast<float>(sign) * 13);
+      const auto blade =
+          point(stroke, static_cast<float>(sign) * 43, -hull_height + 1);
+      DrawLineEx(pivot, blade, 3, {213, 177, 113, 255});
+      DrawCircleV(blade, 4, {213, 177, 113, 255});
     }
   } else {
     const int masts = type == 9 ? 3 : type == 8 ? 2 : 1;
@@ -1261,8 +1313,13 @@ void Renderer::Vehicle(const Save& save, const Gameplay& game, Vec position,
       float wind = std::sin(time * 1.3 + mast) * 5;
       Color cloth =
           type == 9 ? Color{232, 224, 193, 255} : Color{223, 212, 178, 255};
-      triangle({top.x + 4, top.y + 6}, {top.x + 50 + wind, foot.y - 28},
-               {top.x + 4, foot.y - 20}, cloth);
+      const Vector2 peak{top.x + 4, top.y + 6};
+      const Vector2 clew{top.x + 50 + wind, foot.y - 28};
+      const Vector2 tack{top.x + 4, foot.y - 20};
+      const Vector2 fold{top.x + 23 + wind, foot.y - height * .45f};
+      triangle(peak, clew, fold, cloth);
+      triangle(clew, tack, fold, shade(cloth, .84f));
+      triangle(tack, peak, fold, shade(cloth, .94f));
       for (int seam = 0; seam < 4; seam++) {
         DrawLineEx({top.x + 6, top.y + 20 + seam * 17},
                    {top.x + 14 + seam * 10 + wind, top.y + 28 + seam * 17}, 1,
@@ -1284,14 +1341,31 @@ void Renderer::Vehicle(const Save& save, const Gameplay& game, Vec position,
                       {237, 198, 116, 255});
         }
       }
-      auto stern = point(-size * .65f, 0);
-      DrawRectangleRounded({stern.x - 15, stern.y - 30, 30, 22}, .1f, 4,
-                           {106, 75, 47, 255});
-      for (int i = -1; i <= 1; i++) {
-        DrawRectangle(static_cast<int>(stern.x + i * 8 - 2),
-                      static_cast<int>(stern.y - 27), 4, 8,
-                      {172, 218, 219, 255});
+      // Raised aft cabin: roof and visible wall faces use the same hull plane.
+      const float stern_x = -size * .65f;
+      std::array<Vector2, 4> cabin = {point(stern_x - 19, -width * .45f, 28),
+                                      point(stern_x + 19, -width * .45f, 28),
+                                      point(stern_x + 19, width * .45f, 28),
+                                      point(stern_x - 19, width * .45f, 28)};
+      for (size_t i = 0; i < cabin.size(); ++i) {
+        const auto a = cabin[i], b = cabin[(i + 1) % cabin.size()];
+        if (b.x >= a.x) {
+          continue;
+        }
+        const Vector2 c{b.x, b.y + 28}, d{a.x, a.y + 28};
+        const Color wall =
+            b.y > a.y ? Color{81, 56, 38, 255} : Color{126, 91, 55, 255};
+        triangle(a, b, c, wall);
+        triangle(a, c, d, wall);
+        for (int window = 1; window <= 2; ++window) {
+          const float t = window / 3.f;
+          DrawRectangle(static_cast<int>(a.x + (b.x - a.x) * t - 2),
+                        static_cast<int>(a.y + (b.y - a.y) * t + 9), 4, 8,
+                        {172, 218, 219, 255});
+        }
       }
+      triangle(cabin[0], cabin[1], cabin[2], {158, 116, 67, 255});
+      triangle(cabin[0], cabin[2], cabin[3], {138, 96, 54, 255});
     }
   }
 }

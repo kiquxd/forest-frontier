@@ -163,3 +163,9 @@ Menu separation, progression dashboard and save workflows:
 
 - Sized the title background from its measured text and the health background from the resident name, health bar and optional diving gauges. Vertical spacing follows the selected font scale; removed the redundant shortcut row from this panel because the contextual bottom bar already exposes those actions.
 - Updated README presentation notes. Release build, formatting/diff checks and all 13 CTest groups pass (5.52 seconds). Inspected logs/hud-compact.png from a 120-frame native run using a fresh temporary, unsaved world; no benchmark or extended simulation was needed.
+
+## 2026-10-15 — Vessel side profiles and hull volume
+
+- Replaced the flat screen-space vessel footprint with world-plane projection, raised decks and tapered waterlines. Visible hull walls have directional shading, plank seams and large-ship portholes; rail posts now rise vertically. Pilots and masts sit on the deck and oars reach the water. Large ships have raised, shaded aft cabins and folded sail faces. Vessel IDs, unlocks, dimensions in content, physics and saves remain unchanged.
+- Updated README and the audit's working graphics description; remaining limitations/TODO scope are unchanged. Release build succeeds without warnings, formatting/diff checks pass, and all 13 CTest groups pass in 5.79 seconds.
+- Inspected five short native previews: ship, flagship, submerged submarine, turned flagship and canoe (100/160 frames each), using isolated temporary settings/logs without saves. Screenshots: logs/vessel-side-{ship,flagship,submarine}.png and logs/vessel-side-turn-{flagship,canoe}.png. No extended idle simulation or performance sweep was run for this small 2D rendering change.
