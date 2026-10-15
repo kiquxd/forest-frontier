@@ -72,7 +72,7 @@ Saved-world **F2** expands summary; **F6/F7** rename/copy, **F8/F9** export/impo
 
 Saves are atomic **v9**, with v1–v8 loading/migration backups and no automatic progression reset. Residents, warehouses, queues, plots, tasks, escrow, shipments, arrivals and money accounts persist. Simulation time never includes offline elapsed time. Normal installation/launch never deletes saves.
 
-Settings works in the lobby and pause: window/fullscreen, frame cap, zoom, HUD, text scale, tree contrast, audio and primary/alternate bindings. Use the visible **Apply** button. New actions preserve older custom bindings and receive free keys if defaults conflict. The bottom action bar uses actual bindings and nearby available actions on a dark background.
+Settings works in the lobby and pause: window/fullscreen, frame cap, zoom, HUD, text scale, tree contrast, audio and primary/alternate bindings. Use the visible **Apply** button. New actions preserve older custom bindings and receive free keys if defaults conflict. The bottom action bar uses actual bindings and nearby available actions on a dark background. The upper-left title and health panels fit their contents and adapt to text scale; management shortcuts stay in the bottom action bar.
 
 ### Controls
 

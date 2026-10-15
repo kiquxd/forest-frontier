@@ -1331,27 +1331,40 @@ void Renderer::DrawUi(const World& world, Save& save, Ui& ui,
                       const Camera2D& camera) {
   float w = static_cast<float>(GetScreenWidth()),
         h = static_cast<float>(GetScreenHeight());
-  DrawRectangleRounded({20, 20, 390, 52}, .12f, 6, kPanel);
-  Text("FOREST FRONTIER", 38, 29, 28, kGold);
+  const std::string title = "FOREST FRONTIER";
+  const float title_height = TextSize(28) + 18;
+  DrawRectangleRounded({20, 20, Measure(title, 28) + 36, title_height}, .12f, 6,
+                       kPanel);
+  Text(title, 38, 29, 28, kGold);
   if (save.nation) {
-    DrawRectangleRounded({20, 84, 390, save.submerged ? 166.f : 130.f}, .1f, 6,
-                         kPanel);
-    Text(HasControlled(save) ? ResidentName(save, save.controlled_npc)
-                             : "No resident selected",
-         38, 96, 19, kGold);
-    Text("Health " + std::to_string(HasControlled(save) ? save.health : 0) +
-             " / 100",
-         38, 128, 17, kInk);
-    DrawRectangle(38, 157, HasControlled(save) ? 224 * save.health / 100 : 0, 6,
+    const bool controlled = HasControlled(save);
+    const std::string resident = controlled
+                                     ? ResidentName(save, save.controlled_npc)
+                                     : "No resident selected";
+    const std::string health =
+        "Health " + std::to_string(controlled ? save.health : 0) + " / 100";
+    const std::string diving = "Air " +
+                               std::to_string(static_cast<int>(save.oxygen)) +
+                               " · Hull " + std::to_string(save.hull);
+    const float panel_y = 20 + title_height + 12;
+    const float name_y = panel_y + 12;
+    const float health_y = name_y + TextSize(19) + 8;
+    const float bar_y = health_y + TextSize(17) + 8;
+    const float diving_y = bar_y + 16;
+    const float content_width =
+        std::max({224.f, Measure(resident, 19), Measure(health, 17),
+                  save.submerged ? Measure(diving, 17) : 0.f});
+    const float panel_bottom =
+        save.submerged ? diving_y + TextSize(17) : bar_y + 6;
+    DrawRectangleRounded(
+        {20, panel_y, content_width + 36, panel_bottom - panel_y + 12}, .1f, 6,
+        kPanel);
+    Text(resident, 38, name_y, 19, kGold);
+    Text(health, 38, health_y, 17, kInk);
+    DrawRectangle(38, bar_y, controlled ? 224 * save.health / 100 : 0, 6,
                   {137, 185, 121, 255});
-    Text(ActionKey(InputAction::kResidents) + ": residents · " +
-             ActionKey(InputAction::kInventory) + ": cargo · " +
-             ActionKey(InputAction::kNation) + ": state",
-         38, 176, 16, kMuted);
     if (save.submerged) {
-      Text("Air " + std::to_string(static_cast<int>(save.oxygen)) + " · Hull " +
-               std::to_string(save.hull),
-           38, 211, 17, kGold);
+      Text(diving, 38, diving_y, 17, kGold);
     }
   } else {
     DrawRectangleRounded({20, 84, 390, 188}, .1f, 6, kPanel);
