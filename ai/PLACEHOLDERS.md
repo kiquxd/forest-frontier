@@ -126,14 +126,14 @@ Sources: [gameplay.cpp](../src/gameplay.cpp), [world.cpp](../src/world.cpp), [ad
 
 ## Crafting, equipment and character progression
 
-**Working:** Craft requests reserve source-city materials and create delayed workshop jobs; completed products enter the warehouse. Counted weapon/clothing copies can be carried, equipped or stored but never allocated twice. Local warehouse transfers include gear, tools, consumables and vessel ownership. Equipment swaps work anywhere using the selected resident's carried copies. Five starting backgrounds apply to the first resident; later residents default to Traveler.
+**Working:** Craft requests reserve source-city materials and create delayed workshop jobs; completed products enter the warehouse. Counted weapon/clothing copies can be carried, equipped or stored but never allocated twice. Local warehouse transfers include gear, tools, consumables and vessel ownership. Equipment swaps work anywhere using the selected resident's carried copies. Five starting state traits apply movement, gathering, combat and trade modifiers to every controlled resident, including new arrivals. Selection uses a wide description card with measured wrapping and scrolling for enlarged text.
 
 **Incomplete:**
 
 - Tools/vessels are mostly per-resident ownership flags, not separate world instances. Duplicate copies can be stored in warehouses but one resident carries at most one of each flagged tool/vessel.
 - Clothing is one full outfit, without independent garment/accessory slots. Equipment copies have no individual quality or instance properties.
 - Warehouse transfers lack filters, bulk equipment loadouts and a full logistics/automation interface; equipment cannot yet be shipped between towns through the shipment menu.
-- Backgrounds provide fixed modifiers, without deeper individual progression or background-specific story arcs.
+- State traits provide fixed modifiers, without evolving specialization or trait-specific progression.
 
 ## Player combat and enemy behavior
 
@@ -239,7 +239,7 @@ Sources: [gameplay.cpp](../src/gameplay.cpp), [render.cpp](../src/render.cpp).
 
 ## Persistence and content identity
 
-**Working:** Atomic v10 saves contain resident positions/cargo/gear/health/vessels, city product stocks/housing, queues/plots/shipments, boards/escrow, arrivals and the money ledger alongside shared exploration/progression and existing roads/treaties. Versions 1-9 load with migration backups; v9 queue deadlines retain their exact remaining time when migrated to the separate production clock; legacy loose goods move to the home warehouse and legacy equipment to the first resident without resetting knowledge. Inactive controlled residents keep positions across reload; dead residents remain tombstones. A failed autosave keeps the current session alive, shows a warning and logs the error; automatic retries are spaced by 30 seconds, and manual Save remains available.
+**Working:** Atomic v11 saves contain resident positions/cargo/gear/health/vessels, city product stocks/housing, queues/plots/shipments, boards/escrow, arrivals and the money ledger alongside shared exploration/progression and existing roads/treaties. Versions 1-10 load with migration backups; older state choices are recovered from resident backgrounds, including a deceased founder, without re-awarding coins; v9 queue deadlines retain their exact remaining time when migrated to the separate production clock; legacy loose goods move to the home warehouse and legacy equipment to the first resident without resetting knowledge. Inactive controlled residents keep positions across reload; dead residents remain tombstones. A failed autosave keeps the current session alive, shows a warning and logs the error; automatic retries are spaced by 30 seconds, and manual Save remains available.
 
 **Incomplete:**
 

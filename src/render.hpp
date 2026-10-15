@@ -160,6 +160,8 @@ class Renderer {
                    bool enabled = true, const std::vector<Npc>* npcs = nullptr);
   void Text(const std::string& s, float x, float y, float size,
             Color color) const;
+  std::vector<std::string> WrapLines(const std::string& text, float width,
+                                     float size) const;
   void Wrapped(const std::string& s, float x, float y, float width, float size,
                Color color, int max_lines = 8) const;
   float Measure(const std::string& s, float size) const;

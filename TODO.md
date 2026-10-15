@@ -81,7 +81,7 @@ Remove an item only after its full scope is implemented and validated. Split it 
 - [ ] Tools/vessels are mostly per-resident ownership flags, not separate world instances. Duplicate copies can be stored in warehouses but one resident carries at most one of each flagged tool/vessel.
 - [ ] Clothing is one full outfit, without independent garment/accessory slots. Equipment copies have no individual quality or instance properties.
 - [ ] Warehouse transfers lack filters, bulk equipment loadouts and a full logistics/automation interface; equipment cannot yet be shipped between towns through the shipment menu.
-- [ ] Backgrounds provide fixed modifiers, without deeper individual progression or background-specific story arcs.
+- [ ] State traits provide fixed modifiers, without evolving specialization or trait-specific progression.
 
 ## Player combat and enemy behavior
 

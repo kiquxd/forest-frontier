@@ -1,7 +1,7 @@
 {
   "id": "traveler",
-  "name": "Traveler",
-  "lore": "A balanced explorer learning to lead a town.",
+  "name": "Balance",
+  "lore": "Our state follows a balanced path without special bonuses or penalties.",
   "pros": "No penalties; flexible build.",
   "cons": "No specialist bonus.",
   "speed": 1,

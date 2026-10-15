@@ -1,7 +1,7 @@
 {
   "id": "artisan",
-  "name": "Artisan",
-  "lore": "A patient maker with a gift for gathering materials.",
+  "name": "Craft",
+  "lore": "Our people value skilled hands and careful gathering.",
   "pros": "20% shorter gather time.",
   "cons": "10% slower; 15% weaker attacks.",
   "speed": 0.9,

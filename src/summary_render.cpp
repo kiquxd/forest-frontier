@@ -345,9 +345,10 @@ void Renderer::DrawSummary(const Save& save, SummaryView& view, Rectangle box,
              std::to_string(Skills().size()),
          "Technologies: " + std::to_string(save.technologies.size())},
         {"person",
-         (save.nation ? "Selected resident: " +
-                            ResidentName(save, save.controlled_npc) + " · "
-                      : "Background: ") +
+         (save.nation
+              ? "Selected resident: " +
+                    ResidentName(save, save.controlled_npc) + " · State trait: "
+              : "Background: ") +
              PlayerCharacter(save).name,
          "Residents: " + std::to_string(save.citizens.size())},
         {"book", "Completed quests: " + std::to_string(done),

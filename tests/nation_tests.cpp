@@ -162,7 +162,7 @@ int main(int argc, char** argv) {
     frontier::WriteSave(folder / "v9.json", migrated_clock);
     Check(nlohmann::json::parse(std::ifstream(folder / "v9.json.v9.bak")) ==
               legacy_json,
-          "v10 migration preserves the original v9 backup");
+          "Latest migration preserves the original v9 backup");
     Check(
         frontier::CancelProduction(runtime, runtime.production.front().id).ok &&
             frontier::GetProductionProgress(runtime, runtime.production.front())
@@ -251,6 +251,12 @@ int main(int argc, char** argv) {
               frontier::AcceptTraveler(save, save.travelers[0].npc).ok,
           "A wanderer can settle with housing and food");
     int newcomer = save.travelers[0].npc;
+    auto immigrant_trait = save;
+    immigrant_trait.state_trait = "scout";
+    Check(frontier::SelectResident(immigrant_trait, newcomer).ok &&
+              frontier::PlayerCharacter(immigrant_trait).id == "scout",
+          "New arrivals inherit the state's active movement/combat/gathering "
+          "modifiers");
     Check(frontier::SelectResident(save, newcomer).ok &&
               frontier::SelectResident(save, first).ok,
           "Newly accepted resident can be directly controlled");
@@ -322,7 +328,7 @@ int main(int argc, char** argv) {
             loaded.city_products == save.city_products &&
             loaded.travelers.size() == save.travelers.size() &&
             frontier::MoneySupply(loaded) == total,
-        "v10 roundtrip preserves resident cargo, new arrivals, warehouses and "
+        "v11 roundtrip preserves resident cargo, new arrivals, warehouses and "
         "money");
     // Advance simulated deadlines directly; these checks never idle in real
     // time.

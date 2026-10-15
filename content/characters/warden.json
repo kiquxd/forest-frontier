@@ -1,7 +1,7 @@
 {
   "id": "warden",
-  "name": "Warden",
-  "lore": "A determined protector raised near the frontier.",
+  "name": "Defense",
+  "lore": "Our people favor strong defenses and hard-hitting attacks over speed.",
   "pros": "Attack +20%; incoming damage -10%.",
   "cons": "10% slower; gather time +15%.",
   "speed": 0.9,

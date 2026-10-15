@@ -463,29 +463,21 @@ void Renderer::Text(const std::string& s, float x, float y, float size,
   DrawTextEx(GetFont(size), s.c_str(), {std::round(x), std::round(y)}, size, 1,
              color);
 }
-void Renderer::Wrapped(const std::string& s, float x, float y, float width,
-                       float size, Color color, int max_lines) const {
-  const float line_height = TextSize(size) + 6;
+std::vector<std::string> Renderer::WrapLines(const std::string& text,
+                                             float width, float size) const {
+  std::vector<std::string> lines;
   std::string line;
-  int lines = 0;
-  auto emit = [&] {
-    Text(line, x, y + lines * line_height, size, color);
-    line.clear();
-    lines++;
-  };
-  for (size_t i = 0; i < s.size();) {
+  for (size_t i = 0; i < text.size();) {
     int bytes = 0;
-    GetCodepointNext(s.c_str() + i, &bytes);
+    GetCodepointNext(text.c_str() + i, &bytes);
     if (bytes <= 0) {
       break;
     }
-    auto ch = s.substr(i, bytes);
+    auto ch = text.substr(i, bytes);
     i += bytes;
     if (ch == "\n") {
-      emit();
-      if (lines >= max_lines) {
-        return;
-      }
+      lines.push_back(line);
+      line.clear();
       continue;
     }
     if (Measure(line + ch, size) > width && !line.empty()) {
@@ -493,20 +485,30 @@ void Renderer::Wrapped(const std::string& s, float x, float y, float width,
       if (space != std::string::npos) {
         auto tail = line.substr(space + 1);
         line.resize(space);
-        emit();
+        lines.push_back(line);
         line = tail;
       } else {
-        emit();
-      }
-      if (lines >= max_lines) {
-        Text("…", x + width - 20, y + (lines - 1) * line_height, size, color);
-        return;
+        lines.push_back(line);
+        line.clear();
       }
     }
     line += ch;
   }
-  if (!line.empty() && lines < max_lines) {
-    emit();
+  if (!line.empty()) {
+    lines.push_back(line);
+  }
+  return lines;
+}
+void Renderer::Wrapped(const std::string& s, float x, float y, float width,
+                       float size, Color color, int max_lines) const {
+  const auto lines = WrapLines(s, width, size);
+  const float line_height = TextSize(size) + 6;
+  for (int i = 0; i < std::min(max_lines, static_cast<int>(lines.size()));
+       ++i) {
+    Text(lines[i], x, y + i * line_height, size, color);
+  }
+  if (max_lines > 0 && static_cast<int>(lines.size()) > max_lines) {
+    Text("…", x + width - 20, y + (max_lines - 1) * line_height, size, color);
   }
 }
 void Renderer::Sprite(int index, Vec position, Color tint, bool flip) const {

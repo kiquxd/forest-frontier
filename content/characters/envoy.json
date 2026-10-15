@@ -1,8 +1,8 @@
 {
   "id": "envoy",
-  "name": "Envoy",
-  "lore": "A persuasive traveler with a little seed money.",
-  "pros": "Sell +20%; start with 10 coins.",
+  "name": "Trade",
+  "lore": "Our state favors commerce and begins with a larger treasury.",
+  "pros": "Sell prices +20%; state starts with 10 extra coins.",
   "cons": "15% weaker attacks.",
   "speed": 1,
   "gather": 1,

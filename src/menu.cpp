@@ -272,10 +272,11 @@ std::optional<std::filesystem::path> MainMenu(MenuOptions& options) {
   bool confirm_delete = false, edit_seed = false;
   bool expanded_summary = false;
   SummaryView summary;
-  int background_choice = 0;
+  int trait_choice = 0;
+  float trait_scroll = 0;
   for (int i = 0; i < static_cast<int>(GetContent().characters.size()); i++) {
     if (GetContent().characters[i].id == "traveler") {
-      background_choice = i;
+      trait_choice = i;
     }
   }
   SettingsPanel settings_panel;
@@ -471,17 +472,17 @@ std::optional<std::filesystem::path> MainMenu(MenuOptions& options) {
       float available = std::min(w - 80, 1150.f);
       DrawRectangleRounded({left, top, available, h - top - 85}, .03f, 6,
                            kPanel);
-      renderer.Text("Choose the first resident’s background", left + 20,
-                    top + 12, 26, kGold);
-      renderer.Text("LEFT / RIGHT · " + std::to_string(background_choice + 1) +
-                        " / " + std::to_string(GetContent().characters.size()),
-                    left + available - 285, top + 19, 16, kMuted);
-      float field_width = (available - 60) * .5f;
-      renderer.Text("World name", left + 20, top + 54, 16, kMuted);
-      renderer.Text("Seed · empty = random", left + 40 + field_width, top + 54,
+      renderer.Text("Choose your state's trait", left + 20, top + 12, 24,
+                    kGold);
+      const float label_y = top + 24 + Renderer::TextSize(24);
+      const float field_y = label_y + Renderer::TextSize(16) + 8;
+      const float field_height = Renderer::TextSize(18) + 16;
+      const float field_width = (available - 60) * .5f;
+      renderer.Text("World name", left + 20, label_y, 16, kMuted);
+      renderer.Text("Seed · empty = random", left + 40 + field_width, label_y,
                     16, kMuted);
-      Rectangle name_box{left + 20, top + 78, field_width, 40},
-          seed_box{left + 40 + field_width, top + 78, field_width, 40};
+      Rectangle name_box{left + 20, field_y, field_width, field_height},
+          seed_box{left + 40 + field_width, field_y, field_width, field_height};
       if (CheckCollisionPointRec(GetMousePosition(), name_box) &&
           IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         edit_seed = false;
@@ -503,44 +504,92 @@ std::optional<std::filesystem::path> MainMenu(MenuOptions& options) {
       EditField(input, field_selected, edit_seed ? 20u : 48u, edit_seed);
       int count = static_cast<int>(GetContent().characters.size());
       if (MenuLeft()) {
-        background_choice = (background_choice + count - 1) % count;
+        trait_choice = (trait_choice + count - 1) % count;
       }
       if (MenuRight()) {
-        background_choice = (background_choice + 1) % count;
+        trait_choice = (trait_choice + 1) % count;
       }
-      int visible_cards = std::min(
-          count, std::max(1, static_cast<int>((available - 40) / 215)));
-      int first_card = background_choice / visible_cards * visible_cards;
-      float card_width = (available - 40) / visible_cards;
-      for (int i = first_card; i < std::min(first_card + visible_cards, count);
-           i++) {
-        auto& hero = GetContent().characters[i];
-        Rectangle card{left + 20 + (i - first_card) * card_width, top + 134,
-                       card_width - 8, 260};
-        if (Button(renderer, card, "", true, background_choice == i)) {
-          background_choice = i;
+      const float card_y = field_y + field_height + 16;
+      Rectangle card{left + 20, card_y, available - 40, h - 101 - card_y};
+      DrawRectangleRounded(card, .05f, 10, {36, 51, 44, 255});
+      const float heading_height = Renderer::TextSize(22) + 22;
+      if (Button(renderer, {card.x + 12, card.y + 10, 48, heading_height},
+                 "<")) {
+        trait_choice = (trait_choice + count - 1) % count;
+        trait_scroll = 0;
+      }
+      if (Button(renderer,
+                 {card.x + card.width - 60, card.y + 10, 48, heading_height},
+                 ">")) {
+        trait_choice = (trait_choice + 1) % count;
+        trait_scroll = 0;
+      }
+      const auto& trait = GetContent().characters[trait_choice];
+      renderer.Text(trait.name + " · " + std::to_string(trait_choice + 1) +
+                        " / " + std::to_string(count),
+                    card.x + 76, card.y + 18, 22, kGold);
+      const float padding = 18;
+      Rectangle body{card.x + padding, card.y + heading_height + 24,
+                     card.width - 2 * padding,
+                     card.height - heading_height - 42};
+      const float line_height = Renderer::TextSize(17) + 6;
+      const std::vector<std::pair<std::string, Color>> sections = {
+          {trait.lore, kInk},
+          {"Benefits: " + trait.pros, Color{178, 211, 154, 255}},
+          {"Drawbacks: " + trait.cons, Color{224, 166, 146, 255}},
+          {"Applies to every resident in your state, including new arrivals.",
+           kMuted}};
+      float content_height = 0;
+      for (const auto& [text, color] : sections) {
+        content_height +=
+            renderer.WrapLines(text, body.width - 12, 17).size() * line_height +
+            12;
+      }
+      const float max_scroll = std::max(0.f, content_height - 12 - body.height);
+      if (CheckCollisionPointRec(GetMousePosition(), card)) {
+        trait_scroll -= GetMouseWheelMove() * line_height * 2;
+      }
+      if (IsKeyPressed(KEY_PAGE_DOWN)) {
+        trait_scroll += body.height * .8f;
+      }
+      if (IsKeyPressed(KEY_PAGE_UP)) {
+        trait_scroll -= body.height * .8f;
+      }
+      if (MenuLeft() || MenuRight()) {
+        trait_scroll = 0;
+      }
+      trait_scroll = std::clamp(trait_scroll, 0.f, max_scroll);
+      BeginScissorMode(static_cast<int>(body.x), static_cast<int>(body.y),
+                       static_cast<int>(body.width),
+                       static_cast<int>(body.height));
+      float text_y = body.y - trait_scroll;
+      for (const auto& [text, color] : sections) {
+        const auto lines = renderer.WrapLines(text, body.width - 12, 17);
+        for (const auto& line : lines) {
+          renderer.Text(line, body.x, text_y, 17, color);
+          text_y += line_height;
         }
-        float cx = card.x + card.width * .5f;
-        Color coat =
-            i % 2 ? Color{107, 154, 124, 255} : Color{179, 141, 95, 255};
-        DrawRectangle(static_cast<int>(cx - 10), static_cast<int>(card.y + 34),
-                      20, 25, coat);
-        DrawCircleV({cx, card.y + 23}, 8, {207, 170, 129, 255});
-        DrawRectangle(static_cast<int>(cx - 9), static_cast<int>(card.y + 59),
-                      6, 12, {74, 82, 71, 255});
-        DrawRectangle(static_cast<int>(cx + 3), static_cast<int>(card.y + 59),
-                      6, 12, {74, 82, 71, 255});
-        renderer.Wrapped(hero.name, card.x + 10, card.y + 78, card.width - 20,
-                         19, kGold, 1);
-        renderer.Wrapped("+ " + hero.pros, card.x + 10, card.y + 108,
-                         card.width - 20, 16, kInk, 3);
-        renderer.Wrapped("- " + hero.cons, card.x + 10, card.y + 198,
-                         card.width - 20, 16, kMuted, 2);
+        text_y += 12;
       }
-      renderer.Wrapped(GetContent().characters[background_choice].lore,
-                       left + 20, top + 405, available - 40, 17, kInk,
-                       h < 760 ? 1 : 2);
-      if (Button(renderer, {left + 20, h - 76, 240, 44}, "Create and play") ||
+      EndScissorMode();
+      if (max_scroll > 0) {
+        const float thumb_height =
+            std::max(20.f, body.height * body.height / content_height);
+        DrawRectangleRounded(
+            {body.x + body.width - 5,
+             body.y + (body.height - thumb_height) * trait_scroll / max_scroll,
+             4, thumb_height},
+            .8f, 6, kGold);
+      }
+      const float create_width =
+          std::max(240.f, renderer.Measure("Create and play", 18) + 36);
+      if (max_scroll > 0) {
+        renderer.Wrapped("Wheel / PgUp / PgDn: read description",
+                         left + create_width + 40, h - 70,
+                         available - create_width - 60, 16, kMuted, 2);
+      }
+      if (Button(renderer, {left + 20, h - 76, create_width, 44},
+                 "Create and play") ||
           MenuConfirm()) {
         try {
           uint64_t seed =
@@ -548,9 +597,8 @@ std::optional<std::filesystem::path> MainMenu(MenuOptions& options) {
                   ? (static_cast<uint64_t>(std::random_device{}()) << 32) ^
                         std::random_device{}()
                   : std::stoull(seed_text);
-          auto path =
-              CreateSaveSlot(options.directory, world_name, seed,
-                             GetContent().characters[background_choice].id);
+          auto path = CreateSaveSlot(options.directory, world_name, seed,
+                                     GetContent().characters[trait_choice].id);
           EndDrawing();
           return path;
         } catch (const std::exception& e) {

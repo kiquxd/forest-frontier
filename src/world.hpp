@@ -340,6 +340,7 @@ struct Save {
   std::vector<Road> roads;
   std::vector<Tribute> tributes;
   bool nation{};
+  std::string state_trait = "traveler";
   int controlled_npc{-1};
   int region_fund{};
   int64_t money_supply{};

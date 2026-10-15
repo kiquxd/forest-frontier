@@ -12,11 +12,11 @@ An optional local Qwen model and joint launcher are included for explicit perfor
 
 ### Starting and controlling residents
 
-Choose **Traveler, Artisan, Scout, Envoy or Warden** for your first resident. Cards describe their movement, gathering, combat and trade modifiers. You start by the hall of one randomly chosen owned town; all other settlements are independent. There is no separate hero or ruler inventory.
+Choose a state trait: **Balance, Craft, Exploration, Trade or Defense**. Its movement, gathering, combat and trade modifiers apply to every resident you control, including later arrivals. Use Left/Right or the arrow buttons to browse a wide card with the description, benefits and drawbacks. Text wraps to the available width; Wheel or Page Up/Down scrolls longer descriptions when text is enlarged. You start by the hall of one randomly chosen owned town; all other settlements are independent. There is no separate hero or ruler inventory.
 
 Press **U** to choose any living, free resident of your towns, then move with **WASD / arrows**. Every resident keeps their own position, health, cargo, gear and vessel modes. Switching does not teleport the previous resident. Skills, technologies, recipes, exploration and activity milestones belong to the state and remain shared.
 
-You begin without learned skills, tools or weapons. **K** opens the knowledge tree: learn **Gathering** free, gather sites, unlock **Craftsmanship**, then queue tools and equipment. Starting goods are in your town warehouse; **Y** transfers cargo on town territory. First-resident background perks are individual; other residents start as Travelers.
+You begin without learned skills, tools or weapons. **K** opens the knowledge tree: learn **Gathering** free, gather sites, unlock **Craftsmanship**, then queue tools and equipment. Starting goods are in your town warehouse; **Y** transfers cargo on town territory. The state trait remains shared when you switch residents or the founding resident dies.
 
 Skill branches must be learned in order, in addition to their practice requirements: **Gathering → Craftsmanship → Tools → Construction → Engineering**, **Craftsmanship → Weaponsmithing**, **Gathering → Fishing → Seamanship**, **Gathering → Herbalism** and **Gathering → Trading → Diplomacy**. Engineering also requires Trading. A later node cannot skip an unlearned ancestor; existing earned skills in older saves are retained.
 
@@ -72,11 +72,11 @@ Buildings have detailed facade variants and fade when obscuring the controlled r
 
 ### Menus and saves
 
-**Esc** opens **Resume, Save world, Save & return, Settings**; saving keeps the session paused. Save & return first saves, then opens the lobby. Failure leaves the live session available for retry. The lobby has separate application Quit, new-game/background selection and useful read-only saved-world summaries with overview, map, resource rows, towns and skill tree; there is no duplicate skill list. Live **K** focuses on the state knowledge tree; State handles city/resident management.
+**Esc** opens **Resume, Save world, Save & return, Settings**; saving keeps the session paused. Save & return first saves, then opens the lobby. Failure leaves the live session available for retry. The lobby has separate application Quit, new-game/state-trait selection and useful read-only saved-world summaries with overview, map, resource rows, towns and skill tree; there is no duplicate skill list. Live **K** focuses on the state knowledge tree; State handles city/resident management.
 
 Saved-world **F2** expands summary; **F6/F7** rename/copy, **F8/F9** export/import, **F10** opens recovery, **Delete** confirms moving a slot to `saves/.trash/`. Files are validated; recovery restores a new slot without overwriting its source. Exports require a new `.json` destination.
 
-Saves are atomic **v10**, with v1–v9 loading/migration backups and no automatic progression reset. Residents, warehouses, queues, plots, tasks, escrow, shipments, arrivals and money accounts persist. Production runtime and world simulation time are saved separately; neither includes offline elapsed time. Production pauses when you return to the lobby or close the application. Normal installation/launch never deletes saves.
+Saves are atomic **v11**, with v1–v10 loading/migration backups and no automatic progression reset. Residents, warehouses, queues, plots, tasks, escrow, shipments, arrivals and money accounts persist. Production runtime and world simulation time are saved separately; neither includes offline elapsed time. Production pauses when you return to the lobby or close the application. Normal installation/launch never deletes saves.
 
 Settings works in the lobby and pause: window/fullscreen, frame cap, zoom, HUD, text scale, tree contrast, audio and primary/alternate bindings. Use the visible **Apply** button. New actions preserve older custom bindings and receive free keys if defaults conflict. The bottom action bar uses actual bindings and nearby available actions on a dark background. The upper-left title and health panels fit their contents and adapt to text scale; management shortcuts stay in the bottom action bar.
 
@@ -224,14 +224,14 @@ The mechanics below are working prototypes or incomplete systems. Menus, unlocks
 
 #### Crafting, equipment and character progression
 
-**Working:** Craft requests reserve source-city materials and create delayed workshop jobs; completed products enter the warehouse. Counted weapon/clothing copies can be carried, equipped or stored but never allocated twice. Local warehouse transfers include gear, tools, consumables and vessel ownership. Equipment swaps work anywhere using the selected resident's carried copies. Five starting backgrounds apply to the first resident; later residents default to Traveler.
+**Working:** Craft requests reserve source-city materials and create delayed workshop jobs; completed products enter the warehouse. Counted weapon/clothing copies can be carried, equipped or stored but never allocated twice. Local warehouse transfers include gear, tools, consumables and vessel ownership. Equipment swaps work anywhere using the selected resident's carried copies. Five starting state traits apply movement, gathering, combat and trade modifiers to every controlled resident, including new arrivals. Selection uses a wide description card with measured wrapping and scrolling for enlarged text.
 
 **Incomplete:**
 
 - Tools/vessels are mostly per-resident ownership flags, not separate world instances. Duplicate copies can be stored in warehouses but one resident carries at most one of each flagged tool/vessel.
 - Clothing is one full outfit, without independent garment/accessory slots. Equipment copies have no individual quality or instance properties.
 - Warehouse transfers lack filters, bulk equipment loadouts and a full logistics/automation interface; equipment cannot yet be shipped between towns through the shipment menu.
-- Backgrounds provide fixed modifiers, without deeper individual progression or background-specific story arcs.
+- State traits provide fixed modifiers, without evolving specialization or trait-specific progression.
 
 #### Player combat and enemy behavior
 
@@ -335,7 +335,7 @@ The mechanics below are working prototypes or incomplete systems. Menus, unlocks
 
 #### Persistence and content identity
 
-**Working:** Atomic v10 saves contain resident positions/cargo/gear/health/vessels, city product stocks/housing, queues/plots/shipments, boards/escrow, arrivals and the money ledger alongside shared exploration/progression and existing roads/treaties. Versions 1-9 load with migration backups; v9 queue deadlines retain their exact remaining time when migrated to the separate production clock; legacy loose goods move to the home warehouse and legacy equipment to the first resident without resetting knowledge. Inactive controlled residents keep positions across reload; dead residents remain tombstones. A failed autosave keeps the current session alive, shows a warning and logs the error; automatic retries are spaced by 30 seconds, and manual Save remains available.
+**Working:** Atomic v11 saves contain resident positions/cargo/gear/health/vessels, city product stocks/housing, queues/plots/shipments, boards/escrow, arrivals and the money ledger alongside shared exploration/progression and existing roads/treaties. Versions 1-10 load with migration backups; older state choices are recovered from resident backgrounds, including a deceased founder, without re-awarding coins; v9 queue deadlines retain their exact remaining time when migrated to the separate production clock; legacy loose goods move to the home warehouse and legacy equipment to the first resident without resetting knowledge. Inactive controlled residents keep positions across reload; dead residents remain tombstones. A failed autosave keeps the current session alive, shows a warning and logs the error; automatic retries are spaced by 30 seconds, and manual Save remains available.
 
 **Incomplete:**
 
@@ -503,7 +503,7 @@ Saves, settings, models, downloaded dependencies, builds and logs are local and 
 | Noto Sans | UI font, with [font license](assets/FONT-LICENSE.txt) |
 | Python 3 | Test harnesses, icon generation and performance summaries |
 
-`src/` holds the game; `content/` holds JSON definitions for NPCs, weapons, outfits, backgrounds, quests, recipes and settlements. `assets/ui/` contains reproducible pixel-art PNG icons and their shared atlas. Regenerate them with `python3 scripts/generate-ui-icons.py`; no image library is required.
+`src/` holds the game; `content/` holds JSON definitions for NPCs, weapons, outfits, state traits (stable IDs in `content/characters/`), quests, recipes and settlements. `assets/ui/` contains reproducible pixel-art PNG icons and their shared atlas. Regenerate them with `python3 scripts/generate-ui-icons.py`; no image library is required.
 
 World generation runs on a worker; GPU work stays on the render thread. Chunk streaming, visibility culling and batched icons keep rendering work bounded. Text is baked at the sizes used by the UI and aligned to pixels. Model requests run outside the render loop and cannot change authoritative game state.
 
@@ -527,6 +527,7 @@ python3 scripts/nation-smoke.py  # Fresh resident/warehouse/production/board che
 python3 scripts/production-smoke.py  # Catalogue, requirements, search and queue
 python3 scripts/production-clock-smoke.py  # Live/background production clock
 python3 scripts/discovery-smoke.py  # Town summary, Escape priority and reload
+python3 scripts/state-trait-smoke.py  # Trait selection, small window and large text
 # Optional extended workflows:
 python3 scripts/world-smoke.py --extended
 python3 scripts/menu-smoke.py

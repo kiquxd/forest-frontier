@@ -138,6 +138,7 @@ void InitializeNation(Save& save) {
     return;
   }
   InitializeAdventure(save);
+  save.state_trait = save.character_id;
   auto npcs = MakeNpcs();
   save.city_products.resize(Settlements().size());
   save.housing.resize(Settlements().size(), 8);

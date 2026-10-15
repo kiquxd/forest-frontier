@@ -11,6 +11,7 @@
 
 #include "adventure.hpp"
 #include "json.hpp"
+#include "nation.hpp"
 #include "save_slots.hpp"
 #include "settlement_system.hpp"
 
@@ -261,10 +262,43 @@ int main() {
       auto character_path = frontier::CreateSaveSlot(folder / "characters",
                                                      hero.id, 123, hero.id);
       auto character_save = frontier::LoadSave(character_path);
-      Check(
-          character_save.character_id == hero.id &&
-              character_save.coins == hero.coins + 100,
-          "First resident background and funded state starting budget persist");
+      Check(character_save.state_trait == hero.id &&
+                character_save.character_id == hero.id &&
+                character_save.coins == hero.coins + 100,
+            "State trait and funded starting budget persist");
+      const int founder = character_save.controlled_npc;
+      const auto other =
+          std::find_if(character_save.citizens.begin(),
+                       character_save.citizens.end(), [founder](const auto& c) {
+                         return c.npc != founder && c.state == "active";
+                       });
+      Check(other != character_save.citizens.end() &&
+                frontier::SelectResident(character_save, other->npc).ok &&
+                frontier::PlayerCharacter(character_save).id == hero.id &&
+                character_save.character_id == "traveler",
+            "State modifiers survive switching to a neutral resident");
+      Check(frontier::GatherTimeMultiplier(character_save) ==
+                hero.gather * frontier::PlayerOutfit(character_save).gather,
+            "Gathering uses the state modifier for another resident");
+      frontier::LoseResident(character_save, founder, false);
+      frontier::WriteSave(character_path, character_save);
+      auto legacy_state = nlohmann::json::parse(std::ifstream(character_path));
+      legacy_state["version"] = 10;
+      legacy_state["nation"].erase("state_trait");
+      {
+        std::ofstream output(character_path);
+        output << legacy_state;
+      }
+      auto migrated = frontier::LoadSave(character_path);
+      Check(migrated.state_trait == hero.id &&
+                frontier::PlayerCharacter(migrated).id == hero.id &&
+                migrated.coins == character_save.coins,
+            "v10 migration recovers the founder's choice after death without "
+            "minting coins");
+      frontier::WriteSave(character_path, migrated);
+      Check(std::filesystem::exists(character_path.string() + ".v10.bak") &&
+                frontier::LoadSave(character_path).state_trait == hero.id,
+            "v11 roundtrip retains the shared trait and original v10 backup");
     }
     Check(frontier::Character("scout").speed > 1 &&
               frontier::Character("scout").taken > 1 &&

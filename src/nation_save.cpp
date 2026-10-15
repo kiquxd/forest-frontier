@@ -87,6 +87,7 @@ nlohmann::json WriteNation(const Save& save) {
   if (!save.nation) {
     return j;
   }
+  j["state_trait"] = save.state_trait;
   j["controlled"] = save.controlled_npc;
   j["region_fund"] = save.region_fund;
   j["money_supply"] = save.money_supply;
@@ -260,6 +261,22 @@ void ReadNation(const nlohmann::json& j, Save& save) {
   }
   Require(j.at("production").is_array() && j.at("production").size() <= 2048,
           "Too many production jobs");
+  // Older resident-control saves granted the starting choice only to the
+  // first resident. Recover it even if another resident is now selected or
+  // the founder is a tombstone; never re-award starting coins.
+  save.state_trait = "traveler";
+  const Citizen* founder = nullptr;
+  for (const auto& resident : save.citizens) {
+    if (resident.background != "traveler" &&
+        (!founder || resident.npc < founder->npc)) {
+      founder = &resident;
+    }
+  }
+  if (founder) {
+    save.state_trait = founder->background;
+  }
+  save.state_trait = j.value("state_trait", save.state_trait);
+  (void)Character(save.state_trait);
   for (const auto& row : j.at("production")) {
     WorkshopJob job{row.at("id"),
                     row.at("facility"),

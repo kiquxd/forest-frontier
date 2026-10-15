@@ -14,7 +14,7 @@
 
 namespace frontier {
 const CharacterDef& PlayerCharacter(const Save& save) {
-  return Character(save.character_id);
+  return Character(save.nation ? save.state_trait : save.character_id);
 }
 const OutfitDef& PlayerOutfit(const Save& save) {
   return Outfit(save.outfit_id);
