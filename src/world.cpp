@@ -346,7 +346,7 @@ Save LoadSave(const std::filesystem::path& path) {
   nlohmann::json json;
   f >> json;
   int version = json.at("version").get<int>();
-  if (version < 1 || version > 9) {
+  if (version < 1 || version > 10) {
     throw std::runtime_error("Unsupported save version");
   }
   if (version >= 9) {
@@ -822,6 +822,10 @@ Save LoadSave(const std::filesystem::path& path) {
     }
   }
   if (version >= 9) {
+    if (version >= 10 && save.nation &&
+        !json.at("nation").contains("production_time")) {
+      throw std::runtime_error("Production clock missing from save");
+    }
     ReadNation(json.at("nation"), save);
   }
   return save;
@@ -878,7 +882,7 @@ void WriteSave(const std::filesystem::path& path, const Save& source) {
                      {"b", {w.b.x, w.b.y}},
                      {"hp", w.hp}});
   }
-  nlohmann::json json = {{"version", 9},
+  nlohmann::json json = {{"version", 10},
                          {"seed", save.seed},
                          {"player", {save.player.x, save.player.y}},
                          {"wood", save.inventory.wood},
@@ -1007,7 +1011,7 @@ void WriteSave(const std::filesystem::path& path, const Save& source) {
     int old_version = previous.is_object() ? previous.value("version", 0) : 0;
     auto backup = path;
     backup += ".v" + std::to_string(old_version) + ".bak";
-    if (old_version > 0 && old_version < 9 &&
+    if (old_version > 0 && old_version < 10 &&
         !std::filesystem::exists(backup)) {
       std::filesystem::copy_file(path, backup);
     }

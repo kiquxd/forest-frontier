@@ -347,6 +347,7 @@ struct Save {
   int64_t economy_cycle{-1};
   std::vector<std::unordered_map<std::string, int>> city_products;
   std::vector<int> housing;
+  double production_time{};
   std::vector<WorkshopJob> production;
   std::vector<GrowingPlot> plots;
   std::vector<CityTask> city_tasks;

@@ -40,6 +40,18 @@ ProductionStatus CheckProduction(const Save& save, int recipe, int source,
 Action QueueProduction(Save& save, int recipe, int source = -1,
                        uint64_t facility = 0);
 Action CancelProduction(Save& save, uint64_t id);
+struct ProductionProgress {
+  double fraction{};
+  double remaining{};
+  double starts_in{};
+  int ahead{};
+  std::string state;
+};
+ProductionProgress GetProductionProgress(const Save& save,
+                                         const WorkshopJob& job);
+// Active-world runtime only, supplied from steady_clock by the application.
+// This is separate from paused simulation updates and never uses offline time.
+int TickProduction(Save& save, double elapsed_seconds);
 Action PlantResource(Save& save, int city, int good);
 Action HarvestPlot(Save& save, int index);
 Action OrderRareGoods(Save& save, int from, int to, int good, int quantity);

@@ -145,7 +145,7 @@ Remove an item only after its full scope is implemented and validated. Split it 
 ## Persistence and content identity
 
 - [ ] Living enemy health, position and attack state are transient; chunk regeneration/reload can reset a surviving enemy. Foreign NPC/animal movement and active projectiles are also transient.
-- [ ] The persisted simulation clock drives production, growing, deliveries and tribute, but there is no calendar, offline progression or simulation catch-up.
+- [ ] Growing, deliveries and tribute use the persisted simulation clock; production uses a separate persisted active-world runtime clock. There is no calendar or offline progression; production does not run for closed worlds or after application shutdown.
 - [ ] Generated resident identities still rely on stable NPC indices. Migrations do not provide general remapping for future settlement/NPC generation or content identity changes.
 
 ## Local model integration

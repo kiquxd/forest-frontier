@@ -45,7 +45,7 @@ Sources: [gameplay.cpp](../src/gameplay.cpp), [adventure.cpp](../src/adventure.c
 
 ## Resident work and production
 
-**Working:** Production uses per-building FIFO queues, up to eight jobs per workshop, with reserved warehouse inputs and commissioning fees. Separate buildings operate in parallel. Forge construction is capped at max(1, floor(active town population / 6)); existing forges are retained after population loss. Jobs take 1/5/30/60/120 simulation minutes by rarity. Output returns to the source city warehouse; cancellation refunds reserved inputs/fees once. Lost peaceful access suspends the queue. Old passive resident stock/coin generation is disabled in resident-control campaigns. The full recipe catalogue remains visible with case-insensitive name search, item PNGs and resource/skill/technology/building requirement PNGs. Missing counts or unlocks are muted, hovering explains them, and the same read-only quote controls both UI readiness and queue validation.
+**Working:** Production uses per-building FIFO queues, up to eight jobs per workshop, with reserved warehouse inputs and commissioning fees. Separate buildings operate in parallel. Forge construction is capped at max(1, floor(active town population / 6)); existing forges are retained after population loss. Jobs take 1/5/30/60/120 active-world minutes by rarity. A persisted production clock accumulates std::chrono::steady_clock elapsed time while the world is open, including management, Esc/settings, inactivity and minimized windows. Live FIFO rows show countdowns, progress bars and waiting/access/storage states. Simulation pauses do not stop production; returning to the lobby closes the world and suspends it. Output returns to the source city warehouse; cancellation refunds reserved inputs/fees once. Lost peaceful access suspends the queue. Old passive resident stock/coin generation is disabled in resident-control campaigns. The full recipe catalogue remains visible with case-insensitive name search, item PNGs and resource/skill/technology/building requirement PNGs. Missing counts or unlocks are muted, hovering explains them, and the same read-only quote controls both UI readiness and queue validation.
 
 **Incomplete:**
 
@@ -230,7 +230,7 @@ Sources: [gameplay.cpp](../src/gameplay.cpp), [render.cpp](../src/render.cpp).
 
 ## Menus, controls and save management
 
-**Working:** Esc handles Resume/Save/Save & return/Settings; K shows only state knowledge in live resident-control play. N opens State with Residents, Resources, Production, Projects, Orders, Towns and Growth; U selects residents, Y opens cargo/warehouses, C production and L projects. P opens a nearby town hall using the same boards. Management pauses simulation. Persistent HUD shows selected-resident health and relevant underwater gauges, with stocks accessible by button. Lobby summaries remain read-only, retain overview/world/resources/towns/tree and never duplicate a skill list. Existing atomic file workflows, remapping, settings Apply and contextual footer remain.
+**Working:** Esc handles Resume/Save/Save & return/Settings; K shows only state knowledge in live resident-control play. N opens State with Residents, Resources, Production, Projects, Orders, Towns and Growth; U selects residents, Y opens cargo/warehouses, C production and L projects. P opens a nearby town hall using the same boards. Management pauses world simulation while production continues. Persistent HUD shows selected-resident health and relevant underwater gauges, with stocks accessible by button. Lobby summaries remain read-only, retain overview/world/resources/towns/tree and never duplicate a skill list. Existing atomic file workflows, remapping, settings Apply and contextual footer remain.
 
 **Incomplete:**
 
@@ -239,12 +239,12 @@ Sources: [gameplay.cpp](../src/gameplay.cpp), [render.cpp](../src/render.cpp).
 
 ## Persistence and content identity
 
-**Working:** Atomic v9 saves contain resident positions/cargo/gear/health/vessels, city product stocks/housing, queues/plots/shipments, boards/escrow, arrivals and the money ledger alongside shared exploration/progression and existing roads/treaties. Versions 1-8 load with migration backups; legacy loose goods move to the home warehouse and legacy equipment to the first resident without resetting knowledge. Inactive controlled residents keep positions across reload; dead residents remain tombstones.
+**Working:** Atomic v10 saves contain resident positions/cargo/gear/health/vessels, city product stocks/housing, queues/plots/shipments, boards/escrow, arrivals and the money ledger alongside shared exploration/progression and existing roads/treaties. Versions 1-9 load with migration backups; v9 queue deadlines retain their exact remaining time when migrated to the separate production clock; legacy loose goods move to the home warehouse and legacy equipment to the first resident without resetting knowledge. Inactive controlled residents keep positions across reload; dead residents remain tombstones.
 
 **Incomplete:**
 
 - Living enemy health, position and attack state are transient; chunk regeneration/reload can reset a surviving enemy. Foreign NPC/animal movement and active projectiles are also transient.
-- The persisted simulation clock drives production, growing, deliveries and tribute, but there is no calendar, offline progression or simulation catch-up.
+- Growing, deliveries and tribute use the persisted simulation clock; production uses a separate persisted active-world runtime clock. There is no calendar or offline progression; production does not run for closed worlds or after application shutdown.
 - Generated resident identities still rely on stable NPC indices. Migrations do not provide general remapping for future settlement/NPC generation or content identity changes.
 
 ## Local model integration

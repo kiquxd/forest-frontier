@@ -2066,6 +2066,9 @@ void Renderer::DrawUi(const World& world, Save& save, Ui& ui,
     }
     Wrapped(ui.pause_error.empty()
                 ? (ui.temporary_session ? "Temporary world; saving is disabled."
+                   : save.nation        ? "Production continues while this "
+                                          "world is open. Return saves "
+                                          "before leaving. Esc resumes."
                                         : "Save writes this world. Return "
                                           "saves before leaving. Esc resumes.")
                 : ui.pause_error,

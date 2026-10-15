@@ -4,6 +4,7 @@
 #include <cmath>
 #include <queue>
 #include <stdexcept>
+#include <unordered_set>
 
 #include "adventure.hpp"
 #include "progress.hpp"
@@ -218,6 +219,7 @@ void InitializeNation(Save& save) {
   save.treasury[save.home_city] -= grant;
   save.coins += grant;
   save.nation = true;
+  save.production_time = save.game_time;
   save.craft_ready_at = 0;
   LoadControlled(save, *c);
   uint64_t next = 1;
@@ -499,7 +501,7 @@ ProductionStatus CheckProduction(const Save& save, int recipe, int source,
     }
     accessible = true;
     int queued = 0;
-    double ready = save.game_time;
+    double ready = save.production_time;
     for (const auto& job : save.production) {
       if (job.facility == workshop.id) {
         ++queued;
@@ -573,7 +575,9 @@ Action CancelProduction(Save& save, uint64_t id) {
   if (save.coins > 10000000 - it->fee) {
     return {false, "Treasury full"};
   }
-  double duration = CraftDelay(Recipes()[RecipeIndex(it->recipe)]);
+  const double duration = CraftDelay(Recipes()[RecipeIndex(it->recipe)]);
+  const double remaining = std::max(
+      0.0, it->due - std::max(save.production_time, it->due - duration));
   auto facility = it->facility;
   auto due = it->due;
   for (int g = 0; g < kGoodTypes; ++g) {
@@ -583,7 +587,7 @@ Action CancelProduction(Save& save, uint64_t id) {
   save.production.erase(it);
   for (auto& job : save.production) {
     if (job.facility == facility && job.due > due) {
-      job.due = std::max(save.game_time, job.due - duration);
+      job.due = std::max(save.production_time, job.due - remaining);
     }
   }
   return {true, "Job cancelled; reserved materials and fee returned"};
@@ -1065,6 +1069,115 @@ Action AssignNationCitizen(Save& save, int npc, const std::string& job,
   }
   return {true, "Role and carried equipment assigned; no autonomous orders"};
 }
+ProductionProgress GetProductionProgress(const Save& save,
+                                         const WorkshopJob& job) {
+  ProductionProgress progress;
+  const int recipe = RecipeIndex(job.recipe);
+  if (recipe < 0) {
+    progress.state = "Unknown recipe";
+    return progress;
+  }
+  const double duration = CraftDelay(Recipes()[recipe]);
+  progress.remaining = std::max(0.0, job.due - save.production_time);
+  progress.starts_in = std::max(0.0, job.due - duration - save.production_time);
+  for (const auto& other : save.production) {
+    if (other.facility == job.facility &&
+        (other.due < job.due || (other.due == job.due && other.id < job.id))) {
+      ++progress.ahead;
+    }
+  }
+  progress.fraction =
+      progress.ahead > 0
+          ? 0.0
+          : std::clamp(1 - progress.remaining / duration, 0.0, 1.0);
+  const auto workshop =
+      std::find_if(save.facilities.begin(), save.facilities.end(),
+                   [&](const auto& f) { return f.id == job.facility; });
+  if (workshop == save.facilities.end() ||
+      !ReachableFacility(save, job.source, workshop->city)) {
+    progress.state = "Paused: workshop access blocked";
+  } else if (progress.ahead > 0) {
+    progress.state = "Waiting #" + std::to_string(progress.ahead + 1);
+  } else if (progress.remaining <= 0) {
+    progress.state = "Waiting for resource space";
+  } else {
+    progress.state = "Crafting";
+  }
+  return progress;
+}
+int TickProduction(Save& save, double elapsed_seconds) {
+  if (!save.nation || !std::isfinite(elapsed_seconds) || elapsed_seconds <= 0) {
+    return 0;
+  }
+  save.production_time += elapsed_seconds;
+  int completed = 0;
+  std::unordered_set<uint64_t> blocked;
+  for (auto it = save.production.begin(); it != save.production.end();) {
+    if (blocked.contains(it->facility)) {
+      ++it;
+      continue;
+    }
+    auto f =
+        std::find_if(save.facilities.begin(), save.facilities.end(),
+                     [&](const auto& site) { return site.id == it->facility; });
+    if (f == save.facilities.end() ||
+        !ReachableFacility(save, it->source, f->city)) {
+      // Shift the full queue while access is blocked; materials stay reserved.
+      it->due += elapsed_seconds;
+      ++it;
+      continue;
+    }
+    if (it->due > save.production_time) {
+      ++it;
+      continue;
+    }
+    const auto& recipe = Recipes()[RecipeIndex(it->recipe)];
+    std::string product = CanonicalProduct(recipe.result);
+    int amount = product == "ammo" ? 10 : 1;
+    const auto stock = save.city_products[it->destination].find(product);
+    const int stored =
+        stock == save.city_products[it->destination].end() ? 0 : stock->second;
+    const bool full = product == "steel"
+                          ? save.stocks[it->destination][10] > 999997
+                          : stored > 1000000 - amount;
+    if (full) {
+      // Finished work waits for storage. Later jobs cannot run past this head;
+      // reanchor the queue only by the actual time it has been blocked.
+      const double delay = std::max(0.0, save.production_time - it->due);
+      for (auto& later : save.production) {
+        if (later.facility == it->facility && later.id != it->id &&
+            later.due >= it->due) {
+          later.due += delay;
+        }
+      }
+      it->due = save.production_time;
+      blocked.insert(it->facility);
+      ++it;
+      continue;
+    }
+    if (product == "steel") {
+      save.stocks[it->destination][10] += 3;
+    } else {
+      auto& count = save.city_products[it->destination][product];
+      count += amount;
+      if (product.starts_with("weapon:")) {
+        ++save.weapon_copies[product.substr(7)];
+      } else if (product.starts_with("outfit:")) {
+        ++save.outfit_copies[product.substr(7)];
+      }
+    }
+    save.region_fund += it->fee;
+    ++save.crafted;
+    ++completed;
+    RecordHistory(save, "production", "Finished " + recipe.name,
+                  it->destination);
+    it = save.production.erase(it);
+  }
+  if (MoneySupply(save) != save.money_supply) {
+    throw std::runtime_error("Production payment changed the money supply");
+  }
+  return completed;
+}
 void TickNation(Save& save, float dt) {
   if (!save.nation || !std::isfinite(dt) || dt <= 0) {
     return;
@@ -1076,49 +1189,6 @@ void TickNation(Save& save, float dt) {
       task.escrow = 0;
       task.completed = true;
     }
-  }
-  for (auto it = save.production.begin(); it != save.production.end();) {
-    auto f =
-        std::find_if(save.facilities.begin(), save.facilities.end(),
-                     [&](const auto& site) { return site.id == it->facility; });
-    if (f == save.facilities.end() ||
-        !ReachableFacility(save, it->source, f->city)) {
-      // Shift the full queue while access is blocked; materials stay reserved.
-      it->due += dt;
-      ++it;
-      continue;
-    }
-    if (it->due > save.game_time) {
-      ++it;
-      continue;
-    }
-    const auto& recipe = Recipes()[RecipeIndex(it->recipe)];
-    std::string product = CanonicalProduct(recipe.result);
-    int amount = product == "ammo" ? 10 : 1;
-    if (product == "steel") {
-      if (save.stocks[it->destination][10] > 999997) {
-        ++it;
-        continue;
-      }
-      save.stocks[it->destination][10] += 3;
-    } else {
-      auto& count = save.city_products[it->destination][product];
-      if (count > 1000000 - amount) {
-        ++it;
-        continue;
-      }
-      count += amount;
-      if (product.starts_with("weapon:")) {
-        ++save.weapon_copies[product.substr(7)];
-      } else if (product.starts_with("outfit:")) {
-        ++save.outfit_copies[product.substr(7)];
-      }
-    }
-    save.region_fund += it->fee;
-    ++save.crafted;
-    RecordHistory(save, "production", "Finished " + recipe.name,
-                  it->destination);
-    it = save.production.erase(it);
   }
   for (auto& plot : save.plots) {
     plot.ready = save.game_time >= plot.due;

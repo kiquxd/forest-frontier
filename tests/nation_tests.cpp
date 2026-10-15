@@ -29,6 +29,7 @@ int Recipe(const std::string& id) {
 void Advance(frontier::Save& save, float seconds) {
   frontier::TickTowns(save, seconds);
   frontier::TickNation(save, seconds);
+  frontier::TickProduction(save, seconds);
 }
 }  // namespace
 int main(int argc, char** argv) {
@@ -124,6 +125,82 @@ int main(int argc, char** argv) {
                           ready_quote.requirements.end(),
                           [](const auto& r) { return r.met; }),
           "Available production has no missing requirements");
+    auto runtime = save;
+    Check(frontier::QueueProduction(runtime, Recipe("campfire"), home).ok &&
+              frontier::QueueProduction(runtime, Recipe("campfire"), home).ok,
+          "Queue two jobs for runtime-clock checks");
+    const double frozen_world = runtime.game_time;
+    Check(
+        frontier::TickProduction(runtime, 30) == 0 &&
+            runtime.game_time == frozen_world &&
+            frontier::GetProductionProgress(runtime, runtime.production.front())
+                    .fraction == .5 &&
+            frontier::GetProductionProgress(runtime, runtime.production.back())
+                    .ahead == 1,
+        "Production advances live while world simulation is paused");
+    frontier::WriteSave(folder / "runtime.json", runtime);
+    auto runtime_loaded = frontier::LoadSave(folder / "runtime.json");
+    Check(runtime_loaded.production_time == runtime.production_time &&
+              runtime_loaded.production.front().due ==
+                  runtime.production.front().due,
+          "Reload preserves exact runtime progress without offline catch-up");
+    auto legacy_json =
+        nlohmann::json::parse(std::ifstream(folder / "runtime.json"));
+    legacy_json["version"] = 9;
+    legacy_json["game_time"] = runtime.production_time;
+    legacy_json["nation"].erase("production_time");
+    {
+      std::ofstream out(folder / "v9.json");
+      out << legacy_json;
+    }
+    auto migrated_clock = frontier::LoadSave(folder / "v9.json");
+    Check(migrated_clock.production_time == runtime.production_time &&
+              frontier::GetProductionProgress(migrated_clock,
+                                              migrated_clock.production.front())
+                      .fraction == .5,
+          "v9 migration retains the exact remaining queue time");
+    frontier::WriteSave(folder / "v9.json", migrated_clock);
+    Check(nlohmann::json::parse(std::ifstream(folder / "v9.json.v9.bak")) ==
+              legacy_json,
+          "v10 migration preserves the original v9 backup");
+    Check(
+        frontier::CancelProduction(runtime, runtime.production.front().id).ok &&
+            frontier::GetProductionProgress(runtime, runtime.production.front())
+                    .fraction == 0 &&
+            frontier::TickProduction(runtime, 59) == 0 &&
+            frontier::TickProduction(runtime, 1) == 1 &&
+            runtime.city_products[home]["campfire"] == 1 &&
+            runtime.game_time == frozen_world,
+        "Canceling half-finished work gives the next job its full duration");
+    Check(frontier::TickProduction(runtime, 0) == 0 &&
+              frontier::TickProduction(runtime, -1) == 0 &&
+              frontier::MoneySupply(runtime) == total,
+          "Invalid elapsed intervals cannot create output or change money");
+    auto storage_wait = save;
+    Check(
+        frontier::QueueProduction(storage_wait, Recipe("campfire"), home).ok &&
+            frontier::QueueProduction(storage_wait, Recipe("sword"), home).ok,
+        "Queue head and follower for storage back-pressure");
+    storage_wait.city_products[home]["campfire"] = 1000000;
+    Check(frontier::TickProduction(storage_wait, 200) == 0 &&
+              storage_wait.production.size() == 2 &&
+              frontier::GetProductionProgress(storage_wait,
+                                              storage_wait.production.back())
+                      .fraction == 0,
+          "Full resources block a workshop FIFO without finishing later jobs");
+    storage_wait.city_products[home]["campfire"] = 999999;
+    Check(frontier::TickProduction(storage_wait, 1) == 1 &&
+              storage_wait.production.size() == 1 &&
+              frontier::TickProduction(storage_wait, 59) == 1,
+          "Clearing space resumes the head once and then its successor");
+    auto sparse_frames = save;
+    Check(
+        frontier::QueueProduction(sparse_frames, Recipe("campfire"), home).ok &&
+            frontier::QueueProduction(sparse_frames, Recipe("campfire"), home)
+                .ok &&
+            frontier::TickProduction(sparse_frames, 120) == 2 &&
+            sparse_frames.production.empty(),
+        "A delayed inactive-window update accounts for the full elapsed time");
     auto forge = save.facilities.back().id;
     Check(forge > 0 && frontier::MoneySupply(save) == total,
           "Building fees remain in the regional fund");
@@ -240,12 +317,13 @@ int main(int argc, char** argv) {
     auto loaded = frontier::LoadSave(path);
     frontier::ConfigureWorld(loaded.seed);
     frontier::InitializeAdventure(loaded);
-    Check(loaded.controlled_npc == first &&
-              loaded.city_products == save.city_products &&
-              loaded.travelers.size() == save.travelers.size() &&
-              frontier::MoneySupply(loaded) == total,
-          "v9 roundtrip preserves resident cargo, new arrivals, warehouses and "
-          "money");
+    Check(
+        loaded.controlled_npc == first &&
+            loaded.city_products == save.city_products &&
+            loaded.travelers.size() == save.travelers.size() &&
+            frontier::MoneySupply(loaded) == total,
+        "v10 roundtrip preserves resident cargo, new arrivals, warehouses and "
+        "money");
     // Advance simulated deadlines directly; these checks never idle in real
     // time.
     auto advanced = loaded;
@@ -375,7 +453,15 @@ int main(int argc, char** argv) {
       }
     }
     Check(specialist_checked, "Fresh region contains a rare-goods specialist");
-    if (argc == 3 && std::string(argv[1]) == "--fixture") {
+    if (argc == 3 && (std::string(argv[1]) == "--fixture" ||
+                      std::string(argv[1]) == "--production-fixture")) {
+      if (std::string(argv[1]) == "--production-fixture") {
+        Check(
+            frontier::QueueProduction(loaded, Recipe("campfire"), home).ok &&
+                frontier::QueueProduction(loaded, Recipe("campfire"), home).ok,
+            "Prepare a near-complete native timer fixture");
+        frontier::TickProduction(loaded, 55);
+      }
       frontier::WriteSave(argv[2], loaded);
     }
     frontier::LoseResident(save, first, false);

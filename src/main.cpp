@@ -423,7 +423,7 @@ int Play(const Options& options) {
   if (!IsWindowReady()) {
     SetTraceLogLevel(LOG_INFO);
     SetTraceLogCallback(StartupTrace);
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_ALWAYS_RUN);
     InitWindow(options.width, options.height, "Forest Frontier");
     SetTraceLogLevel(LOG_WARNING);
     SetTraceLogCallback(nullptr);
@@ -650,6 +650,7 @@ int Play(const Options& options) {
           {"resident_jobs", save.citizens.size()},
           {"controlled_resident", save.controlled_npc},
           {"production_jobs", save.production.size()},
+          {"production_time", save.production_time},
           {"money_total", frontier::MoneySupply(save)},
           {"outfit", save.outfit_id},
           {"walls", save.walls.size()},
@@ -710,10 +711,24 @@ int Play(const Options& options) {
     frontier::Settings live_settings = frontier::ActiveSettings();
     frontier::SettingsPanel settings_panel;
     bool quit = false, saved_for_exit = false;
+    auto production_updated = frontier::Clock::now();
     while (!quit && !WindowShouldClose()) {
       const double now = frontier::ElapsedMilliseconds(session_start) / 1000;
       float dt = std::clamp(GetFrameTime(), .00001f, .05f);
       const auto update_start = frontier::Clock::now();
+      const double production_elapsed =
+          std::chrono::duration<double>(update_start - production_updated)
+              .count();
+      production_updated = update_start;
+      const int completed_items =
+          frontier::TickProduction(save, production_elapsed);
+      if (completed_items > 0) {
+        ui.gov_status =
+            "Production finished: " + std::to_string(completed_items) +
+            " item(s) added to city resources";
+        perf.Event(
+            {{"event", "production_finished"}, {"items", completed_items}});
+      }
       game.moving = false;
       if (now > notice_until) {
         ui.notice.clear();
@@ -1768,8 +1783,11 @@ int Play(const Options& options) {
                        frontier::GatherTimeMultiplier(save))
                 : 0;
       }
-      if (!options.no_save && !ui.paused && !ui.progression &&
-          !ui.map_journal && !ui.road_edit && !quit && now - last_save > 30) {
+      const bool autosave_allowed =
+          save.nation ||
+          (!ui.paused && !ui.progression && !ui.map_journal && !ui.road_edit);
+      if (!options.no_save && autosave_allowed && !quit &&
+          now - last_save > 30) {
         auto t = frontier::Clock::now();
         frontier::WriteSave(options.save_path, save);
         last_save = now;
@@ -1936,7 +1954,7 @@ int main(int argc, char** argv) {
     }
     SetTraceLogLevel(LOG_INFO);
     SetTraceLogCallback(StartupTrace);
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_ALWAYS_RUN);
     InitWindow(settings.width, settings.height, "Forest Frontier");
     SetTraceLogLevel(LOG_WARNING);
     SetTraceLogCallback(nullptr);

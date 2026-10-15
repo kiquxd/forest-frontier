@@ -28,6 +28,7 @@ struct NationRow {
   bool enabled{true};
   std::string tooltip{};
   std::vector<ProductionRequirement> requirements{};
+  double progress{-1};
 };
 std::string Duration(double seconds) {
   int total = static_cast<int>(std::ceil(std::max(0.0, seconds)));
@@ -111,7 +112,8 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
   Wrapped("State treasury " + std::to_string(save.coins) + " · Town treasury " +
               std::to_string(save.treasury[city]) + " · Residents " +
               std::to_string(CityPopulation(save, city)) + "/" +
-              std::to_string(save.housing[city]) + " · Paused · Selected: " +
+              std::to_string(save.housing[city]) +
+              " · World paused; production runs · Selected: " +
               (HasControlled(save) ? ResidentName(save, save.controlled_npc)
                                    : "none"),
           50, 164, w - 100, 15, {171, 191, 155, 255}, 1);
@@ -354,11 +356,28 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
           recipe = &r;
         }
       }
+      const auto progress = GetProductionProgress(save, job);
+      std::string detail = progress.state + " · ";
+      if (progress.ahead > 0) {
+        detail += "starts in " + Duration(progress.starts_in) + " · ";
+      }
+      detail += Duration(progress.remaining) + " left · " +
+                std::to_string(static_cast<int>(progress.fraction * 100)) +
+                "% · workshop #" + std::to_string(job.facility);
       rows.push_back(
-          {"Queued: " + (recipe ? recipe->name : job.recipe),
-           "Workshop #" + std::to_string(job.facility) + " · ready in " +
-               Duration(job.due - save.game_time) + " · reserved materials",
-           "book", "Cancel", [&, id] { act(CancelProduction(save, id)); }});
+          {recipe ? recipe->name : job.recipe,
+           detail,
+           recipe ? RecipeIcon(*recipe) : "book",
+           "Cancel",
+           [&, id] { act(CancelProduction(save, id)); },
+           "",
+           {},
+           true,
+           "Production advances while this world is open, including menus "
+           "and an inactive/minimized window. Inputs are reserved; output "
+           "returns to city resources.",
+           {},
+           progress.fraction});
     }
     int matches = 0;
     for (int i = 0; i < static_cast<int>(Recipes().size()); ++i) {
@@ -722,6 +741,16 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
       chip_x += width + 6;
     }
     EndScissorMode();
+    if (row.progress >= 0) {
+      const float width = body.width - 66 - actions;
+      const Rectangle track{body.x + 50, y + step - 15, width, 7};
+      DrawRectangleRounded(track, 1, 6, {45, 62, 49, 255});
+      if (row.progress > 0) {
+        DrawRectangleRounded(
+            {track.x, track.y, width * static_cast<float>(row.progress), 7}, 1,
+            6, {163, 192, 121, 255});
+      }
+    }
     if (row.primary && button({body.x + body.width - actions, y + 14, 120, 36},
                               row.first, row.enabled)) {
       row.primary();
@@ -743,7 +772,7 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
        bottom + 6, 16, {177, 194, 161, 255});
   Wrapped(ui.gov_status.empty()
               ? "State knowledge is shared. Residents keep individual cargo "
-                "and positions. Esc closes management."
+                "and positions. Production runs live. Esc closes management."
               : ui.gov_status,
           50, h - 77, w - 100, 16, {238, 202, 133, 255}, 1);
   if (!tooltip.empty()) {

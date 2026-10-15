@@ -22,7 +22,7 @@ Skill branches must be learned in order, in addition to their practice requireme
 
 ### State and town management
 
-**N** opens State with seven tabs: **Residents, Resources, Production, Projects, Orders, Towns and Growth**. It shows town treasuries, population/capacity, relations, specialty knowledge and deliveries. **P** opens a nearby hall with the same town boards. Management, the knowledge tree and Esc pause stop simulation; close them to let production advance.
+**N** opens State with seven tabs: **Residents, Resources, Production, Projects, Orders, Towns and Growth**. It shows town treasuries, population/capacity, relations, specialty knowledge and deliveries. **P** opens a nearby hall with the same town boards. Management, the knowledge tree and Esc pause freeze world simulation. Production keeps running and refreshes live, including while the window is inactive or minimized.
 
 Each city has a separate warehouse and treasury. **Y / Resources** deposits or withdraws goods and equipment carried by the selected resident. State knowledge and the state treasury are shared. Road-connected owned towns can send timed goods shipments, with materials reserved at dispatch. These are abstract deliveries, not autonomous caravans.
 
@@ -42,7 +42,8 @@ Coins remain in state, city, regional-market or reserved-payment accounts. Const
 
 - **C / Production** lists every recipe, including locked ones. Search item names without case sensitivity; **Clear** restores the full catalogue. Each row has an item PNG and resource/skill/technology/building PNGs below it. Resource counts show available/required; unmet requirements and unavailable recipes are muted. Hover an item for all missing requirements, or a requirement icon for its name and status. Queue buttons are enabled only when the authoritative checks pass.
 - Workshop jobs reserve warehouse inputs immediately and produce items later into the source city's warehouse. Canceling refunds the reserved materials and fee once.
-- Every physical workshop has a FIFO queue of up to eight jobs. Different buildings run in parallel. Rarity determines **1 / 5 / 30 / 60 / 120 game minutes**; there is no campaign-wide crafting cooldown.
+- Every physical workshop has a FIFO queue of up to eight jobs. Different buildings run in parallel. Rarity determines **1 / 5 / 30 / 60 / 120 active-world minutes**; there is no campaign-wide crafting cooldown.
+- Queued rows show live progress bars and seconds remaining. Waiting jobs show their queue position and start delay. Canceling partially finished work gives the next item its full craft duration; full output storage holds the workshop FIFO until space is available. Production uses monotonic elapsed time and accounts for delayed background frames without slowing down.
 - Your first town has a **workbench**. Build **forge, tailor, school, shipyard, alchemy, infirmary or hospital** with Construction and warehouse materials. A town permits **max(1, floor(active residents / 6)) forges**; other facility types currently permit one each.
 - Workshops may be local or connected through a complete peaceful road network. Hostile endpoints/transit suspend access and queued work; reserved materials are retained. Remote workshop output currently returns without simulated hauling.
 - Fourteen weapons and eleven outfits have different perks. Take counted copies from stock, equip them anywhere, or deposit unused copies. An equipped/captive/carried copy cannot also be used by another resident. Weapons never wear out; ranged ammunition is consumed.
@@ -73,7 +74,7 @@ Buildings have detailed facade variants and fade when obscuring the controlled r
 
 Saved-world **F2** expands summary; **F6/F7** rename/copy, **F8/F9** export/import, **F10** opens recovery, **Delete** confirms moving a slot to `saves/.trash/`. Files are validated; recovery restores a new slot without overwriting its source. Exports require a new `.json` destination.
 
-Saves are atomic **v9**, with v1–v8 loading/migration backups and no automatic progression reset. Residents, warehouses, queues, plots, tasks, escrow, shipments, arrivals and money accounts persist. Simulation time never includes offline elapsed time. Normal installation/launch never deletes saves.
+Saves are atomic **v10**, with v1–v9 loading/migration backups and no automatic progression reset. Residents, warehouses, queues, plots, tasks, escrow, shipments, arrivals and money accounts persist. Production runtime and world simulation time are saved separately; neither includes offline elapsed time. Production pauses when you return to the lobby or close the application. Normal installation/launch never deletes saves.
 
 Settings works in the lobby and pause: window/fullscreen, frame cap, zoom, HUD, text scale, tree contrast, audio and primary/alternate bindings. Use the visible **Apply** button. New actions preserve older custom bindings and receive free keys if defaults conflict. The bottom action bar uses actual bindings and nearby available actions on a dark background. The upper-left title and health panels fit their contents and adapt to text scale; management shortcuts stay in the bottom action bar.
 
@@ -141,7 +142,7 @@ The mechanics below are working prototypes or incomplete systems. Menus, unlocks
 
 #### Resident work and production
 
-**Working:** Production uses per-building FIFO queues, up to eight jobs per workshop, with reserved warehouse inputs and commissioning fees. Separate buildings operate in parallel. Forge construction is capped at max(1, floor(active town population / 6)); existing forges are retained after population loss. Jobs take 1/5/30/60/120 simulation minutes by rarity. Output returns to the source city warehouse; cancellation refunds reserved inputs/fees once. Lost peaceful access suspends the queue. Old passive resident stock/coin generation is disabled in resident-control campaigns. The full recipe catalogue remains visible with case-insensitive name search, item PNGs and resource/skill/technology/building requirement PNGs. Missing counts or unlocks are muted, hovering explains them, and the same read-only quote controls both UI readiness and queue validation.
+**Working:** Production uses per-building FIFO queues, up to eight jobs per workshop, with reserved warehouse inputs and commissioning fees. Separate buildings operate in parallel. Forge construction is capped at max(1, floor(active town population / 6)); existing forges are retained after population loss. Jobs take 1/5/30/60/120 active-world minutes by rarity. A persisted production clock accumulates std::chrono::steady_clock elapsed time while the world is open, including management, Esc/settings, inactivity and minimized windows. Live FIFO rows show countdowns, progress bars and waiting/access/storage states. Simulation pauses do not stop production; returning to the lobby closes the world and suspends it. Output returns to the source city warehouse; cancellation refunds reserved inputs/fees once. Lost peaceful access suspends the queue. Old passive resident stock/coin generation is disabled in resident-control campaigns. The full recipe catalogue remains visible with case-insensitive name search, item PNGs and resource/skill/technology/building requirement PNGs. Missing counts or unlocks are muted, hovering explains them, and the same read-only quote controls both UI readiness and queue validation.
 
 **Incomplete:**
 
@@ -323,7 +324,7 @@ The mechanics below are working prototypes or incomplete systems. Menus, unlocks
 
 #### Menus, controls and save management
 
-**Working:** Esc handles Resume/Save/Save & return/Settings; K shows only state knowledge in live resident-control play. N opens State with Residents, Resources, Production, Projects, Orders, Towns and Growth; U selects residents, Y opens cargo/warehouses, C production and L projects. P opens a nearby town hall using the same boards. Management pauses simulation. Persistent HUD shows selected-resident health and relevant underwater gauges, with stocks accessible by button. Lobby summaries remain read-only, retain overview/world/resources/towns/tree and never duplicate a skill list. Existing atomic file workflows, remapping, settings Apply and contextual footer remain.
+**Working:** Esc handles Resume/Save/Save & return/Settings; K shows only state knowledge in live resident-control play. N opens State with Residents, Resources, Production, Projects, Orders, Towns and Growth; U selects residents, Y opens cargo/warehouses, C production and L projects. P opens a nearby town hall using the same boards. Management pauses world simulation while production continues. Persistent HUD shows selected-resident health and relevant underwater gauges, with stocks accessible by button. Lobby summaries remain read-only, retain overview/world/resources/towns/tree and never duplicate a skill list. Existing atomic file workflows, remapping, settings Apply and contextual footer remain.
 
 **Incomplete:**
 
@@ -332,12 +333,12 @@ The mechanics below are working prototypes or incomplete systems. Menus, unlocks
 
 #### Persistence and content identity
 
-**Working:** Atomic v9 saves contain resident positions/cargo/gear/health/vessels, city product stocks/housing, queues/plots/shipments, boards/escrow, arrivals and the money ledger alongside shared exploration/progression and existing roads/treaties. Versions 1-8 load with migration backups; legacy loose goods move to the home warehouse and legacy equipment to the first resident without resetting knowledge. Inactive controlled residents keep positions across reload; dead residents remain tombstones.
+**Working:** Atomic v10 saves contain resident positions/cargo/gear/health/vessels, city product stocks/housing, queues/plots/shipments, boards/escrow, arrivals and the money ledger alongside shared exploration/progression and existing roads/treaties. Versions 1-9 load with migration backups; v9 queue deadlines retain their exact remaining time when migrated to the separate production clock; legacy loose goods move to the home warehouse and legacy equipment to the first resident without resetting knowledge. Inactive controlled residents keep positions across reload; dead residents remain tombstones.
 
 **Incomplete:**
 
 - Living enemy health, position and attack state are transient; chunk regeneration/reload can reset a surviving enemy. Foreign NPC/animal movement and active projectiles are also transient.
-- The persisted simulation clock drives production, growing, deliveries and tribute, but there is no calendar, offline progression or simulation catch-up.
+- Growing, deliveries and tribute use the persisted simulation clock; production uses a separate persisted active-world runtime clock. There is no calendar or offline progression; production does not run for closed worlds or after application shutdown.
 - Generated resident identities still rely on stable NPC indices. Migrations do not provide general remapping for future settlement/NPC generation or content identity changes.
 
 #### Local model integration
@@ -522,6 +523,7 @@ python3 scripts/world-smoke.py  # Quick journal/save check
 python3 scripts/settings-smoke.py  # Quick Apply-button check
 python3 scripts/nation-smoke.py  # Fresh resident/warehouse/production/board check
 python3 scripts/production-smoke.py  # Catalogue, requirements, search and queue
+python3 scripts/production-clock-smoke.py  # Live/background production clock
 # Optional extended workflows:
 python3 scripts/world-smoke.py --extended
 python3 scripts/menu-smoke.py

@@ -92,6 +92,7 @@ nlohmann::json WriteNation(const Save& save) {
   j["money_supply"] = save.money_supply;
   j["next_entity"] = save.next_entity;
   j["economy_cycle"] = save.economy_cycle;
+  j["production_time"] = save.production_time;
   j["city_products"] = save.city_products;
   j["housing"] = save.housing;
   j["residents"] = Json::array();
@@ -172,11 +173,14 @@ void ReadNation(const nlohmann::json& j, Save& save) {
   save.money_supply = j.at("money_supply");
   save.next_entity = j.at("next_entity");
   save.economy_cycle = j.at("economy_cycle");
+  save.production_time = j.value("production_time", save.game_time);
   save.city_products =
       j.at("city_products").get<decltype(save.city_products)>();
   save.housing = j.at("housing").get<decltype(save.housing)>();
   Require(
-      save.region_fund >= 0 && save.money_supply > 0 && save.next_entity > 0 &&
+      std::isfinite(save.production_time) && save.production_time >= 0 &&
+          save.production_time <= 1e12 && save.region_fund >= 0 &&
+          save.money_supply > 0 && save.next_entity > 0 &&
           save.next_entity < (1ULL << 60) && save.economy_cycle >= -1 &&
           save.economy_cycle <= static_cast<int64_t>(save.game_time / 120) &&
           save.city_products.size() == save.stocks.size() &&
@@ -267,8 +271,9 @@ void ReadNation(const nlohmann::json& j, Save& save) {
                     row.at("fee")};
     entity(job.id);
     Require(city_ok(job.source) && city_ok(job.destination) &&
-                KnownRecipe(job.recipe) && deadline(job.due) && job.fee >= 0 &&
-                job.fee <= 10000,
+                KnownRecipe(job.recipe) && std::isfinite(job.due) &&
+                job.due >= 0 && job.due <= save.production_time + 1e8 &&
+                job.fee >= 0 && job.fee <= 10000,
             "Invalid production job");
     bool found = false;
     for (const auto& f : save.facilities) {
