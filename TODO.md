@@ -15,32 +15,30 @@ Remove an item only after its full scope is implemented and validated. Split it 
 
 - [ ] Training is an immediate assignment enabled by technology and access to a local/road-connected school, without lessons, experience, training time or individual proficiency.
 - [ ] Defenders periodically damage nearby wolves and hostile guards. They lack a complete attack animation, combat decision system and coordinated patrols; this is not an army simulation.
-- [ ] Resident casualties/capture currently come from local defender encounters only. There is no campaign casualty simulation, prisoner transport/exchange, player captivity or resident medical treatment system.
-- [ ] Ranged defenders are explicitly unavailable; resident ammunition, ranged targeting and squad commands are not implemented.
+- [ ] Casualties and captivity come from local encounters only. There is no campaign casualty simulation, prisoner transport/exchange or persistent injury model.
+- [ ] Ranged autonomous defenders are unavailable; resident ammunition logistics, ranged targeting and squad commands are not implemented. Directly controlled residents can use ranged weapons.
 
 ## Population and settlement management
 
-- [ ] Population comes from generated NPCs. There is no recruitment, immigration, birth, dismissal or population growth within an existing town.
-- [ ] Housing does not determine capacity. Residents have no food needs, wages, happiness or household economy.
-- [ ] The town roster supports individual job/equipment assignment; resident search, comparison tools and bulk assignment are absent.
-- [ ] Town layouts do not grow or develop new districts in response to population/economy changes.
+- [ ] There are no births, dismissal, household simulation, food upkeep, wages or happiness. Wanderers are generated at towns, without physically traveling there.
+- [ ] Resident search, comparison tools, bulk selection and group commands are absent. Selection controls one resident at a time; inactive residents retain their last position.
+- [ ] Housing is a capacity upgrade, not a freely placed residential building. Town layouts do not grow new residential districts in response to population changes.
+- [ ] Wanderer history is bounded to 128 arrivals per campaign; declined/departed arrival recycling is not implemented.
 
 ## Resident work and production
 
-- [ ] Work checks required local/road-connected facilities but remains a timer contribution, without physical collection, hauling, attendance at workplaces, input materials or production chains.
-- [ ] Scholars currently contribute berries and engineers reeds; these stand in for specialized work rather than producing research or engineering projects.
-- [ ] Traders create treasury income without moving goods or completing transactions. Ambassadors adjust trust without traveling or negotiating.
-- [ ] There are no work queues, individual productivity progression or operating costs. Guild research changes batch size rather than creating a functioning guild economy.
-- [ ] Unowned towns have no equivalent full resident production simulation. There is no offline production catch-up.
+- [ ] Workshop production is a timed management abstraction: no worker attendance, physical material transport, individual productivity, automatic priorities or operating costs.
+- [ ] Roles/equipment and research remain prerequisites/prototypes; residents do not receive autonomous job orders, gather on their own or produce specialized scholar/engineer output.
+- [ ] Connected workshop output returns directly to its source warehouse when complete, without travel time or a hauling actor.
+- [ ] Foreign towns have bounded abstract resource replenishment, not a full resident production simulation. There is no offline production catch-up.
 
 ## Trade, rare resources and town economy
 
-- [ ] Prices are fixed rules, not supply-and-demand calculations. NPCs share a town market rather than individual shop inventories and budgets.
-- [ ] There are no trade routes, caravans, imports, exports or an autonomous foreign economy.
-- [ ] Rare specialty stock is initially allocated, without a complete renewable supply chain. Foreign stocks and treasury can be depleted.
-- [ ] The repeatable town order has fixed requirements/rewards, without a changing contract market.
-- [ ] Income and worker contributions have no supporting tax, wage or maintenance simulation.
-- [ ] General trading covers resource goods, not a full market for crafted weapons and clothing.
+- [ ] Prices are fixed rules, not supply-and-demand calculations. NPCs share town markets rather than individual inventories and budgets.
+- [ ] Shipments are scheduled abstractions, without caravans, moving haulers, interception or transport losses. Specialist delivery does not require a built road.
+- [ ] Rare specialist orders create commissioned goods without simulating their production inputs. Foreign basic-stock replenishment and regional surplus purchases are abstract; there is no autonomous foreign economy.
+- [ ] Closed money accounting prevents minting, not hoarding. There is no taxation, wage, maintenance or automatic redistribution policy guaranteeing liquidity for every town or preventing wealth concentration.
+- [ ] General trading covers resource goods, not a complete market for crafted weapons and clothing. Inter-town shipments carry goods, not equipment copies.
 
 ## Diplomacy and relations between settlements
 
@@ -53,39 +51,37 @@ Remove an item only after its full scope is implemented and validated. Split it 
 
 - [ ] Residential houses are static scenery without walkable interiors or individual household functions. Activity buildings provide access gates; hall interiors are interface scenes, not navigable levels.
 - [ ] Walls fill a predefined ring with a fixed opening; there is no free placement, layout editor, movable/openable gate or dismantling interface.
-- [ ] There is no town founding, player construction of residential houses, free building placement or building upgrade system. Territory expansion uses a fixed circular radius and automatically chosen safe activity-building sites.
+- [ ] There is no town founding, free residential/building placement or general building upgrade system. Territory expansion uses a fixed circular radius and automatically chosen safe activity-building sites; the hospital is a separate medical building, not a general upgrade framework.
 - [ ] Wall damage supports local encounters, without a complete siege/destruction and rebuilding simulation.
 
 ## NPC behavior and services
 
-- [ ] Movement wanders around a home point. There are no daily schedules, destination-based routines, inter-town travel or work animations tied to production.
-- [ ] Movement updates are proximity-limited; distant residents do not receive a full behavior simulation.
+- [ ] Foreign movement wanders around a home point. There are no daily schedules, destination-based routines, inter-town travel or work animations tied to production.
+- [ ] Movement updates are proximity-limited; distant foreign NPCs do not receive a full behavior simulation.
 - [ ] Individual relationship memory, changing personal stories and reactions to ongoing world events are absent.
 - [ ] Residents generally expose town services rather than fully separate personal shops, teachers and service economies.
 
 ## Quests and quest tracking
 
-- [ ] Each NPC offers at most one nonrepeatable quest. There are no chains, refreshes, branching outcomes or generated quests responding to actual town needs.
-- [ ] Objectives use a small set of counters/deliveries. Crafting objectives can count generic crafts rather than a particular commissioned item.
-- [ ] There are no multi-stage objectives, failure/expiry rules or abandonment mechanism.
-- [ ] Tracking provides progress and giver information/distance, without a complete objective waypoint or route system.
-- [ ] Rewards/unlocks do not form a fully balanced long-term campaign; multiple NPCs can offer the same template.
+- [ ] The template set is small: supplies, knowledge and a town-discovery survey. Branching chains, multi-stage story projects, commissioned-item objectives and a complete balanced campaign are absent.
+- [ ] Need calculations use local stock plus pending orders/shipments, without production forecasts, citizen consumption or sophisticated request scheduling. Different towns can legitimately request the same goods.
+- [ ] Accepted tasks have no failure/deadline consequences; abandonment is available, while automatic expiry currently affects only unaccepted deficit requests.
+- [ ] The board does not provide a complete objective waypoint/route system or advanced filtering. Task history is capped at 2048 records; archival/recycling is not implemented.
 
 ## Skills, research and technology exchange
 
 - [ ] Skills are unlocked flags, without levels, experience or specialization progression. Several milestones are generic activity counters.
 - [ ] Research/lessons complete immediately; scholars, workshops and teachers do not supply research time or production.
 - [ ] Town technologies are defined by type, without evolving discoveries, research competition or dynamic knowledge exchange.
-- [ ] The summary now provides a dependency graph for base skills, resident research, activity counters and quest/town technologies. Automatic campaign guidance and a complete crafting-recipe dependency graph are still absent.
-- [ ] Unlock pacing/economic balance have functional checks, not comprehensive long-play validation.
+- [ ] The dependency tree covers base skills, resident research, activity counters and town/project technologies. Automatic campaign guidance and a complete crafting-recipe dependency graph are absent.
+- [ ] Unlock pacing and the new production/economy/population loop have functional checks, not comprehensive long-play balance validation.
 
 ## Crafting, equipment and character progression
 
-- [ ] Craft outputs are immediate, followed by a persistent rarity-scaled global cooldown. There are no timed production queues, reserved-input jobs or simultaneous per-building workshop queues.
-- [ ] Tools/vessels are mostly ownership flags rather than separate world/inventory instances.
+- [ ] Tools/vessels are mostly per-resident ownership flags, not separate world instances. Duplicate copies can be stored in warehouses but one resident carries at most one of each flagged tool/vessel.
 - [ ] Clothing is one full outfit, without independent garment/accessory slots. Equipment copies have no individual quality or instance properties.
-- [ ] There are no storage chests, warehouse transfers or complete equipment management for multiple residents.
-- [ ] Backgrounds provide fixed modifiers, without deeper individual progression or background-specific quest arcs.
+- [ ] Warehouse transfers lack filters, bulk equipment loadouts and a full logistics/automation interface; equipment cannot yet be shipped between towns through the shipment menu.
+- [ ] Backgrounds provide fixed modifiers, without deeper individual progression or background-specific story arcs.
 
 ## Player combat and enemy behavior
 
@@ -99,14 +95,14 @@ Remove an item only after its full scope is implemented and validated. Split it 
 
 - [ ] Food is a healing/crafting resource; hunger, thirst, sleep and temperature are not simulated.
 - [ ] Campfires provide local healing rather than a complete camping system.
-- [ ] Player death resets health, destroys the equipped weapon and removes coins, without player captivity, a recoverable corpse, recovery expedition or persistent injury state.
+- [ ] Medical treatment is immediate, without treatment queues, staffing, disease or persistent injuries. There is no recoverable corpse/recovery expedition or complete campaign defeat/recovery flow when no controllable residents remain.
 
 ## Boats, ships and submarines
 
 - [ ] Vessels are travel modes activated on water, not independent persistent craft with boarding, docking or storage at a world location.
-- [ ] There are no crews, passengers, cargo holds, fuel costs or shipyard construction.
+- [ ] There are no crews, passengers, cargo holds, fuel costs or a physical shipyard assembly process.
 - [ ] Movement uses speed multipliers, without inertia, buoyancy, wind, currents or steering physics.
-- [ ] Hull state is shared rather than tracked per vessel instance.
+- [ ] Hull is tracked per resident, shared across their vessel modes, rather than per independent vessel instance.
 
 ## Underwater exploration and camera
 
@@ -121,7 +117,7 @@ Remove an item only after its full scope is implemented and validated. Split it 
 - [ ] Lakes/coastline use predefined large-scale shapes with seeded variation, not general continent/biome generation.
 - [ ] Settlements occupy a finite seeded region around fixed landmarks. Distant exploration generates terrain, not an endlessly expanding settlement network.
 - [ ] Player roads/bridges are manually plotted complete routes, without maintenance, demolition, traffic capacity or territorial right-of-way negotiations. Local town paths remain generated scenery; inter-town roads are not generated automatically.
-- [ ] Harvested resources remain depleted; regrowth and renewable deposit management are absent.
+- [ ] Wild harvested sites stay depleted. Renewable plots are timer records in management, without individually placed/rendered trees/fields, forestry workers or renewable mineral extraction.
 - [ ] Animals wander/flee locally, without breeding, food chains or persistent population simulation.
 - [ ] Terrain is flat, without caves, elevation or physical geology. Weather, seasons and a day/night simulation are absent.
 
@@ -129,13 +125,11 @@ Remove an item only after its full scope is implemented and validated. Split it 
 
 - [ ] Body contacts use local disc separation rather than a general rigid-body simulation. Vessels use radius footprints rather than a separate collision hull for each persistent craft.
 
-
 ## Map and exploration
 
 - [ ] Cartography uses scale-dependent cached raster detail and exploration cells, not an unlimited-resolution geographic model.
 - [ ] Political/economic layers show discovered towns and remembered deposits; complete regional borders, production forecasts and strategic orders await the deferred resident-command/navigation systems.
 - [ ] Road planning is a surface-map mouse interface with at most 64 points and 128 roads. A route must be fully explored and paid for in one operation; alternate keyboard/controller plotting and detailed road editing are absent.
-
 
 ## Graphics, animation and audio
 
@@ -143,17 +137,16 @@ Remove an item only after its full scope is implemented and validated. Split it 
 - [ ] Water has animated ripples, foam and vessel wakes; physical waves, tides and changing shores are not simulated.
 - [ ] Audio provides three synthesized music loops and event/ambient effects with independent volume controls and distance/pan for nearby hits, wolves and fires; a larger soundtrack, a full ambient mixing system and smooth soundtrack crossfades are not implemented.
 
-
 ## Menus, controls and save management
 
-- [ ] Gamepad support covers basic movement/actions and directional menu navigation, without complete controller mappings, remapping or text entry. Accessibility has text size and tree contrast, without a complete keyboard-only interface, screen-reader or color customization.
-- [ ] Campaign history retains the most recent 512 creation, discovery, quest, unlock and treaty events. It does not reconstruct events from older saves or provide a complete searchable campaign timeline.
+- [ ] Gamepad support covers basic movement/actions and legacy directional menu navigation, without complete controller mappings/remapping/text entry. State management is mouse-oriented; a complete keyboard-only interface, screen-reader and color customization are absent.
+- [ ] Campaign history retains the most recent 512 significant events. It does not reconstruct older events or provide a complete searchable campaign timeline.
 
 ## Persistence and content identity
 
-- [ ] Living enemy health, position and attack state are transient; chunk regeneration/reload can reset a surviving enemy. NPC/animal movement and active projectiles are also transient.
-- [ ] A persistent simulation clock drives crafting cooldowns and tribute, but there is no calendar, offline progression or simulation catch-up.
-- [ ] Quest giver/resident identities rely on generated NPC indices. Version migrations do not provide general remapping for future settlement/NPC generation or content identity changes.
+- [ ] Living enemy health, position and attack state are transient; chunk regeneration/reload can reset a surviving enemy. Foreign NPC/animal movement and active projectiles are also transient.
+- [ ] The persisted simulation clock drives production, growing, deliveries and tribute, but there is no calendar, offline progression or simulation catch-up.
+- [ ] Generated resident identities still rely on stable NPC indices. Migrations do not provide general remapping for future settlement/NPC generation or content identity changes.
 
 ## Local model integration
 
@@ -168,6 +161,6 @@ Remove an item only after its full scope is implemented and validated. Split it 
 
 ## Navigation and autonomous movement (deferred)
 
-- [ ] Full destination orders and route planning are deferred until command systems exist for owned and foreign residents/professions, caravans and armies; current job/equipment assignments are timer-based prototypes, not this prerequisite.
+- [ ] Full destination orders and route planning are deferred until command systems exist for owned and foreign residents/professions, caravans and armies; current direct selection and job/equipment assignments do not satisfy this prerequisite.
 - [ ] Navigation searches a bounded area of loaded terrain and approaches distant goals in short segments, rather than planning full world routes for caravans/armies.
 - [ ] There is no hierarchical routing or complete handling of distant blocked/unloaded destinations.

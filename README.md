@@ -2,279 +2,288 @@
 
 ## What is it
 
-Forest Frontier is a local, single-player exploration and settlement game built in **C++20 with raylib**. Explore an isometric world of forests, lakes and coastline, earn knowledge through practical work and quests, develop your town, and eventually sail and dive for rare materials.
+Forest Frontier is a local, single-player exploration and settlement game built in **C++20 with raylib**. Run a small state by directly controlling its residents: explore forests, lakes and coastline, gather supplies, develop towns, exchange knowledge and eventually sail and dive for rare materials.
 
-The current version is a playable development prototype. Terrain streams in chunks; the settlement network is a finite, seeded region. All in-game UI, lore and interactions are in English. The game starts in a window and works with tiling window managers; fullscreen is optional.
+This is a playable development prototype. Terrain streams in chunks; towns occupy a finite seeded region. All UI, lore and interactions are in English. Startup is windowed and respects tiling window managers; fullscreen is optional.
 
-An optional local Qwen model and launcher are included for performance experiments. **Normal gameplay uses authored NPC interactions and never sends model requests.** Model generation currently runs only in explicitly enabled LLM benchmarks. Quests, rewards, equipment and progression are always controlled by deterministic game rules.
+An optional local Qwen model and joint launcher are included for explicit performance experiments. **Normal gameplay uses authored NPC interactions and never sends model requests.** Quests, rewards, equipment and progression are deterministic.
 
 ## Features/Gameplay
 
-### Starting a campaign
+### Starting and controlling residents
 
-Choose one of five backgrounds: **Traveler, Artisan, Scout, Envoy or Warden**. Each card shows its bonuses and penalties, affecting movement, gathering, combat or trade. A new campaign places you near the town hall of one randomly selected town you own. Other settlements are independent and have their own attitudes, specialties and knowledge.
+Choose **Traveler, Artisan, Scout, Envoy or Warden** for your first resident. Cards describe their movement, gathering, combat and trade modifiers. You start by the hall of one randomly chosen owned town; all other settlements are independent. There is no separate hero or ruler inventory.
 
-You begin with basic clothing and no learned skills, tools or weapons. Open **K → Skill tree** or visit your hall with **P** to learn **Gathering** for free. Gather resources, unlock **Craftsmanship**, make tools and equipment, and use trading and quests to build your resources and knowledge. Later lessons depend on activities such as gathering, crafting, fishing and completing town orders.
+Press **U** to choose any living, free resident of your towns, then move with **WASD / arrows**. Every resident keeps their own position, health, cargo, gear and vessel modes. Switching does not teleport the previous resident. Skills, technologies, recipes, exploration and activity milestones belong to the state and remain shared.
 
-### Exploration and survival
+You begin without learned skills, tools or weapons. **K** opens the knowledge tree: learn **Gathering** free, gather sites, unlock **Craftsmanship**, then queue tools and equipment. Starting goods are in your town warehouse; **Y** transfers cargo on town territory. First-resident background perks are individual; other residents start as Travelers.
 
-- Forests, lakes, shoreline and a northern coast, with paths, towns and resource sites.
-- Exploration uses a fixed world-space sight range, with reduced forest visibility and building/wall occlusion; window size and zoom cannot reveal more terrain.
-- Persistent fog of exploration on surface and underwater maps. Lakes and towns appear only as far as you have explored them; towns are drawn as miniature settlements.
-- Trees, stone, berries, reeds, fish, ore and rarer materials. Tools improve gathering or enable specific activities; harvested sites remain depleted.
-- Wolves with attack wind-up, lunges and pursuit; directional melee swings, knockback and ranged weapons with consumable ammunition.
-- Food, potions and campfires for recovery. Campfires also deter wolves.
+### State and town management
 
-### NPCs, quests and progression
+**N** opens State with seven tabs: **Residents, Stocks, Production, Projects, Orders, Towns and Growth**. It shows town treasuries, population/capacity, relations, specialty knowledge and deliveries. **P** opens a nearby hall with the same town boards. Management, the knowledge tree and Esc pause stop simulation; close them to let production advance.
 
-- Authored introductions and lore for 20 NPC types, including craftspeople, merchants, scholars and rare specialists. NPCs stay nearby during a conversation and display a speech indicator.
-- Some NPCs offer quests; others provide lore only. Quest templates include deliveries, crafting, exploration and wolf hunting, with coins, items, recipes or knowledge as rewards.
-- A persistent quest journal with tracked objectives. Each quest-giving NPC currently offers one non-repeatable quest.
-- Eleven base skills, specialist town technologies and seven resident research nodes. Requirements can include activities, coins, residents, equipment, known skills, owned towns, trust and completed quests.
-- A skill dependency graph with PNG icons, learned/locked colors and the actual acquisition requirements for each node.
+Each city has a separate warehouse and treasury. **Y / Stocks** deposits or withdraws goods and equipment carried by the selected resident. State knowledge and the state treasury are shared. Road-connected owned towns can send timed goods shipments, with materials reserved at dispatch. These are abstract deliveries, not autonomous caravans.
 
-### Equipment, crafting and settlements
+Grow population by accepting periodic wanderers when housing and food permit. Buy housing capacity in Growth. To relocate a resident, control them, walk to another owned town and change their home there. Build an **infirmary** for treatment; medical-supplies projects unlock **Medical care**, then an accessible school and 80 coins unlock **Hospitals**. Hospitals provide stronger treatment at lower cost.
 
-- Fourteen weapon definitions and eleven outfits with gathering, movement, trade, protection or diving perks. Change player equipment anywhere.
-- Counted equipment copies: an instance allocated to a resident cannot also be used by the player or another resident. Weapons have no durability and are never consumed by attacks; ammunition is expendable.
-- Craft tools, weapons, clothes, consumables, vessels and underwater modules on town territory with the appropriate activity building, locally or via a peaceful built-road connection. Successful crafting starts a persistent global cooldown of 1–120 game minutes, increasing with rarity; failed attempts cost nothing. Time advances during live gameplay, including the crafting menu, and stops while paused, in Progress or editing notes/roads.
-- Settlement markets with stocks and treasuries; buy and sell resources and earn trust. Rare materials and technologies depend on relationships with specialist towns.
-- Town halls, rulers, gifts, truces, war declarations, alliances and diplomatic unions. Unions can bring another town under your ownership.
-- Build a school or connect to one before researching resident technologies and assigning trained jobs. Active residents contribute periodically to stocks, income or relationships; material-producing jobs also check their activity building. Equipment swaps remain available anywhere.
-- Local defenders have persistent health. Death destroys assigned weapons/clothes and never drops them; a defender defeated by hostile guards has a deterministic 40% capture chance. Captives keep their allocated equipment, cannot work or be reassigned, and return with it after ransom. Use **K → Settlements → captive → Ransom**, or the captor’s hall. Player death destroys the equipped weapon and removes 20% of coins; player captivity is not implemented.
-- Surrender to nearby attacking guards using the on-screen button, or at a hostile ruler’s hall. Your town keeps local control: pay **30 coins now**, then **10 every 120 game seconds**. Unpaid tribute resumes local hostility. At your hall, pay **300 coins** for independence or return to the previous allegiance; the original home town’s previous ruler is you. Strategic wars remain a placeholder.
-- Build and repair predefined town-wall segments; fortification knowledge improves them. Expand town radius from **350 to 1100** in steps of 150, with increasing costs and no overlap with other towns.
-- Your initial town has a **workbench**. Other activity buildings are **forge, tailor workshop, school, shipyard and alchemy workshop**. Build them through **P → town hall**, using Construction and the listed wood/stone/coin costs. Foreign towns have seeded facilities; hostile towns do not grant access. Basic skills still come from the skill tree or hall without needing a school.
-- On **M → Plan road**, click your town, add your own waypoints, then click a discovered peaceful destination. Right click undoes a point; **Enter** pays for and builds the entire route atomically; **Esc** cancels the plan. Land road tiles cost 1 wood + 1 stone; bridge tiles cost 4 wood + 3 stone. The whole route must be explored, and the complete cost is shown before confirmation. Bridges permit walking across deep water.
+### Projects, trade and money
 
-### Water exploration
+NPCs provide authored lore, markets and specialist teaching; they no longer issue quests. **L / Projects** shows the selected town's projects, while **Orders** lists known foreign trade requests. Town halls and State refer to the same records.
 
-Craft a reed raft, canoe, rowboat, coastal skiff, sailing cutter, sailing ship, brigantine, royal flagship or submarine through progression. Basic craft plus access to a shipyard opens water travel; advanced ships offer more speed, wider sight and elaborate decks/masts. Brigantines require Shipbuilding and Navigation school plus 120 coins; the flagship additionally requires Guild charter, 300 coins and rare materials. These vessels remain owned travel modes, with independent persistent craft/crews/storage still unfinished. Switch vessels, sail across deep water, and use a submarine to explore the underwater layer. Oxygen, hull damage, reefs and emergency surfacing affect exploration. Unlock sonar and oxygen modules, collect pearls and crystals, and recover underwater salvage.
+Owned-town projects give recipes, technologies, care, housing or trust, **never coins**. The home survey unlocks Civic charter after accepting it, discovering two additional towns and returning. Deficit projects respond to warehouse shortages and pending deliveries. Different towns can need the same goods.
 
-### Map journal, presentation and audio
+Foreign trade orders pay from the buyer's real treasury. Acceptance reserves payment; take the requested goods in a resident's cargo to that town and deliver to receive it. Abandoning returns the escrow. Buyers retain a protected reserve. Specialist orders supply rare goods for coins, with trust and knowledge gates and a simulation-time delivery delay.
 
-Press **M** for the map; click an explored location to write a titled note, or click its marker to reopen it. **Tab / Journal** lists your notes across both layers. **Tab** switches title/text fields, **Ctrl+Enter** saves, and the mouse wheel scrolls longer notes. Clipboard select/copy/paste works; you can edit/delete notes and retain up to 128 in each saved world. Notes are manual entries, not automated quest guidance.
+Coins remain in state, city, regional-market or reserved-payment accounts. Construction/research/treatment fees fund the regional market, which buys bounded surpluses and returns money to towns. Projects, passive resident jobs and combat do not mint coins. This is a conservative prototype economy, without taxes/wages or a guarantee against hoarding; see Current limits.
 
-Map **1/2/3** switches Terrain/Politics/Economy. Known town ownership/treaties/specialties and remembered explored deposits are shown; unknown areas stay masked. **Middle mouse drag** pans, wheel zooms. Route orders are deferred until resident command systems exist.
+### Production, equipment and building
 
-Buildings have twelve facade/detail variations and fade when obscuring your character. Materials, outfits and vegetation have added detail; gathering, resident tools and combat have additional animation/feedback. Water has animated ripples, foam and wakes; larger ships have multiple masts, rails and cabins.
+- Workshop jobs reserve warehouse inputs immediately and produce items later into the source city's warehouse. Canceling refunds the reserved materials and fee once.
+- Every physical workshop has a FIFO queue of up to eight jobs. Different buildings run in parallel. Rarity determines **1 / 5 / 30 / 60 / 120 game minutes**; there is no campaign-wide crafting cooldown.
+- Your first town has a **workbench**. Build **forge, tailor, school, shipyard, alchemy, infirmary or hospital** with Construction and warehouse materials. A town permits **max(1, floor(active residents / 6)) forges**; other facility types currently permit one each.
+- Workshops may be local or connected through a complete peaceful road network. Hostile endpoints/transit suspend access and queued work; reserved materials are retained. Remote workshop output currently returns without simulated hauling.
+- Fourteen weapons and eleven outfits have different perks. Take counted copies from stock, equip them anywhere, or deposit unused copies. An equipped/captive/carried copy cannot also be used by another resident. Weapons never wear out; ranged ammunition is consumed.
+- Renewable town plots grow **trees in 10 minutes**, **berries/reeds in 3 minutes**. Plant using warehouse wood/berries, harvest into storage and replant. Plots are management timers; wild harvested sites stay depleted.
+- Expand circular town territory from **350 to 1100**, build/repair predefined walls and construct full custom road polylines through **M → Plan road**. All route tiles must be explored and the entire cost paid atomically; water sections become more expensive bridges.
 
-Settings includes **Background music: Automatic / Forest / Harbor / Depths / Off**, **Music volume** and **Effects volume**. Three original synthesized 32-second loops ship with the game; automatic selection follows land, surface water or diving. Footsteps, swings/hits, gathering, interface cues and ambient forest/water/bubbles have separate effects volume. Audio gracefully stays silent when no device is available. Regenerate the original assets using `python3 scripts/generate-audio.py`; see [audio assets](assets/audio/README.md).
+Resident role/training research and local defenders remain available as prototypes. **There are no autonomous resident task orders, group movement or strategic armies.** Direct resident exploration is the current control model.
+
+### Exploration, combat and diplomacy
+
+Explore forests, lakes, shoreline and a northern coast. Sight has a fixed world-space range with forest/building/wall occlusion; zoom and window size cannot reveal more territory. Surface/seafloor exploration is shared and persistent; partially explored lakes and towns remain partially masked.
+
+Gather wood, stone, berries, reeds, fish, ores and rare materials with appropriate tools. Fight local wolves/hostile guards using visible directional swings, knockback or ranged weapons. Food, potions and campfires heal; campfires deter wolves. If a controlled resident is defeated, they die or can be captured by hostile guards. Death destroys carried gear/cargo without drops; captivity preserves it for ransom. Choose another resident instead of respawning a hero; state knowledge and coins remain.
+
+Town halls support gifts, truces, war, alliances and diplomatic union. Union transfers ownership; local fighting does not conquer towns. Surrender retains local rule for **30 coins now + 10 every 120 game seconds**; unpaid tribute restores hostility. Buy independence/previous allegiance for **300 coins**. Strategic warfare remains a placeholder.
+
+### Water, map journal, presentation and audio
+
+Progress through raft, canoe, rowboat, skiff, cutter, sailing ship, brigantine, flagship and submarine. Advanced vessels require specialist knowledge, school research, materials and commissioning fees; they offer speed/sight and distinct decks/masts. Vessels remain resident-owned travel modes. Diving opens a separate underwater layer with oxygen, hull damage, reef hazards, emergency surfacing, sonar and rare salvage.
+
+**M** shows terrain/politics/economy layers (**1/2/3**), explored towns and remembered deposits. Click an explored location or note marker to edit a titled journal entry; **Tab / Journal** opens the list, **Ctrl+Enter** saves. Middle-drag pans and wheel zooms. Notes are manual and saved, up to 128 per world.
+
+Buildings have detailed facade variants and fade when obscuring the controlled resident. Water has animated ripples, foam and wakes; vessels show hulls, rigging and cabins. Settings provides **Automatic / Forest / Harbor / Depths / Off** music, separate music/effects volumes and three original synthesized loops. Audio-device failure permits silent play. Regenerate assets with `python3 scripts/generate-audio.py`; see [audio assets](assets/audio/README.md).
 
 ### Menus and saves
 
-The main menu supports new campaigns, saved-world summaries, settings and a separate application Quit. **Esc** opens the session pause with **Resume**, **Save world**, **Save & return** and **Settings**. Manual saving leaves the game paused. **K** opens **Progress** and pauses simulation: Overview/history, World, Resources, Settlements and Skill tree. There is no duplicate skill list.
+**Esc** opens **Resume, Save world, Save & return, Settings**; saving keeps the session paused. Save & return first saves, then opens the lobby. Failure leaves the live session available for retry. The lobby has separate application Quit, new-game/background selection and useful read-only saved-world summaries with overview, map, resource rows, towns and skill tree; there is no duplicate skill list. Live **K** focuses on the state knowledge tree; State handles city/resident management.
 
-The tree shows icons, dependency links, acquired/locked/readiness markers and exact requirements. Select a base skill or research node and choose **Learn / Research** when ready; town technologies and quest knowledge keep their original acquisition rules. The Resources tab remembers goods acquired even after you spend them. Settlements show only discovered towns, their location, residents/visitors, type, rarity, trust, treaty, walls and specialist knowledge. Select your resident to assign a job, weapon and clothes; actual training and counted-copy requirements still apply.
+Saved-world **F2** expands summary; **F6/F7** rename/copy, **F8/F9** export/import, **F10** opens recovery, **Delete** confirms moving a slot to `saves/.trash/`. Files are validated; recovery restores a new slot without overwriting its source. Exports require a new `.json` destination.
 
-Saved-world summaries are read-only. **F2** expands the selected summary; **F6/F7** rename/copy, **F8/F9** export/import, **F10** opens recovery, and **Delete** confirms deletion into `saves/.trash/`. Import/export dialogs accept filesystem paths (clipboard paste supported); export destinations must be new `.json` files. Recovery lists deleted saves and migration backups and restores a new slot without overwriting your current world or the recovery source.
+Saves are atomic **v9**, with v1–v8 loading/migration backups and no automatic progression reset. Residents, warehouses, queues, plots, tasks, escrow, shipments, arrivals and money accounts persist. Simulation time never includes offline elapsed time. Normal installation/launch never deletes saves.
 
-**Save & return saves the world first.** If saving fails, the session stays open for retry. Saves are atomic; v1–v7 worlds retain progression when written as v8 and keep a migration backup. Active worlds autosave periodically. New saves remember resource discovery and the last 512 significant campaign events; older saves cannot recover their past history.
-
-Settings are available both in the lobby and on pause: fullscreen, window size, frame cap, camera zoom, performance HUD, text size (100/120/140% on top of the existing enlarged font), tree contrast and keyboard bindings. Every gameplay action has a primary key and optional alternate; conflicts offer an explicit swap, and defaults can be restored. Enter, Esc and paging/editing keys remain reserved for menus. Choose **Apply** at the top right to save and apply changes. Ordinary gameplay has no language-model conversation setting.
+Settings works in the lobby and pause: window/fullscreen, frame cap, zoom, HUD, text scale, tree contrast, audio and primary/alternate bindings. Use the visible **Apply** button. New actions preserve older custom bindings and receive free keys if defaults conflict. The bottom action bar uses actual bindings and nearby available actions on a dark background.
 
 ### Controls
 
-These are the defaults; keyboard actions can be rebound in Settings. The bottom action bar uses the current bindings and offers nearby NPC/hall/resource actions on a dark background.
+Defaults can be changed in Settings.
 
 | Key | Action |
 | --- | --- |
-| WASD / Arrow keys | Move |
-| Shift | Sprint |
-| E | Talk to a nearby NPC |
-| P | Town hall: lessons, ruler and diplomacy |
-| F (hold) | Gather a nearby resource |
-| Space / Left mouse button | Attack outside UI panels |
-| C / T | Crafting / Trading |
-| I / O | Weapons / Outfits |
-| K / L | Progress and skill tree / Quest journal |
-| 1 in a conversation | Accept or turn in a quest |
-| F4 in a conversation | Specialist teaching, where available |
-| Q / H / B | Eat / Use potion / Place campfire |
-| V / R | Select vessel / Dive or surface |
-| G / J | Sonar / Repair vessel |
-| M | Map; Plan road for custom complete road/bridge routes |
-| Mouse wheel | Zoom the world/map; scroll summaries or longer notes |
-| Middle mouse drag in M map | Pan |
-| Click / Tab in M map | Create/open a note / Journal |
-| 1 / 2 / 3 in M map | Terrain / Politics / Economy |
-| Ctrl+Enter in note editor | Save note |
-| Shift + wheel / Middle drag | Pan the skill graph |
-| Enter / Shift + Enter | Selected action / Sell in the trade menu |
-| Page Up / Page Down | Page through menus or scroll summaries |
-| Esc | Close a panel, otherwise pause/resume |
-| F3 / F11 | Performance HUD / Toggle fullscreen |
+| WASD / Arrows; Shift | Move selected resident; sprint |
+| U / N | Select resident / State management |
+| Y | Resident cargo and town warehouse |
+| K | Shared state knowledge tree |
+| P / L | Nearby town hall / Town projects |
+| C / T | Production queues / Nearby market |
+| E / F (hold) | Talk / Gather |
+| Space / Left mouse | Attack outside panels |
+| I / O | Selected resident weapons / outfits |
+| F4 in conversation | Specialist teaching |
+| Q / H / B | Eat / Potion / Campfire |
+| V / R / G / J | Vessel / Dive-surface / Sonar / Repair |
+| M; 1/2/3 in map | Map; Terrain/Politics/Economy |
+| Wheel / Middle-drag | Zoom/scroll; map/tree pan |
+| Tab in map; Ctrl+Enter in notes | Journal; save note |
+| Esc | Close panel, otherwise pause/resume |
+| F3 / F11 | Performance HUD / Explicit fullscreen |
 
 ### Current limits
 
-The mechanics below are working prototypes or incomplete systems. Their current behavior and missing parts are listed explicitly; menus, unlocks and visuals do not imply a complete simulation. This inventory describes the current build, rather than promising every possible extension.
+The mechanics below are working prototypes or incomplete systems. Menus, unlocks and visuals do not imply a complete simulation. This inventory describes the current build, rather than promising every possible extension.
 
 #### Strategic warfare
 
 **Working:** war declarations, hostile local guards, wall damage, truces, alliances, union ownership, military research and equipment allocation.
 
 **Incomplete:**
+
 - War is a local-conflict placeholder. There are no campaign armies, marching routes, formations, tactical orders, siege simulation or military logistics.
 - Defeating guards does not conquer a town. Ownership changes through diplomatic union, without occupation or a conquest campaign.
 - Foreign towns do not autonomously wage wars, mobilize troops or provide allied military assistance.
 - There is no naval combat or transport of armies by ship.
 
+
 #### Defenders and resident training
 
-**Working:** counted gear copies, exclusive allocation, school-gated research/training, matching work clothes, resident health, irreversible local deaths and captive/ransom states. Dead residents lose assigned weapon/clothes; captive copies remain reserved and return after ransom.
+**Working:** Counted gear belongs to a resident bag or city warehouse. Directly controlled residents have persistent position, health, cargo, clothing and weapons; local defenders retain death/capture/ransom. Dead residents lose all carried equipment and cargo without drops; captives return with their reserved equipment. Infirmaries and hospitals treat residents on home-town territory.
 
 **Incomplete:**
+
 - Training is an immediate assignment enabled by technology and access to a local/road-connected school, without lessons, experience, training time or individual proficiency.
 - Defenders periodically damage nearby wolves and hostile guards. They lack a complete attack animation, combat decision system and coordinated patrols; this is not an army simulation.
-- Resident casualties/capture currently come from local defender encounters only. There is no campaign casualty simulation, prisoner transport/exchange, player captivity or resident medical treatment system.
-- Ranged defenders are explicitly unavailable; resident ammunition, ranged targeting and squad commands are not implemented.
+- Casualties and captivity come from local encounters only. There is no campaign casualty simulation, prisoner transport/exchange or persistent injury model.
+- Ranged autonomous defenders are unavailable; resident ammunition logistics, ranged targeting and squad commands are not implemented. Directly controlled residents can use ranged weapons.
 
 #### Population and settlement management
 
-**Working:** an owned starting town, additional residents after unions and a per-town roster with individual job/equipment assignment from Progress or NPC interaction.
+**Working:** The first owned town starts with selectable residents rather than a separate hero. All active owned residents can be selected from State > Residents and explored with directly. Wanderers periodically appear in owned towns; acceptance consumes food and a housing place. Housing capacity can be expanded; walk a resident to another owned town and change their home there.
 
 **Incomplete:**
-- Population comes from generated NPCs. There is no recruitment, immigration, birth, dismissal or population growth within an existing town.
-- Housing does not determine capacity. Residents have no food needs, wages, happiness or household economy.
-- The town roster supports individual job/equipment assignment; resident search, comparison tools and bulk assignment are absent.
-- Town layouts do not grow or develop new districts in response to population/economy changes.
+
+- There are no births, dismissal, household simulation, food upkeep, wages or happiness. Wanderers are generated at towns, without physically traveling there.
+- Resident search, comparison tools, bulk selection and group commands are absent. Selection controls one resident at a time; inactive residents retain their last position.
+- Housing is a capacity upgrade, not a freely placed residential building. Town layouts do not grow new residential districts in response to population changes.
+- Wanderer history is bounded to 128 arrivals per campaign; declined/departed arrival recycling is not implemented.
 
 #### Resident work and production
 
-**Working:** active trained residents add bounded stock/treasury batches every 20 seconds; material-producing jobs require their activity building locally or through peaceful road connections. Ambassadors improve trust toward eligible discovered towns. Dead/captive residents do not work.
+**Working:** Production uses per-building FIFO queues, up to eight jobs per workshop, with reserved warehouse inputs and commissioning fees. Separate buildings operate in parallel. Forge construction is capped at max(1, floor(active town population / 6)); existing forges are retained after population loss. Jobs take 1/5/30/60/120 simulation minutes by rarity. Output returns to the source city warehouse; cancellation refunds reserved inputs/fees once. Lost peaceful access suspends the queue. Old passive resident stock/coin generation is disabled in resident-control campaigns.
 
 **Incomplete:**
-- Work checks required local/road-connected facilities but remains a timer contribution, without physical collection, hauling, attendance at workplaces, input materials or production chains.
-- Scholars currently contribute berries and engineers reeds; these stand in for specialized work rather than producing research or engineering projects.
-- Traders create treasury income without moving goods or completing transactions. Ambassadors adjust trust without traveling or negotiating.
-- There are no work queues, individual productivity progression or operating costs. Guild research changes batch size rather than creating a functioning guild economy.
-- Unowned towns have no equivalent full resident production simulation. There is no offline production catch-up.
+
+- Workshop production is a timed management abstraction: no worker attendance, physical material transport, individual productivity, automatic priorities or operating costs.
+- Roles/equipment and research remain prerequisites/prototypes; residents do not receive autonomous job orders, gather on their own or produce specialized scholar/engineer output.
+- Connected workshop output returns directly to its source warehouse when complete, without travel time or a hauling actor.
+- Foreign towns have bounded abstract resource replenishment, not a full resident production simulation. There is no offline production catch-up.
 
 #### Trade, rare resources and town economy
 
-**Working:** resource purchases/sales, conserved transaction stock/treasury, town specialties, trust restrictions, price perks and a town-specific weapon offer.
+**Working:** Each town has its own goods warehouse, product stock and treasury; state skills and treasury are shared. Transfer cargo locally, send timed goods shipments between road-connected owned towns, or order specialist goods for coins with knowledge/trust gates. Foreign deficit orders reserve the buyer's payment and pay only on physical delivery by a resident. State/city/regional funds, production fees and order escrow conserve the campaign money supply. Own-town market sales are replaced by warehouse transfers; own projects do not pay coins. A regional fund buys bounded surpluses and receives research/construction/treatment fees; foreign buyers keep a protected reserve.
 
 **Incomplete:**
-- Prices are fixed rules, not supply-and-demand calculations. NPCs share a town market rather than individual shop inventories and budgets.
-- There are no trade routes, caravans, imports, exports or an autonomous foreign economy.
-- Rare specialty stock is initially allocated, without a complete renewable supply chain. Foreign stocks and treasury can be depleted.
-- The repeatable town order has fixed requirements/rewards, without a changing contract market.
-- Income and worker contributions have no supporting tax, wage or maintenance simulation.
-- General trading covers resource goods, not a full market for crafted weapons and clothing.
+
+- Prices are fixed rules, not supply-and-demand calculations. NPCs share town markets rather than individual inventories and budgets.
+- Shipments are scheduled abstractions, without caravans, moving haulers, interception or transport losses. Specialist delivery does not require a built road.
+- Rare specialist orders create commissioned goods without simulating their production inputs. Foreign basic-stock replenishment and regional surplus purchases are abstract; there is no autonomous foreign economy.
+- Closed money accounting prevents minting, not hoarding. There is no taxation, wage, maintenance or automatic redistribution policy guaranteeing liquidity for every town or preventing wealth concentration.
+- General trading covers resource goods, not a complete market for crafted weapons and clothing. Inter-town shipments carry goods, not equipment copies.
 
 #### Diplomacy and relations between settlements
 
-**Working:** seeded inter-town relations, visitor attitudes, player trust, gifts, truces/alliances/unions, quest trust rewards, ambassadors, surrender retaining local rule, recurring tribute and buying independence/previous allegiance. Unpaid tribute resumes local hostility.
+**Working:** seeded inter-town relations, visitor attitudes, player trust, gifts, truces/alliances/unions, project trust rewards, surrender retaining local rule, recurring tribute and buying independence/previous allegiance. Unpaid tribute resumes local hostility.
 
 **Incomplete:**
+
 - Foreign relations are largely initialized values; rulers do not negotiate or change alliances through an autonomous diplomacy simulation.
 - Treaties and surrender use immediate fixed terms, without counteroffers, treaty expiry or a negotiation process. Tribute covers local player-controlled towns; there is no autonomous foreign subjugation or state-level political integration.
 - Alliances do not establish shared defense, coordinated trade or joint policy. Unions transfer ownership without political integration.
 - Visitors are generated residents with an origin town, not travelers arriving along routes. Hostility changes local positioning rather than simulating refusal or diplomatic incidents.
 
+
 #### City construction, walls and interiors
 
-**Working:** houses/halls, a hall interaction scene, foreign rulers, an empty owned ruler seat, collidable walls, expanding circular town territory and buildable workbench/forge/tailor/school/shipyard/alchemy facilities. Complete manually plotted roads share facility access through peaceful connected towns; water sections are more expensive walkable bridges.
+**Working:** Town halls contain projects, orders and management. Circular territory expansion, collidable walls and eight activity-building types are available: workbench, forge, tailor, school, shipyard, alchemy, infirmary and hospital. Housing is a paid capacity upgrade. Complete player-plotted roads share facility access through peaceful transit towns; water sections are more expensive bridges.
 
 **Incomplete:**
+
 - Residential houses are static scenery without walkable interiors or individual household functions. Activity buildings provide access gates; hall interiors are interface scenes, not navigable levels.
 - Walls fill a predefined ring with a fixed opening; there is no free placement, layout editor, movable/openable gate or dismantling interface.
-- There is no town founding, player construction of residential houses, free building placement or building upgrade system. Territory expansion uses a fixed circular radius and automatically chosen safe activity-building sites.
+- There is no town founding, free residential/building placement or general building upgrade system. Territory expansion uses a fixed circular radius and automatically chosen safe activity-building sites; the hospital is a separate medical building, not a general upgrade framework.
 - Wall damage supports local encounters, without a complete siege/destruction and rebuilding simulation.
 
 #### NPC behavior and services
 
-**Working:** weighted NPC types, authored introductions/lore, conversations keeping the speaker nearby, quest/service interaction and role-based options.
+**Working:** Weighted NPC types have authored introductions/lore and deterministic trade/specialist services. Conversation keeps the speaker nearby. NPCs no longer issue quests in resident-control campaigns; town boards own projects/orders. Owned residents keep their controlled positions instead of wandering away; selected residents are not drawn twice.
 
 **Incomplete:**
-- Movement wanders around a home point. There are no daily schedules, destination-based routines, inter-town travel or work animations tied to production.
-- Movement updates are proximity-limited; distant residents do not receive a full behavior simulation.
+
+- Foreign movement wanders around a home point. There are no daily schedules, destination-based routines, inter-town travel or work animations tied to production.
+- Movement updates are proximity-limited; distant foreign NPCs do not receive a full behavior simulation.
 - Individual relationship memory, changing personal stories and reactions to ongoing world events are absent.
 - Residents generally expose town services rather than fully separate personal shops, teachers and service economies.
 
 #### Quests and quest tracking
 
-**Working:** selective quest givers, 11 authored templates, persistent acceptance/completion, progress baselines, delivery consumption, one-time rewards, recipe/knowledge unlocks, journal and tracking.
+**Working:** Town boards create authored knowledge projects and stock-deficit requests. Home-town surveys reward Civic charter after two new discoveries; supply projects unlock recipes, specialist knowledge, medical care, housing or care/trust. Projects have no coin rewards. State > Orders lists foreign trade requests; town halls show the same authoritative records. Accepted orders reserve buyer money, require delivery and can be abandoned with a refund. Unaccepted deficit requests expire; migrated accepted legacy objectives retain their progress without coin rewards.
 
 **Incomplete:**
-- Each NPC offers at most one nonrepeatable quest. There are no chains, refreshes, branching outcomes or generated quests responding to actual town needs.
-- Objectives use a small set of counters/deliveries. Crafting objectives can count generic crafts rather than a particular commissioned item.
-- There are no multi-stage objectives, failure/expiry rules or abandonment mechanism.
-- Tracking provides progress and giver information/distance, without a complete objective waypoint or route system.
-- Rewards/unlocks do not form a fully balanced long-term campaign; multiple NPCs can offer the same template.
+
+- The template set is small: supplies, knowledge and a town-discovery survey. Branching chains, multi-stage story projects, commissioned-item objectives and a complete balanced campaign are absent.
+- Need calculations use local stock plus pending orders/shipments, without production forecasts, citizen consumption or sophisticated request scheduling. Different towns can legitimately request the same goods.
+- Accepted tasks have no failure/deadline consequences; abandonment is available, while automatic expiry currently affects only unaccepted deficit requests.
+- The board does not provide a complete objective waypoint/route system or advanced filtering. Task history is capped at 2048 records; archival/recycling is not implemented.
 
 #### Skills, research and technology exchange
 
-**Working:** milestone-gated base skills, seven additional research nodes, multi-criterion checks and town teaching for specialized material/technology access. The Progress tree and town hall share authoritative lesson requirements, readiness, completion and numeric practice progress. Base lessons and resident research can be acquired in the tree; specialist technologies still require a teacher/hall visit. Learned lessons cannot be acquired twice.
+**Working:** Skills, technologies, recipes and explored maps belong to the state and survive resident switching/death. K opens the existing dependency tree without a duplicate skill list. Eleven base skills and seven resident research nodes use authoritative activity/population/equipment/town/trust checks. Specialist knowledge is available through town projects or paid teaching. Medical care projects unlock hospital research with an accessible school and 80 state coins.
 
 **Incomplete:**
+
 - Skills are unlocked flags, without levels, experience or specialization progression. Several milestones are generic activity counters.
 - Research/lessons complete immediately; scholars, workshops and teachers do not supply research time or production.
 - Town technologies are defined by type, without evolving discoveries, research competition or dynamic knowledge exchange.
-- The summary now provides a dependency graph for base skills, resident research, activity counters and quest/town technologies. Automatic campaign guidance and a complete crafting-recipe dependency graph are still absent.
-- Unlock pacing/economic balance have functional checks, not comprehensive long-play validation.
+- The dependency tree covers base skills, resident research, activity counters and town/project technologies. Automatic campaign guidance and a complete crafting-recipe dependency graph are absent.
+- Unlock pacing and the new production/economy/population loop have functional checks, not comprehensive long-play balance validation.
 
 #### Crafting, equipment and character progression
 
-**Working:** costs/unlock checks, expanded recipes, counted weapons/clothes, outfit perks, equipment swaps anywhere and five backgrounds. Crafting requires town territory plus the appropriate local/peaceful road-connected activity building. Every successful craft starts a global 1/5/30/60/120-game-minute cooldown based on rarity; it persists across reload.
+**Working:** Craft requests reserve source-city materials and create delayed workshop jobs; completed products enter the warehouse. Counted weapon/clothing copies can be carried, equipped or stored but never allocated twice. Local warehouse transfers include gear, tools, consumables and vessel ownership. Equipment swaps work anywhere using the selected resident's carried copies. Five starting backgrounds apply to the first resident; later residents default to Traveler.
 
 **Incomplete:**
-- Craft outputs are immediate, followed by a persistent rarity-scaled global cooldown. There are no timed production queues, reserved-input jobs or simultaneous per-building workshop queues.
-- Tools/vessels are mostly ownership flags rather than separate world/inventory instances.
+
+- Tools/vessels are mostly per-resident ownership flags, not separate world instances. Duplicate copies can be stored in warehouses but one resident carries at most one of each flagged tool/vessel.
 - Clothing is one full outfit, without independent garment/accessory slots. Equipment copies have no individual quality or instance properties.
-- There are no storage chests, warehouse transfers or complete equipment management for multiple residents.
-- Backgrounds provide fixed modifiers, without deeper individual progression or background-specific quest arcs.
+- Warehouse transfers lack filters, bulk equipment loadouts and a full logistics/automation interface; equipment cannot yet be shipped between towns through the shipment menu.
+- Backgrounds provide fixed modifiers, without deeper individual progression or background-specific story arcs.
 
 #### Player combat and enemy behavior
 
 **Working:** timed directional melee hits, visible swings, bow projectiles, attack windups, knockback, player health/protection, persistent defeated IDs and loot.
 
 **Incomplete:**
+
 - Melee damage uses range/cone checks at a fixed attack phase, not collision with the animated blade throughout its trajectory.
 - Enemies chase/attack/return locally, without wolf pack tactics or broader encounter coordination.
 - Weapon variety mostly changes numbers and a few attack categories, without a complete distinct move set per weapon.
 - There is no blocking, parrying, combo or stamina system, or complete injury/status-effect model.
 - Combat aboard vessels and underwater is unavailable.
 
+
 #### Survival, healing and respawning
 
-**Working:** food/potion healing, recovery near peaceful towns/campfires and player death relocation with a coin penalty and destruction of the equipped weapon. Weapons do not drop from dead units.
+**Working:** Food/potions/campfires heal the selected resident. Infirmaries provide paid berry-based treatment; researched hospitals provide stronger, cheaper treatment. A defeated controlled resident dies or may be captured by hostile guards; control returns to the resident list rather than respawning a hero. Death destroys carried gear/cargo, captivity preserves it, and ransom returns the resident home. State money and knowledge survive.
 
 **Incomplete:**
+
 - Food is a healing/crafting resource; hunger, thirst, sleep and temperature are not simulated.
 - Campfires provide local healing rather than a complete camping system.
-- Player death resets health, destroys the equipped weapon and removes coins, without player captivity, a recoverable corpse, recovery expedition or persistent injury state.
+- Medical treatment is immediate, without treatment queues, staffing, disease or persistent injuries. There is no recoverable corpse/recovery expedition or complete campaign defeat/recovery flow when no controllable residents remain.
 
 #### Boats, ships and submarines
 
-**Working:** craft/unlock requirements, vessel selection, distinct rendering/speeds, seated pilot, water travel, hull repair and submarine access.
+**Working:** Craft/unlock requirements, nine vessel choices, distinct rendering/speeds, seated pilots, water travel, repair and diving remain available to controlled residents. Vessel ownership, selected mode, oxygen and hull are stored per resident and restored on selection.
 
 **Incomplete:**
+
 - Vessels are travel modes activated on water, not independent persistent craft with boarding, docking or storage at a world location.
-- There are no crews, passengers, cargo holds, fuel costs or shipyard construction.
+- There are no crews, passengers, cargo holds, fuel costs or a physical shipyard assembly process.
 - Movement uses speed multipliers, without inertia, buoyancy, wind, currents or steering physics.
-- Hull state is shared rather than tracked per vessel instance.
+- Hull is tracked per resident, shared across their vessel modes, rather than per independent vessel instance.
 
 #### Underwater exploration and camera
 
 **Working:** underwater map layer, dive/surface switching, limited visibility, oxygen, reef hazards, repair, sonar and gated resources.
 
 **Incomplete:**
+
 - Diving switches between two flat layers; there is no continuous depth, elevation, ballast, pressure or three-dimensional navigation/camera.
 - The camera remains an isometric world view, rather than a separate depth-aware exploration system.
 - Sonar reveals a disk of water cells, without obstacle-aware sensing, target identification or an energy/noise model.
 - There are no walkable wreck interiors or a complete underwater ecosystem/encounter system.
 - Sonar cooldown is runtime state and does not survive reload.
 
+
 #### World generation, biomes and resources
 
-**Working:** streamed deterministic chunks, forest/shore/shallow/deep water, surface/underwater resources, weighted settlement types and NPC rarity.
+**Working:** Streamed deterministic chunks, forest/shore/shallow/deep water, weighted town/NPC rarity and surface/underwater resources. Owned towns can plant renewable wood, berries and reeds: trees mature in 10 simulation minutes, berry/reed plots in 3. Manual harvest delivers 20 wood or 12 berries/reeds to the town warehouse; replanting consumes wood/berries. Territory expansion increases plot capacity.
 
 **Incomplete:**
+
 - Lakes/coastline use predefined large-scale shapes with seeded variation, not general continent/biome generation.
 - Settlements occupy a finite seeded region around fixed landmarks. Distant exploration generates terrain, not an endlessly expanding settlement network.
 - Player roads/bridges are manually plotted complete routes, without maintenance, demolition, traffic capacity or territorial right-of-way negotiations. Local town paths remain generated scenery; inter-town roads are not generated automatically.
-- Harvested resources remain depleted; regrowth and renewable deposit management are absent.
+- Wild harvested sites stay depleted. Renewable plots are timer records in management, without individually placed/rendered trees/fields, forestry workers or renewable mineral extraction.
 - Animals wander/flee locally, without breeding, food chains or persistent population simulation.
 - Terrain is flat, without caves, elevation or physical geology. Weather, seasons and a day/night simulation are absent.
 
@@ -283,6 +292,7 @@ The mechanics below are working prototypes or incomplete systems. Their current 
 **Working:** circle bodies, four-point isometric building foundations with box broad-phase checks, thick wall segments/capsules, polygonal rock footprints and tile-boundary geometry, with substepped sliding and local player/NPC/enemy contacts. Nearby NPCs also separate without adding destinations or orders. The world intentionally retains 2D physics.
 
 **Incomplete:**
+
 - Body contacts use local disc separation rather than a general rigid-body simulation. Vessels use radius footprints rather than a separate collision hull for each persistent craft.
 
 
@@ -291,6 +301,7 @@ The mechanics below are working prototypes or incomplete systems. Their current 
 **Working:** exploration independent of window/zoom, fixed world-space sight ranges, forest-limited sight and building/wall occlusion. Current visibility and explored memory are separate; older exploration stays intact. Maps adapt raster detail to scale, preserve partially explored lakes/towns, provide terrain/politics/economy views, retain up to 4096 known deposits after chunks unload, and remember up to 128 titled surface/seafloor notes. Clicking a marker opens its journal entry; notes can be edited/deleted and viewed through Journal/Tab.
 
 **Incomplete:**
+
 - Cartography uses scale-dependent cached raster detail and exploration cells, not an unlimited-resolution geographic model.
 - Political/economic layers show discovered towns and remembered deposits; complete regional borders, production forecasts and strategic orders await the deferred resident-command/navigation systems.
 - Road planning is a surface-map mouse interface with at most 64 points and 128 roads. A route must be fully explored and paid for in one operation; alternate keyboard/controller plotting and detailed road editing are absent.
@@ -301,6 +312,7 @@ The mechanics below are working prototypes or incomplete systems. Their current 
 **Working:** detailed roof/wall/facade variants, material grain, clothing details, grass/flowers/bark, occlusion fading, animated harvesting/resident tools and combat impact/defeat feedback. Sword impact now occurs when the animated swing crosses its facing direction; damage is still an authoritative one-hit phase. Water includes ripples/foam/wakes; nine vessel definitions have distinct hull, oar, sail/mast and deck details. Original Forest/Harbor/Depths music can follow terrain or be selected/off, with separate music/effects volume and synthesized footsteps, gathering, combat, UI and environment sounds.
 
 **Incomplete:**
+
 - Buildings have twelve facade/detail variants and fade when they occlude the player; interiors, more architectural styles and complete profession/interaction animation sets remain incomplete.
 - Water has animated ripples, foam and vessel wakes; physical waves, tides and changing shores are not simulated.
 - Audio provides three synthesized music loops and event/ambient effects with independent volume controls and distance/pan for nearby hits, wolves and fires; a larger soundtrack, a full ambient mixing system and smooth soundtrack crossfades are not implemented.
@@ -308,48 +320,53 @@ The mechanics below are working prototypes or incomplete systems. Their current 
 
 #### Menus, controls and save management
 
-**Working:** separate Esc session pause (Resume, Save world, Save & return, Settings) and K Progress (Overview/history, World, Resources, Settlements, Skill tree). Progress pauses simulation, shows acquired-resource memory and discovered-town details, and lets you train/research or assign owned residents without bypassing progression/equipment checks. Skills appear only in the tree. Lobby summaries remain read-only and support an expanded view.
-
-Saved worlds can be renamed, copied, imported/exported as JSON, deleted into trash and recovered from trash/migration backups as new slots. Failed saves keep the live session open; file workflows validate sources and avoid overwriting existing destinations. Keyboard bindings have primary/alternate keys, explicit conflict swaps and reset. Shared settings provide text sizes and tree contrast; a prominent top-right Apply button saves and applies drafts, without an F5 shortcut. Readable contextual footer keycaps follow actual bindings; the obsolete normal-dialogue switch is removed.
+**Working:** Esc handles Resume/Save/Save & return/Settings; K shows only state knowledge in live resident-control play. N opens State with Residents, Stocks, Production, Projects, Orders, Towns and Growth; U selects residents, Y opens cargo/warehouses, C production and L projects. P opens a nearby town hall using the same boards. Management pauses simulation. Persistent HUD shows selected-resident health and relevant underwater gauges, with stocks accessible by button. Lobby summaries remain read-only, retain overview/world/resources/towns/tree and never duplicate a skill list. Existing atomic file workflows, remapping, settings Apply and contextual footer remain.
 
 **Incomplete:**
-- Gamepad support covers basic movement/actions and directional menu navigation, without complete controller mappings, remapping or text entry. Accessibility has text size and tree contrast, without a complete keyboard-only interface, screen-reader or color customization.
-- Campaign history retains the most recent 512 creation, discovery, quest, unlock and treaty events. It does not reconstruct events from older saves or provide a complete searchable campaign timeline.
+
+- Gamepad support covers basic movement/actions and legacy directional menu navigation, without complete controller mappings/remapping/text entry. State management is mouse-oriented; a complete keyboard-only interface, screen-reader and color customization are absent.
+- Campaign history retains the most recent 512 significant events. It does not reconstruct older events or provide a complete searchable campaign timeline.
 
 #### Persistence and content identity
 
-**Working:** atomic saves, v1-v7 migration to v8 with backups, persistent quests/gear/roles/unlocks/relations/maps, roads/buildings/territory, resident losses/captives, tribute, crafting clock and harvested/defeated IDs.
+**Working:** Atomic v9 saves contain resident positions/cargo/gear/health/vessels, city product stocks/housing, queues/plots/shipments, boards/escrow, arrivals and the money ledger alongside shared exploration/progression and existing roads/treaties. Versions 1-8 load with migration backups; legacy loose goods move to the home warehouse and legacy equipment to the first resident without resetting knowledge. Inactive controlled residents keep positions across reload; dead residents remain tombstones.
 
 **Incomplete:**
-- Living enemy health, position and attack state are transient; chunk regeneration/reload can reset a surviving enemy. NPC/animal movement and active projectiles are also transient.
-- A persistent simulation clock drives crafting cooldowns and tribute, but there is no calendar, offline progression or simulation catch-up.
-- Quest giver/resident identities rely on generated NPC indices. Version migrations do not provide general remapping for future settlement/NPC generation or content identity changes.
+
+- Living enemy health, position and attack state are transient; chunk regeneration/reload can reset a surviving enemy. Foreign NPC/animal movement and active projectiles are also transient.
+- The persisted simulation clock drives production, growing, deliveries and tribute, but there is no calendar, offline progression or simulation catch-up.
+- Generated resident identities still rely on stable NPC indices. Migrations do not provide general remapping for future settlement/NPC generation or content identity changes.
 
 #### Local model integration
 
 **Working:** an asynchronous local model client for explicit LLM load benchmarks; normal introductions, quests and services are deterministic. `scripts/install.sh --with-model` builds the CPU server and downloads Qwen; `scripts/run.sh` starts the server and game together, checks readiness, reuses a ready `forest-npc` server and cleans up processes it owns. `--no-model` launches ordinary gameplay directly.
 
-**Incomplete:**
+**Incomplete integration boundary:**
 - The model has no bounded gameplay role such as context-grounded quest narration or constrained negotiation. A successful benchmark does not establish such a mechanic.
 - Model measurements do not validate persistent NPC memory or model-driven world behavior; neither exists in normal gameplay.
+
 
 #### Release and distribution
 
 **Working:** Linux source setup downloads dependencies, builds the game and optional model server, and runs automated tests. The repository includes installation and launch instructions.
 
 **Incomplete:**
+
 - Windows/macOS packaging, platform validation and a complete distribution workflow are not established by the Linux build.
 - Linux source setup is available and tested, but there is no standalone relocatable package: assets/content/default writable paths remain bound to the checkout at build time. System packages must be installed separately.
 - Downloads use HTTPS, curl success and a GGUF header check for the model, without pinned checksums or complete model validation. The model/font URLs track upstream main, and existing dependency files/source checkouts are reused rather than reverified against a lock manifest.
 
+
 #### Navigation and autonomous movement (deferred)
 
-**Working:** the existing bounded debug/benchmark auto-route remains available. Destination-order systems and long-distance agent simulation are deliberately deferred.
+**Working:** the existing bounded debug/benchmark auto-route remains available. Long-distance agent simulation is deferred behind resident command systems.
 
 **Incomplete / prerequisites:**
-- Full destination orders and route planning are deferred until command systems exist for owned and foreign residents/professions, caravans and armies; current job/equipment assignments are timer-based prototypes, not this prerequisite.
+
+- Full destination orders and route planning are deferred until command systems exist for owned and foreign residents/professions, caravans and armies; current direct selection and job/equipment assignments do not satisfy this prerequisite.
 - Navigation searches a bounded area of loaded terrain and approaches distant goals in short segments, rather than planning full world routes for caravans/armies.
 - There is no hierarchical routing or complete handling of distant blocked/unloaded destinations.
+
 
 Weapons intentionally have no durability, equipment swaps work anywhere, and ordinary NPC interactions use authored English content. Those are implemented design choices. Multiplayer and a space/planet simulation are outside the current scope.
 
@@ -495,11 +512,12 @@ cmake --build build -j 4
 ctest --test-dir build --output-on-failure
 ```
 
-Tests cover world generation, gameplay, campaigns, crafting cooldowns, facilities/roads/bridges, resident losses/ransom, tribute, quests/equipment, save compatibility, controls, tree unlocks, resource memory, save-file workflows, summaries, dialogue transport and launcher lifecycle. Run checks once after related changes are complete. A short real-window journal/save check is available on Linux/X11 or XWayland; screenshot capture requires Wayland and grim. Longer workflow checks are optional when changing those workflows or preparing a release:
+Tests cover world generation, gameplay, campaigns, workshop queues, closed money accounting, resident selection/warehouses/growth, facilities/roads/bridges, resident losses/ransom, tribute, quests/equipment, save compatibility, controls, tree unlocks, resource memory, save-file workflows, summaries, dialogue transport and launcher lifecycle. Run checks once after related changes are complete. A short real-window journal/save check is available on Linux/X11 or XWayland; screenshot capture requires Wayland and grim. Longer workflow checks are optional when changing those workflows or preparing a release:
 
 ```sh
 python3 scripts/world-smoke.py  # Quick journal/save check
 python3 scripts/settings-smoke.py  # Quick Apply-button check
+python3 scripts/nation-smoke.py  # Fresh resident/warehouse/production/board check
 # Optional extended workflows:
 python3 scripts/world-smoke.py --extended
 python3 scripts/menu-smoke.py

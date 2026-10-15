@@ -20,7 +20,7 @@ const std::vector<ActionDefinition>& InputActions() {
       {InputAction::kWeapons, "weapons", "Weapons", {73, 0}},
       {InputAction::kOutfits, "outfits", "Outfits", {79, 0}},
       {InputAction::kProgress, "progress", "Progress", {75, 0}},
-      {InputAction::kQuests, "quests", "Quest journal", {76, 0}},
+      {InputAction::kQuests, "quests", "Town projects", {76, 0}},
       {InputAction::kEat, "eat", "Eat", {81, 0}},
       {InputAction::kHeal, "heal", "Use potion", {72, 0}},
       {InputAction::kCampfire, "campfire", "Place campfire", {66, 0}},
@@ -32,10 +32,7 @@ const std::vector<ActionDefinition>& InputActions() {
       {InputAction::kDebug, "debug", "Performance HUD", {292, 0}},
       {InputAction::kFullscreen, "fullscreen", "Fullscreen", {300, 0}},
       {InputAction::kAutoroute, "autoroute", "Debug auto-route", {258, 0}},
-      {InputAction::kQuestAction,
-       "quest_action",
-       "Accept / finish quest",
-       {49, 0}},
+      {InputAction::kQuestAction, "quest_action", "Town projects", {49, 0}},
       {InputAction::kTeacher, "teacher", "Specialist lesson", {293, 0}},
       {InputAction::kResidentJob, "resident_job", "Resident job", {51, 0}},
       {InputAction::kResidentWeapon,
@@ -49,7 +46,13 @@ const std::vector<ActionDefinition>& InputActions() {
       {InputAction::kResidentAssign,
        "resident_assign",
        "Assign resident",
-       {54, 0}}};
+       {54, 0}},
+      {InputAction::kNation, "nation", "State management", {78, 0}},
+      {InputAction::kResidents, "residents", "Select resident", {85, 0}},
+      {InputAction::kInventory,
+       "inventory",
+       "Resident cargo / warehouse",
+       {89, 0}}};
   return kActions;
 }
 Bindings DefaultBindings() {

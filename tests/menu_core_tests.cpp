@@ -52,6 +52,21 @@ int main() {
     }
     Check(!settings_json.contains("dialogues"),
           "Deprecated dialogue switch is removed");
+    auto old_bindings = settings_json;
+    for (const auto* id : {"nation", "residents", "inventory"}) {
+      old_bindings["bindings"].erase(id);
+    }
+    old_bindings["bindings"]["talk"] = {78, 0};
+    {
+      std::ofstream out(root / "old-bindings.json");
+      out << old_bindings;
+    }
+    auto upgraded = frontier::LoadSettings(root / "old-bindings.json");
+    Check(upgraded.high_contrast && upgraded.text_scale == 1.2f &&
+              upgraded.bindings[static_cast<int>(frontier::InputAction::kTalk)]
+                      .primary == 78 &&
+              frontier::ValidBindings(upgraded.bindings),
+          "New actions keep pre-existing custom bindings without collisions");
     // Older settings keep their useful options and discard the retired switch.
     settings_json.erase("bindings");
     settings_json.erase("text_scale");
@@ -140,6 +155,14 @@ int main() {
     {
       std::ifstream in(original);
       in >> legacy;
+    }
+    // A real v5 avatar was not simultaneously an assigned resident.
+    int active_npc = legacy["nation"].value("controlled", -1);
+    for (auto& c : legacy["citizens"]) {
+      if (c["npc"] == active_npc) {
+        c["weapon"] = "";
+        c["outfit"] = "";
+      }
     }
     legacy["version"] = 5;
     legacy.erase("known_goods");

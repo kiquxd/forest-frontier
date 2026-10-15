@@ -8,6 +8,7 @@
 #include <exception>
 #include <filesystem>
 #include <fstream>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -15,6 +16,7 @@
 
 #include "adventure.hpp"
 #include "json.hpp"
+#include "nation.hpp"
 #include "progress.hpp"
 
 namespace frontier {
@@ -65,6 +67,41 @@ Settings LoadSettings(const std::filesystem::path& path) {
                                                                 row.at(1)};
         }
       }
+    }
+    // Newly added actions must not erase existing custom bindings on upgrade.
+    // Reserve all saved keys before choosing defaults for missing actions.
+    std::set<int> used;
+    for (const auto& action : InputActions()) {
+      if (json.contains("bindings") && json["bindings"].contains(action.id)) {
+        auto binding = settings.bindings[static_cast<int>(action.action)];
+        used.insert(binding.primary);
+        if (binding.alternative) {
+          used.insert(binding.alternative);
+        }
+      }
+    }
+    for (const auto& action : InputActions()) {
+      if (json.contains("bindings") && json["bindings"].contains(action.id)) {
+        continue;
+      }
+      auto binding = action.defaults;
+      if (used.contains(binding.primary)) {
+        binding.primary = 0;
+        for (int key = 32; key <= 96; ++key) {
+          if (ValidBindingKey(key) && !used.contains(key)) {
+            binding.primary = key;
+            break;
+          }
+        }
+      }
+      used.insert(binding.primary);
+      if (used.contains(binding.alternative)) {
+        binding.alternative = 0;
+      }
+      if (binding.alternative) {
+        used.insert(binding.alternative);
+      }
+      settings.bindings[static_cast<int>(action.action)] = binding;
     }
     settings.last_save = json.value("last_save", std::string{});
     Validate(settings);
@@ -180,6 +217,7 @@ std::filesystem::path CreateSaveSlot(const std::filesystem::path& directory,
   save.character_id = Character(background).id;
   save.coins += Character(background).coins;
   InitializeAdventure(save);
+  InitializeNation(save);
   RecordHistory(save, "created",
                 "Founded " + Settlements()[save.home_city].name,
                 save.home_city);

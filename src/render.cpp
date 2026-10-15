@@ -17,6 +17,7 @@
 #include "adventure.hpp"
 #include "input.hpp"
 #include "json.hpp"
+#include "nation.hpp"
 #include "settlement_system.hpp"
 #include "vessels.hpp"
 
@@ -753,7 +754,9 @@ size_t Renderer::DrawWorld(const World& world, const Save& save,
     }
   }
   for (auto& n : world.npcs) {
-    if (save.submerged || n.ruler || !ResidentActive(save, n.id)) {
+    if (save.submerged || n.ruler ||
+        (save.nation && n.id == save.controlled_npc) ||
+        !ResidentActive(save, n.id)) {
       continue;
     }
     auto position = Project(n.previous + (n.pos - n.previous) * alpha);
@@ -807,7 +810,7 @@ size_t Renderer::DrawWorld(const World& world, const Save& save,
       }
     }
   }
-  if (!afloat) {
+  if (!afloat && (!save.nation || HasControlled(save))) {
     items_.push_back({player, player_image,
                       game.invulnerable > 0 && static_cast<int>(time * 12) % 2
                           ? Color{255, 158, 145, 210}
@@ -865,7 +868,7 @@ size_t Renderer::DrawWorld(const World& world, const Save& save,
       }
     }
   }
-  if (afloat) {
+  if (afloat && (!save.nation || HasControlled(save))) {
     Vehicle(save, game, player, time);
   }
   if (!save.submerged) {
@@ -1330,51 +1333,73 @@ void Renderer::DrawUi(const World& world, Save& save, Ui& ui,
         h = static_cast<float>(GetScreenHeight());
   DrawRectangleRounded({20, 20, 390, 52}, .12f, 6, kPanel);
   Text("FOREST FRONTIER", 38, 29, 28, kGold);
-  DrawRectangleRounded({20, 84, 390, 188}, .1f, 6, kPanel);
-  Text("Health " + std::to_string(save.health) + " / 100", 38, 96, 16, kInk);
-  DrawRectangle(38, 122, 224, 6, {45, 59, 45, 255});
-  DrawRectangle(
-      38, 122, 224 * save.health / 100, 6,
-      save.health < 30 ? Color{220, 104, 83, 255} : Color{137, 185, 121, 255});
-  Text("Coins " + std::to_string(save.coins), 38, 138, 16, kGold);
-  Wrapped("Wood " + std::to_string(ui.wood) + "   Stone " +
-              std::to_string(ui.stone) + "   Berries " +
-              std::to_string(ui.berries),
-          38, 163, 354, 14, kInk, 1);
-  Wrapped("Reeds " + std::to_string(save.inventory.reeds) + "   Fish " +
-              std::to_string(save.inventory.fish) + "   Leather " +
-              std::to_string(save.inventory.leather),
-          38, 185, 354, 14, kInk, 1);
-  Text("Potions " + std::to_string(save.inventory.potions) + "   Campfires " +
-           std::to_string(save.inventory.campfires),
-       38, 207, 14, kMuted);
-  Text(save.submerged ? "Underwater world"
-                      : TerrainName(TerrainAt(save.player, save.seed)),
-       38, 242, 15, kGold);
-  DrawRectangleRounded({20, 284, 390, 86}, .1f, 6, kPanel);
-  std::string equipment = CurrentWeapon(save).name;
-  if (save.adventure) {
-    equipment += " · " + PlayerOutfit(save).name;
-  } else if (save.inventory.armor) {
-    equipment += " · Armor";
+  if (save.nation) {
+    DrawRectangleRounded({20, 84, 390, save.submerged ? 166.f : 130.f}, .1f, 6,
+                         kPanel);
+    Text(HasControlled(save) ? ResidentName(save, save.controlled_npc)
+                             : "No resident selected",
+         38, 96, 19, kGold);
+    Text("Health " + std::to_string(HasControlled(save) ? save.health : 0) +
+             " / 100",
+         38, 128, 17, kInk);
+    DrawRectangle(38, 157, HasControlled(save) ? 224 * save.health / 100 : 0, 6,
+                  {137, 185, 121, 255});
+    Text(ActionKey(InputAction::kResidents) + ": residents · " +
+             ActionKey(InputAction::kInventory) + ": cargo · " +
+             ActionKey(InputAction::kNation) + ": state",
+         38, 176, 16, kMuted);
+    if (save.submerged) {
+      Text("Air " + std::to_string(static_cast<int>(save.oxygen)) + " · Hull " +
+               std::to_string(save.hull),
+           38, 211, 17, kGold);
+    }
+  } else {
+    DrawRectangleRounded({20, 84, 390, 188}, .1f, 6, kPanel);
+    Text("Health " + std::to_string(save.health) + " / 100", 38, 96, 16, kInk);
+    DrawRectangle(38, 122, 224, 6, {45, 59, 45, 255});
+    DrawRectangle(38, 122, 224 * save.health / 100, 6,
+                  save.health < 30 ? Color{220, 104, 83, 255}
+                                   : Color{137, 185, 121, 255});
+    Text("Coins " + std::to_string(save.coins), 38, 138, 16, kGold);
+    Wrapped("Wood " + std::to_string(ui.wood) + "   Stone " +
+                std::to_string(ui.stone) + "   Berries " +
+                std::to_string(ui.berries),
+            38, 163, 354, 14, kInk, 1);
+    Wrapped("Reeds " + std::to_string(save.inventory.reeds) + "   Fish " +
+                std::to_string(save.inventory.fish) + "   Leather " +
+                std::to_string(save.inventory.leather),
+            38, 185, 354, 14, kInk, 1);
+    Text("Potions " + std::to_string(save.inventory.potions) + "   Campfires " +
+             std::to_string(save.inventory.campfires),
+         38, 207, 14, kMuted);
+    Text(save.submerged ? "Underwater world"
+                        : TerrainName(TerrainAt(save.player, save.seed)),
+         38, 242, 15, kGold);
+    DrawRectangleRounded({20, 284, 390, 86}, .1f, 6, kPanel);
+    std::string equipment = CurrentWeapon(save).name;
+    if (save.adventure) {
+      equipment += " · " + PlayerOutfit(save).name;
+    } else if (save.inventory.armor) {
+      equipment += " · Armor";
+    }
+    if (Watercraft(save)) {
+      equipment += " · " + Vessel(ActiveVehicle(save)).name;
+    }
+    Wrapped(equipment, 38, 291, 354, 16, kInk, 2);
+    DrawRectangleRounded({20, 372, 390, 102}, .1f, 6, kPanel);
+    Text("Iron " + std::to_string(GoodCount(save.inventory, 6)) + " · Copper " +
+             std::to_string(GoodCount(save.inventory, 7)) + " · Steel " +
+             std::to_string(GoodCount(save.inventory, 10)),
+         38, 384, 16, kInk);
+    Text("Crystals " + std::to_string(GoodCount(save.inventory, 8)) +
+             " · Pearls " + std::to_string(GoodCount(save.inventory, 9)),
+         38, 410, 16, kInk);
+    Text(save.submerged
+             ? "Air " + std::to_string(static_cast<int>(save.oxygen)) +
+                   " · Hull " + std::to_string(save.hull)
+             : "Arrows " + std::to_string(save.inventory.ammo),
+         38, 443, 16, kGold);
   }
-  if (Watercraft(save)) {
-    equipment += " · " + Vessel(ActiveVehicle(save)).name;
-  }
-  Wrapped(equipment, 38, 291, 354, 16, kInk, 2);
-  DrawRectangleRounded({20, 372, 390, 102}, .1f, 6, kPanel);
-  Text("Iron " + std::to_string(GoodCount(save.inventory, 6)) + " · Copper " +
-           std::to_string(GoodCount(save.inventory, 7)) + " · Steel " +
-           std::to_string(GoodCount(save.inventory, 10)),
-       38, 384, 16, kInk);
-  Text("Crystals " + std::to_string(GoodCount(save.inventory, 8)) +
-           " · Pearls " + std::to_string(GoodCount(save.inventory, 9)),
-       38, 410, 16, kInk);
-  Text(save.submerged ? "Air " + std::to_string(static_cast<int>(save.oxygen)) +
-                            " · Hull " + std::to_string(save.hull)
-                      : "Arrows " + std::to_string(save.inventory.ammo),
-       38, 443, 16, kGold);
-
   float mx = w - 280, my = 20;
   DrawRectangleRounded({mx, my, 260, 270}, .08f, 6, kPanel);
   Text(save.submerged ? "Seafloor map" : "Explored world", mx + 16, my + 12, 16,
@@ -1492,7 +1517,7 @@ void Renderer::DrawUi(const World& world, Save& save, Ui& ui,
                   static_cast<int>(h * .5f + 50),
                   static_cast<int>(150 * ui.harvest_progress), 6, kGold);
   }
-  if (save.tracked_quest >= 0 &&
+  if (!save.nation && save.tracked_quest >= 0 &&
       save.tracked_quest < static_cast<int>(world.npcs.size()) &&
       save.quests.contains(save.tracked_quest)) {
     auto& progress = save.quests.at(save.tracked_quest);
@@ -1540,13 +1565,17 @@ void Renderer::DrawUi(const World& world, Save& save, Ui& ui,
     Text("ESC: close", px + pw - 125, py + 25, 16, kMuted);
     Text(Settlements()[npc.settlement].name, px + 24, py + 53, 16, kMuted);
     Wrapped(NpcIntroduction(save, npc), px + 24, py + 79, pw - 48, 17, kInk, 3);
-    Wrapped(QuestStatus(save, npc), px + 24, py + 155, pw - 48, 17, kGold, 5);
+    Wrapped(save.nation
+                ? "Projects and trade orders are available in the town hall."
+                : QuestStatus(save, npc),
+            px + 24, py + 155, pw - 48, 17, kGold, 5);
     auto quest = NpcQuest(save, npc);
     auto found = save.quests.find(npc.id);
     DrawRectangleRounded(
         {px + 20, py + 269, pw - 40, 32}, .1f, 4,
         quest ? Color{64, 84, 53, 255} : Color{40, 51, 43, 255});
-    Text(!quest ? "No quest offered"
+    Text(save.nation ? "Town hall: projects and orders"
+         : !quest    ? "No quest offered"
          : found == save.quests.end()
              ? ActionKey(InputAction::kQuestAction) + ": accept quest"
          : found->second.completed
@@ -1922,10 +1951,13 @@ void Renderer::DrawUi(const World& world, Save& save, Ui& ui,
     DrawRectangleRounded(close, .5f, 10, {51, 76, 51, 255});
     Text("Close · Esc", close.x + 10, close.y + 8, 16, kInk);
     DrawSummary(save, ui.summary, ProgressSummaryBounds(), true, &world.npcs);
-    Wrapped(ActionKey(InputAction::kProgress) +
-                " / Esc: close · arrows: tabs · up/down: tree or towns · "
-                "Enter: action",
-            44, h - 53, w - 88, 16, kMuted, 1);
+    Wrapped(
+        ActionKey(InputAction::kProgress) +
+            (save.nation
+                 ? " / Esc: close · up/down: select knowledge · Enter: learn"
+                 : " / Esc: close · arrows: tabs · up/down: tree or towns · "
+                   "Enter: action"),
+        44, h - 53, w - 88, 16, kMuted, 1);
   }
   if (ui.paused && !ui.settings_open) {
     DrawRectangle(0, 0, static_cast<int>(w), static_cast<int>(h),

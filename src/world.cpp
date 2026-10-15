@@ -22,6 +22,7 @@
 #include "adventure.hpp"
 #include "geometry.hpp"
 #include "json.hpp"
+#include "nation.hpp"
 #include "progress.hpp"
 #include "settlement_system.hpp"
 
@@ -345,8 +346,12 @@ Save LoadSave(const std::filesystem::path& path) {
   nlohmann::json json;
   f >> json;
   int version = json.at("version").get<int>();
-  if (version < 1 || version > 8) {
+  if (version < 1 || version > 9) {
     throw std::runtime_error("Unsupported save version");
+  }
+  if (version >= 9) {
+    save.nation = json.at("nation").at("enabled");
+    save.controlled_npc = json.at("nation").value("controlled", -1);
   }
   save.seed = json.at("seed").get<uint64_t>();
   save.player = {json.at("player").at(0).get<float>(),
@@ -617,7 +622,7 @@ Save LoadSave(const std::filesystem::path& path) {
         throw std::runtime_error("Invalid outfit count");
       }
     }
-    if (save.adventure) {
+    if (save.adventure && !save.nation) {
       if (AvailableOutfit(save, save.outfit_id) < 1 ||
           AvailableWeapon(save, save.inventory.weapon_id) < 1) {
         throw std::runtime_error("Invalid equipped allocation");
@@ -747,7 +752,8 @@ Save LoadSave(const std::filesystem::path& path) {
     const auto& roads = json.at("roads");
     const auto& tributes = json.at("tributes");
     if (!facilities.is_array() ||
-        facilities.size() > towns * FacilityTypes().size() ||
+        facilities.size() >
+            (version >= 9 ? towns * 20 : towns * FacilityTypes().size()) ||
         !roads.is_array() || roads.size() > 128 || !tributes.is_array() ||
         tributes.size() > towns ||
         (!save.urban &&
@@ -757,10 +763,17 @@ Save LoadSave(const std::filesystem::path& path) {
     std::unordered_set<std::string> sites;
     for (const auto& row : facilities) {
       Facility f{row.at("city"), row.at("kind"), point(row.at("position"))};
+      if (version >= 9) {
+        f.id = row.value("id", uint64_t{0});
+      }
       if (!valid_city(f.city) ||
           std::none_of(FacilityTypes().begin(), FacilityTypes().end(),
                        [&](const auto& type) { return type.id == f.kind; }) ||
-          !sites.insert(std::to_string(f.city) + ":" + f.kind).second) {
+          !sites
+               .insert(std::to_string(f.city) + ":" + f.kind +
+                       (version >= 9 && save.nation ? ":" + std::to_string(f.id)
+                                                    : ""))
+               .second) {
         throw std::runtime_error("Invalid town building");
       }
       save.facilities.push_back(f);
@@ -808,9 +821,15 @@ Save LoadSave(const std::filesystem::path& path) {
       save.tributes.push_back(t);
     }
   }
+  if (version >= 9) {
+    ReadNation(json.at("nation"), save);
+  }
   return save;
 }
-void WriteSave(const std::filesystem::path& path, const Save& save) {
+void WriteSave(const std::filesystem::path& path, const Save& source) {
+  Save snapshot = source;
+  StoreControlled(snapshot);
+  const Save& save = snapshot;
   if (!path.parent_path().empty()) {
     std::filesystem::create_directories(path.parent_path());
   }
@@ -859,7 +878,7 @@ void WriteSave(const std::filesystem::path& path, const Save& save) {
                      {"b", {w.b.x, w.b.y}},
                      {"hp", w.hp}});
   }
-  nlohmann::json json = {{"version", 8},
+  nlohmann::json json = {{"version", 9},
                          {"seed", save.seed},
                          {"player", {save.player.x, save.player.y}},
                          {"wood", save.inventory.wood},
@@ -920,6 +939,7 @@ void WriteSave(const std::filesystem::path& path, const Save& save) {
                                 {"captor", resident.captor},
                                 {"ransom", resident.ransom}});
   }
+  json["nation"] = WriteNation(save);
   json["urban"] = save.urban;
   json["game_time"] = save.game_time;
   json["craft_ready_at"] = save.craft_ready_at;
@@ -928,6 +948,7 @@ void WriteSave(const std::filesystem::path& path, const Save& save) {
   json["facilities"] = nlohmann::json::array();
   for (const auto& f : save.facilities) {
     json["facilities"].push_back({{"city", f.city},
+                                  {"id", f.id},
                                   {"kind", f.kind},
                                   {"position", {f.position.x, f.position.y}}});
   }
@@ -986,7 +1007,7 @@ void WriteSave(const std::filesystem::path& path, const Save& save) {
     int old_version = previous.is_object() ? previous.value("version", 0) : 0;
     auto backup = path;
     backup += ".v" + std::to_string(old_version) + ".bak";
-    if (old_version > 0 && old_version < 8 &&
+    if (old_version > 0 && old_version < 9 &&
         !std::filesystem::exists(backup)) {
       std::filesystem::copy_file(path, backup);
     }
@@ -1115,6 +1136,9 @@ void World::Tick(float dt, const Save& save, double time) {
   }
   Vec player = save.player;
   for (auto& npc : npcs) {
+    if (save.nation && GetCitizen(save, npc.id)) {
+      continue;
+    }
     if (Length(npc.home - player) < 2200) {
       npc.previous = npc.pos;
       if (!ResidentActive(save, npc.id)) {
@@ -1151,14 +1175,16 @@ void World::Tick(float dt, const Save& save, double time) {
   }
   // Local disc contacts affect positions, not schedules or destinations.
   for (size_t i = 0; i < npcs.size(); i++) {
-    if (npcs[i].ruler || !ResidentActive(save, npcs[i].id) ||
+    if (npcs[i].ruler || (save.nation && npcs[i].id == save.controlled_npc) ||
+        !ResidentActive(save, npcs[i].id) ||
         Length(npcs[i].pos - save.player) > 1800) {
       continue;
     }
     for (size_t j = i + 1; j < npcs.size(); j++) {
       auto& a = npcs[i];
       auto& b = npcs[j];
-      if (b.ruler || !ResidentActive(save, b.id)) {
+      if (b.ruler || (save.nation && b.id == save.controlled_npc) ||
+          !ResidentActive(save, b.id)) {
         continue;
       }
       Vec d = b.pos - a.pos;
@@ -1378,7 +1404,8 @@ void World::ResolvePlayerContacts(Save& save) {
     return;
   }
   for (auto& npc : npcs) {
-    if (npc.ruler || !ResidentActive(save, npc.id)) {
+    if (npc.ruler || (save.nation && npc.id == save.controlled_npc) ||
+        !ResidentActive(save, npc.id)) {
       continue;
     }
     Vec d = save.player - npc.pos;

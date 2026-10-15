@@ -126,7 +126,7 @@ struct Building {
   Vec pos;
   int variant;
   bool hall{};
-  std::string facility;
+  std::string facility{};
 };
 const std::vector<Settlement>& Settlements();
 void ConfigureWorld(uint64_t seed);
@@ -191,6 +191,16 @@ struct Citizen {
   std::string state = "active";
   int captor{-1};
   int ransom{};
+  Vec position{};
+  Inventory cargo{};
+  std::string background = "traveler";
+  std::unordered_map<std::string, int> weapons{};
+  std::unordered_map<std::string, int> clothes{};
+  std::unordered_set<std::string> vessels{};
+  bool underwater{};
+  float air{100};
+  int hull{100};
+  int vehicle{};
 };
 struct HistoryEntry {
   std::string kind;
@@ -213,6 +223,7 @@ struct Facility {
   int city;
   std::string kind;
   Vec position;
+  uint64_t id{};
 };
 struct Road {
   int from;
@@ -226,6 +237,51 @@ struct Tribute {
   int amount{10};
   int buyout{300};
   double next_due{};
+};
+struct WorkshopJob {
+  uint64_t id;
+  uint64_t facility;
+  int source;
+  int destination;
+  std::string recipe;
+  double due;
+  std::array<int, kGoodTypes> materials;
+  int fee{};
+};
+struct GrowingPlot {
+  int city;
+  int good;
+  double due;
+  bool ready{};
+};
+struct CityTask {
+  uint64_t id;
+  int city;
+  std::string kind;
+  int good;
+  int quantity;
+  int price{};
+  int escrow{};
+  bool accepted{};
+  bool completed{};
+  std::string reward;
+  int baseline{};
+  double expires{};
+};
+struct Shipment {
+  uint64_t id;
+  int from;
+  int to;
+  int good;
+  int quantity;
+  double due;
+};
+struct Traveler {
+  int npc;
+  std::string name;
+  int city;
+  bool accepted{};
+  bool declined{};
 };
 struct Save {
   Vec player{120, 140};
@@ -274,7 +330,7 @@ struct Save {
   std::unordered_map<uint64_t, KnownDeposit> known_deposits;
   std::unordered_set<Coord, CoordHash> visible_surface;
   std::unordered_set<Coord, CoordHash> visible_underwater;
-  std::unordered_set<std::string> vessels;
+  std::unordered_set<std::string> vessels{};
   bool urban{};
   double game_time{};
   double craft_ready_at{};
@@ -283,6 +339,19 @@ struct Save {
   std::vector<Facility> facilities;
   std::vector<Road> roads;
   std::vector<Tribute> tributes;
+  bool nation{};
+  int controlled_npc{-1};
+  int region_fund{};
+  int64_t money_supply{};
+  uint64_t next_entity{1};
+  int64_t economy_cycle{-1};
+  std::vector<std::unordered_map<std::string, int>> city_products;
+  std::vector<int> housing;
+  std::vector<WorkshopJob> production;
+  std::vector<GrowingPlot> plots;
+  std::vector<CityTask> city_tasks;
+  std::vector<Shipment> shipments;
+  std::vector<Traveler> travelers;
 };
 Save LoadSave(const std::filesystem::path& path);
 void WriteSave(const std::filesystem::path& path, const Save& save);

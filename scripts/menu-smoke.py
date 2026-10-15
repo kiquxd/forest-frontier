@@ -105,18 +105,10 @@ if __name__ == "__main__":
                 quit_to_menu(process)
                 assert json.loads(created.read_text())['skills']==[],"E beside the hall opened lessons instead of NPC interaction"
                 key(process,"Return");time.sleep(.7)
-                key(process,"p") # Fresh campaign's hall selects Gathering.
-                # Use the real action button to cover the original mouse-driven report.
+                key(process,"k") # State knowledge tree selects Gathering.
+                key(process,"Return") # Learn through the authoritative tree.
                 width=x.XDisplayWidth(display,0);height=x.XDisplayHeight(display,0)
-                rows=min(8,max(1,int((height-40-102-155)/50)))
-                box_width=min(960,width-40);box_height=rows*50+102+155
-                button_x=(width-box_width)/2+box_width-274+125
-                button_y=(height-box_height)/2+102+rows*50+128
-                ensure_focus(process)
-                t.XTestFakeMotionEvent(display,-1,int(button_x),int(button_y),0);x.XFlush(display);time.sleep(.1)
-                t.XTestFakeButtonEvent(display,1,1,0);x.XFlush(display);time.sleep(.06)
-                t.XTestFakeButtonEvent(display,1,0,0);x.XFlush(display);time.sleep(.2)
-                key(process,"Escape") # Close the hall.
+                key(process,"Escape") # Close state knowledge.
                 key(process,"Escape");key(process,"Down");key(process,"Down") # Pause → save and return.
                 # Force a save failure in the isolated fixture; session must stay open.
                 original=created.read_bytes();held=created.with_suffix('.held')
@@ -129,22 +121,21 @@ if __name__ == "__main__":
                 finally:
                     created.rmdir();held.rename(created)
                 key(process,"Return") # Retry saves successfully and returns to main menu.
-                wait_for(lambda: json.loads(created.read_text())['skills']==['gathering'],"Clicking the Gathering action did not update progression")
+                wait_for(lambda: json.loads(created.read_text())['skills']==['gathering'],"Learning Gathering did not update progression")
                 saved_position=json.loads(created.read_text())['player']
                 key(process,"Return") # Continue the same world.
                 time.sleep(1)
-                key(process,"k");key(process,"Right");key(process,"Right") # Progress tree → overview → map.
-                click(process,170,168) # Preview the seafloor without diving.
+                key(process,"k") # Live progress is the shared knowledge tree.
                 key(process,"d");key(process,"Escape") # Progress pauses movement; Esc closes it.
                 key(process,"k") # Reopen tree.
                 key(process,"Next");key(process,"Prior")
-                key(process,"Left");key(process,"Next");key(process,"Prior") # Settlements.
-                key(process,"Left");key(process,"Next");key(process,"Prior") # Resources.
+                key(process,"Left");key(process,"Next");key(process,"Prior") # Pan/select in the tree.
+                key(process,"Left");key(process,"Next");key(process,"Prior") # Scroll the tree.
                 key(process,"Escape")
                 key(process,"Escape");key(process,"Return") # Resume from the separate pause screen.
                 key(process,"p");key(process,"Next");key(process,"Down");key(process,"Down") # Town actions → learned Gathering.
                 key(process,"Return") # Learned lesson must stay complete, without duplicate progress.
-                key(process,"Escape") # Close the hall.
+                key(process,"Escape") # Close state knowledge.
                 quit_to_menu(process)
                 wait_for(lambda: bool(json.loads(created.read_text())["explored"]),"Gameplay did not save explored map")
                 progress=json.loads(created.read_text())

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 
+#include "nation.hpp"
 #include "settlement_system.hpp"
 namespace frontier {
 void RecordHistory(Save& save, const std::string& kind,
@@ -34,7 +35,7 @@ Action UnlockProgress(Save& save, const std::string& id) {
     }
   }
   return {false,
-          "Visit the indicated town master or complete the indicated quest."};
+          "Visit the indicated town master or complete the town project."};
 }
 std::vector<TownReport> TownReports(const Save& save,
                                     const std::vector<Npc>& npcs) {
@@ -61,6 +62,9 @@ std::vector<TownReport> TownReports(const Save& save,
       } else if (!npc.ruler && ResidentActive(save, npc.id)) {
         ++report.residents;
       }
+    }
+    if (save.nation && report.owned) {
+      report.residents = CityPopulation(save, i);
     }
     for (const auto& resident : save.citizens) {
       if (resident.city == i && resident.state == "active" &&
@@ -94,13 +98,28 @@ std::vector<SummaryEntry> ResourceCatalog(const Save& save) {
                                    "Specialist town trade",
                                    "Underwater salvage; ancient knowledge"};
   for (int g = 0; g < kGoodTypes; ++g) {
-    bool known = save.known_goods[g] || GoodCount(save.inventory, g) > 0;
+    int count = GoodCount(save.inventory, g);
+    if (save.nation) {
+      count = 0;
+      for (int city = 0; city < static_cast<int>(save.stocks.size()); ++city) {
+        if (OwnsCity(save, city)) {
+          count += save.stocks[city][g];
+        }
+      }
+      for (const auto& c : save.citizens) {
+        if (c.state == "active") {
+          count += c.npc == save.controlled_npc ? GoodCount(save.inventory, g)
+                                                : GoodCount(c.cargo, g);
+        }
+      }
+    }
+    bool known = save.known_goods[g] || count > 0;
     rows.push_back(
         {known ? "good_" + std::to_string(g) : "book",
          known ? GoodName(g) : "Undiscovered resource",
          known ? kSources[g]
                : "Obtain this resource through exploration, trade or quests.",
-         known ? GoodCount(save.inventory, g) : -1});
+         known ? count : -1});
   }
   return rows;
 }

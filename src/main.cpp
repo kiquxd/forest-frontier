@@ -27,6 +27,7 @@
 #include "input.hpp"
 #include "json.hpp"
 #include "menu.hpp"
+#include "nation.hpp"
 #include "perf.hpp"
 #include "progress.hpp"
 #include "raylib.h"
@@ -328,6 +329,7 @@ int Play(const Options& options) {
   }
   if (!fixture) {
     frontier::InitializeAdventure(save);
+    frontier::InitializeNation(save);
   }
   if (options.spawn) {
     save.player = *options.spawn;
@@ -646,6 +648,9 @@ int Play(const Options& options) {
            std::count(save.owners.begin(), save.owners.end(), 0)},
           {"quests", save.quests.size()},
           {"resident_jobs", save.citizens.size()},
+          {"controlled_resident", save.controlled_npc},
+          {"production_jobs", save.production.size()},
+          {"money_total", frontier::MoneySupply(save)},
           {"outfit", save.outfit_id},
           {"walls", save.walls.size()},
           {"technologies", save.technologies.size()},
@@ -772,8 +777,75 @@ int Play(const Options& options) {
         path_index = 0;
         next_plan = 0;
       }
+      if (save.nation && ui.request_control >= 0) {
+        auto result = frontier::SelectResident(save, ui.request_control);
+        notify(result.message, now);
+        ui.request_control = -1;
+        if (result.ok) {
+          game = frontier::Gameplay{};
+          sim_accumulator = 0;
+          previous = {INT32_MAX, INT32_MAX};
+          spawn_ready = false;
+          auto target = frontier::Project(save.player);
+          camera.target = {target.x, target.y};
+          ui.government = false;
+          frontier::SyncNationActors(world, save);
+        }
+      }
+      if (save.nation && !ui.settings_open && !ui.map_journal &&
+          !ui.road_edit) {
+        bool state_key =
+            frontier::ActionPressed(frontier::InputAction::kNation);
+        bool resident_key =
+            frontier::ActionPressed(frontier::InputAction::kResidents);
+        bool inventory_key =
+            frontier::ActionPressed(frontier::InputAction::kInventory);
+        bool projects_key =
+            frontier::ActionPressed(frontier::InputAction::kQuests) ||
+            (ui.npc < 0 &&
+             frontier::ActionPressed(frontier::InputAction::kQuestAction));
+        bool production_key =
+            frontier::ActionPressed(frontier::InputAction::kCraft);
+        bool hall_key = frontier::ActionPressed(frontier::InputAction::kHall);
+        if (state_key || resident_key || inventory_key || projects_key ||
+            production_key || hall_key) {
+          int local = frontier::CityAt(save, save.player);
+          bool near_hall =
+              local >= 0 &&
+              frontier::Length(save.player -
+                               (frontier::Settlements()[local].pos +
+                                frontier::Vec{55, 55})) < 90;
+          if (hall_key && !near_hall) {
+            notify("Approach a town hall entrance", now);
+          } else {
+            frontier::StoreControlled(save);
+            ui.government = !ui.government || resident_key || inventory_key ||
+                            projects_key || production_key || hall_key;
+            ui.town_hall = hall_key;
+            ui.gov_city = local >= 0 ? local : save.home_city;
+            ui.gov_tab = resident_key               ? 0
+                         : inventory_key            ? 1
+                         : production_key           ? 2
+                         : projects_key || hall_key ? 3
+                                                    : 5;
+            ui.gov_page = 0;
+            ui.gov_status.clear();
+            ui.paused = ui.progression = ui.crafting = ui.trading = ui.civic =
+                ui.equipment = ui.cartography = ui.wardrobe = ui.journal =
+                    false;
+            ui.npc = -1;
+            world.talking_npc = -1;
+          }
+        }
+      }
       if (frontier::MenuBack() && !ui.settings_open) {
-        if (ui.road_edit) {
+        if (ui.government) {
+          ui.government = false;
+          if (save.nation && !frontier::HasControlled(save)) {
+            ui.paused = true;
+            ui.pause_selection = 0;
+          }
+        } else if (ui.road_edit) {
           ui.road_edit = false;
           ui.road_points.clear();
         } else if (ui.map_journal) {
@@ -804,6 +876,7 @@ int Play(const Options& options) {
       }
       if (!ui.settings_open && !ui.map_journal && !ui.road_edit &&
           frontier::ActionPressed(frontier::InputAction::kProgress)) {
+        ui.government = false;
         bool opened = !ui.progression;
         ui.npc = -1;
         world.talking_npc = -1;
@@ -918,8 +991,8 @@ int Play(const Options& options) {
         }
       }
       const frontier::Resource* resource = nullptr;
-      if (!ui.paused && !ui.progression && !ui.map_journal && !ui.road_edit &&
-          !quit && !pause_was_active) {
+      if (!ui.government && !ui.paused && !ui.progression && !ui.map_journal &&
+          !ui.road_edit && !quit && !pause_was_active) {
         game.Advance(dt);
         if (ui.cartography) {
           ui.map_range = std::clamp(
@@ -999,7 +1072,9 @@ int Play(const Options& options) {
                               ? 340.f
                               : 185.f));
           }
-          game.MovePlayer(world, save, move);
+          if (!save.nation || frontier::HasControlled(save)) {
+            game.MovePlayer(world, save, move);
+          }
           if (frontier::Length(save.player) > 1e6f) {
             save.player = frontier::Normalized(save.player) * 1e6f;
           }
@@ -1007,7 +1082,8 @@ int Play(const Options& options) {
         int nearest_npc = -1;
         float npc_distance = 150;
         for (auto& n : world.npcs) {
-          if (n.ruler || !frontier::ResidentActive(save, n.id)) {
+          if (n.ruler || (save.nation && n.id == save.controlled_npc) ||
+              !frontier::ResidentActive(save, n.id)) {
             continue;
           }
           float d = frontier::Length(n.pos - save.player);
@@ -1062,10 +1138,11 @@ int Play(const Options& options) {
           float pw = std::min(720.f, GetScreenWidth() - 50.f),
                 py = GetScreenHeight() - 500.f - 96,
                 px = (GetScreenWidth() - pw) * .5f;
-          if (frontier::ActionPressed(frontier::InputAction::kQuestAction) ||
-              (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
-               CheckCollisionPointRec(GetMousePosition(),
-                                      {px + 20, py + 269, pw - 40, 32}))) {
+          if (!save.nation &&
+              (frontier::ActionPressed(frontier::InputAction::kQuestAction) ||
+               (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
+                CheckCollisionPointRec(GetMousePosition(),
+                                       {px + 20, py + 269, pw - 40, 32})))) {
             auto found = save.quests.find(npc.id);
             auto result = found == save.quests.end()
                               ? frontier::AcceptQuest(save, npc)
@@ -1120,7 +1197,8 @@ int Play(const Options& options) {
         }
         if (ui.npc < 0) {
           if (frontier::ActionPressed(frontier::InputAction::kOutfits) ||
-              frontier::ActionPressed(frontier::InputAction::kQuests)) {
+              (!save.nation &&
+               frontier::ActionPressed(frontier::InputAction::kQuests))) {
             bool progress = false,
                  clothes =
                      frontier::ActionPressed(frontier::InputAction::kOutfits);
@@ -1144,13 +1222,15 @@ int Play(const Options& options) {
                 ui.progression = ui.wardrobe = ui.journal = false;
             ui.selection = 0;
           }
-          if (frontier::ActionPressed(frontier::InputAction::kCraft)) {
+          if (!save.nation &&
+              frontier::ActionPressed(frontier::InputAction::kCraft)) {
             ui.crafting = !ui.crafting;
             ui.trading = ui.civic = ui.equipment = ui.cartography =
                 ui.progression = ui.wardrobe = ui.journal = false;
             ui.selection = 0;
           }
-          if (frontier::ActionPressed(frontier::InputAction::kHall)) {
+          if (!save.nation &&
+              frontier::ActionPressed(frontier::InputAction::kHall)) {
             if (nearby_hall < 0) {
               notify("Approach a town hall entrance", now);
             } else {
@@ -1626,7 +1706,12 @@ int Play(const Options& options) {
           }
           ui.actions.push_back({movement, "Move"});
           hint_action(frontier::InputAction::kSprint, "Sprint");
-          hint_action(frontier::InputAction::kProgress, "Progress");
+          if (save.nation) {
+            hint_action(frontier::InputAction::kNation, "State");
+            hint_action(frontier::InputAction::kResidents, "Residents");
+            hint_action(frontier::InputAction::kInventory, "Cargo / stocks");
+          }
+          hint_action(frontier::InputAction::kProgress, "State knowledge");
           hint_action(frontier::InputAction::kMap, "Map");
           if (nearest_npc >= 0) {
             hint_action(frontier::InputAction::kTalk,
@@ -1725,6 +1810,21 @@ int Play(const Options& options) {
             "Construction requires an explored route and the full material "
             "cost.";
       }
+      if (save.nation) {
+        frontier::StoreControlled(save);
+        frontier::SyncNationActors(world, save);
+        if (!frontier::HasControlled(save) && !ui.government && !ui.paused) {
+          ui.government = true;
+          ui.gov_tab = 0;
+          ui.gov_city = save.home_city;
+        }
+        if (ui.government) {
+          ui.actions = {{"Esc", "Close management"},
+                        {"N", "State"},
+                        {"U", "Residents"},
+                        {"Y", "Cargo / stocks"}};
+        }
+      }
       renderer.UpdateAudio(&save, &game, ui.Blocked(), &world);
       BeginDrawing();
       ClearBackground(save.submerged ? Color{12, 28, 39, 255}
@@ -1736,6 +1836,7 @@ int Play(const Options& options) {
       EndMode2D();
       renderer.DrawLabels(world, save, ui, camera);
       renderer.DrawUi(world, save, ui, camera);
+      renderer.DrawNationPanel(save, ui);
       if (ui.settings_open && settings_was_open) {
         DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(),
                       Color{0, 0, 0, 185});

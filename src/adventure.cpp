@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "nation.hpp"
 #include "progress.hpp"
 #include "settlement_system.hpp"
 
@@ -45,6 +46,17 @@ void SyncCitizens(Save& save) {
     if (OwnsCity(save, npc.settlement) && !npc.ruler && npc.origin_city < 0 &&
         !GetCitizen(save, npc.id)) {
       save.citizens.push_back({npc.id, npc.settlement, "idle", "", "", false});
+      if (save.nation) {
+        auto& c = save.citizens.back();
+        c.position = npc.pos;
+        c.outfit = "traveler";
+        c.clothes["traveler"] = 1;
+        ++save.outfit_copies["traveler"];
+        if (c.city < static_cast<int>(save.housing.size())) {
+          save.housing[c.city] =
+              std::max(save.housing[c.city], CityPopulation(save, c.city));
+        }
+      }
     }
   }
 }
@@ -72,8 +84,17 @@ void InitializeAdventure(Save& save) {
     }
   }
   for (auto& resident : save.citizens) {
+    if (save.nation && resident.npc >= static_cast<int>(npcs.size())) {
+      bool known = std::any_of(
+          save.travelers.begin(), save.travelers.end(),
+          [&](const auto& t) { return t.npc == resident.npc && t.accepted; });
+      if (!known) {
+        throw std::runtime_error("Unknown immigrant resident");
+      }
+      continue;
+    }
     if (resident.npc < 0 || resident.npc >= static_cast<int>(npcs.size()) ||
-        npcs[resident.npc].settlement != resident.city ||
+        (!save.nation && npcs[resident.npc].settlement != resident.city) ||
         npcs[resident.npc].ruler || npcs[resident.npc].origin_city >= 0) {
       throw std::runtime_error("Invalid saved resident");
     }
@@ -84,6 +105,11 @@ void InitializeAdventure(Save& save) {
 int AvailableWeapon(const Save& save, const std::string& id, int excluded) {
   if (id.empty()) {
     return 1000000;
+  }
+  if (save.nation) {
+    const auto* c =
+        GetCitizen(save, excluded >= 0 ? excluded : save.controlled_npc);
+    return c && c->weapons.contains(id) ? c->weapons.at(id) : 0;
   }
   auto found = save.weapon_copies.find(id);
   int count = found == save.weapon_copies.end()
@@ -100,6 +126,11 @@ int AvailableWeapon(const Save& save, const std::string& id, int excluded) {
 int AvailableOutfit(const Save& save, const std::string& id, int excluded) {
   if (id.empty()) {
     return 1000000;
+  }
+  if (save.nation) {
+    const auto* c =
+        GetCitizen(save, excluded >= 0 ? excluded : save.controlled_npc);
+    return c && c->clothes.contains(id) ? c->clothes.at(id) : 0;
   }
   auto found = save.outfit_copies.find(id);
   int count = found == save.outfit_copies.end() ? 0 : found->second;
@@ -122,6 +153,12 @@ Action EquipOutfit(Save& save, const std::string& id) {
 std::vector<std::string> OwnedOutfits(const Save& save) {
   std::vector<std::string> out;
   for (auto& item : GetContent().outfits) {
+    if (save.nation) {
+      if (AvailableOutfit(save, item.id) > 0) {
+        out.push_back(item.id);
+      }
+      continue;
+    }
     if (save.outfit_copies.contains(item.id) &&
         save.outfit_copies.at(item.id) > 0) {
       out.push_back(item.id);
@@ -144,6 +181,9 @@ bool RecipeKnown(const Save& save, const Recipe& r) {
   return !item.quest_only || save.known_recipes.contains(r.id);
 }
 const QuestDef* NpcQuest(const Save& save, const Npc& npc) {
+  if (save.nation) {
+    return nullptr;
+  }
   if (auto found = save.quests.find(npc.id); found != save.quests.end()) {
     return &Quest(found->second.id);
   }
@@ -174,6 +214,10 @@ std::string NpcIntroduction(const Save& save, const Npc& npc) {
   }
   if (OwnsCity(save, npc.settlement) && !npc.ruler && npc.origin_city < 0) {
     out += " This is our town. You can train and equip me for a job.";
+  }
+  if (save.nation) {
+    out += " Visit the town hall for projects and trade orders.";
+    return out;
   }
   if (!NpcQuest(save, npc)) {
     out +=
@@ -272,6 +316,9 @@ Action AcceptQuest(Save& save, const Npc& npc) {
   return {true, "Quest accepted: " + quest->title};
 }
 Action FinishQuest(Save& save, const Npc& npc) {
+  if (save.nation) {
+    return {false, "Projects and orders belong to the town hall"};
+  }
   auto found = save.quests.find(npc.id);
   if (found == save.quests.end() || found->second.completed) {
     return {false, "No active quest to turn in"};
@@ -338,19 +385,19 @@ const std::vector<ProgressNode>& ResearchNodes() {
        "Train equipped defenders; strategic war remains a placeholder", 20, 4,
        4, 1, 1, 1, 0, 1, "combat"},
       {"commerce_school", "Commerce school",
-       "Train traders and earn town treasury income", 20, 4, 4, 1, 0, 1, 10, 1,
-       "trading"},
+       "Unlock trader training; autonomous work remains deferred", 20, 4, 4, 1,
+       0, 1, 10, 1, "trading"},
       {"navigation_school", "Navigation school",
-       "Train fishers and improve town supplies", 25, 4, 5, 1, 0, 1, 0, 1,
-       "sailing"},
+       "Unlock fisher training and advanced navigation", 25, 4, 5, 1, 0, 1, 0,
+       1, "sailing"},
       {"citizen_engineering", "Engineering school",
        "Train scholars and engineers", 40, 6, 7, 2, 1, 1, 15, 2, "engineering"},
       {"diplomatic_corps", "Diplomatic corps",
        "A foundation for multi-town leadership", 50, 8, 7, 2, 2, 2, 30, 2,
        "civic_charter", "diplomacy"},
       {"guild_charter", "Guild charter",
-       "Skilled residents produce larger work batches", 35, 4, 6, 2, 1, 1, 20,
-       2, "apprenticeship"}};
+       "Unlock guild knowledge and prestigious vessel plans", 35, 4, 6, 2, 1, 1,
+       20, 2, "apprenticeship"}};
   return kNodes;
 }
 namespace {
@@ -371,6 +418,12 @@ int CountWeapons(const Save& save) {
   return count;
 }
 int CompletedQuests(const Save& save) {
+  if (save.nation) {
+    return std::count_if(
+        save.city_tasks.begin(), save.city_tasks.end(), [](const auto& t) {
+          return t.kind != "trade" && t.accepted && t.completed;
+        });
+  }
   int count = 0;
   for (auto& [id, q] : save.quests) {
     if (q.completed) {
@@ -437,6 +490,9 @@ Action Research(Save& save, int index) {
     return {false, ResearchRequirements(save, n)};
   }
   save.coins -= n.coins;
+  if (save.nation) {
+    save.region_fund += n.coins;
+  }
   save.technologies.insert(n.id);
   RecordHistory(save, "research", "Researched " + n.name);
   return {true, "Researched: " + n.name};
@@ -450,6 +506,9 @@ const std::vector<std::string>& ResidentJobs() {
 Action AssignCitizen(Save& save, int id, const std::string& job,
                      const std::string& weapon_id,
                      const std::string& outfit_id) {
+  if (save.nation) {
+    return AssignNationCitizen(save, id, job, weapon_id, outfit_id);
+  }
   auto resident = GetCitizen(save, id);
   if (!resident || resident->state != "active" ||
       !OwnsCity(save, resident->city)) {
@@ -507,6 +566,9 @@ Action AssignCitizen(Save& save, int id, const std::string& job,
   return {true, "Resident assigned: " + job};
 }
 void TickResidents(Save& save, float dt) {
+  if (save.nation) {
+    return;
+  }
   if (!save.adventure) {
     return;
   }

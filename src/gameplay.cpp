@@ -10,6 +10,7 @@
 
 #include "adventure.hpp"
 #include "atlas_notes.hpp"
+#include "nation.hpp"
 #include "progress.hpp"
 #include "settlement_system.hpp"
 #include "vessels.hpp"
@@ -77,6 +78,12 @@ const char* TechnologyName(const std::string& id) {
     if (node.id == id) {
       return node.name.c_str();
     }
+  }
+  if (id == "medical_care") {
+    return "Medical care";
+  }
+  if (id == "hospitals") {
+    return "Hospitals";
   }
   if (id == "civic_charter") {
     return "Civic charter";
@@ -356,6 +363,9 @@ bool Equipped(const Save& save, int recipe) {
                                        : Equipped(save.inventory, recipe);
 }
 Action Craft(Save& save, int recipe) {
+  if (save.nation) {
+    return QueueProduction(save, recipe);
+  }
   if (recipe < 0 || recipe >= static_cast<int>(Recipes().size())) {
     return {false, "Unknown recipe"};
   }
@@ -520,6 +530,9 @@ std::string MaterialTech(int good) {
 }  // namespace
 
 Action Trade(Save& save, int city, int good, bool buy) {
+  if (save.nation && OwnsCity(save, city)) {
+    return {false, "Use the town warehouse; internal transfers have no price"};
+  }
   if (!HasSkill(save, "trading")) {
     return {false, "Learn trading at a town hall"};
   }
@@ -569,7 +582,7 @@ Action Trade(Save& save, int city, int good, bool buy) {
     if (count <= 0) {
       return {false, "Nothing to sell"};
     }
-    if (money < price) {
+    if (money < price + (save.nation ? 40 : 0)) {
       return {false, "Town treasury empty"};
     }
     if (stock >= 1000000 || save.coins > 10000000 - price) {
@@ -807,6 +820,8 @@ Action Diplomacy(Save& save, int city, int action) {
     return {true, "Town joined your union: treasury income every 20 seconds."};
   }
   if (action == 6) {
+    int& wood = save.nation ? save.stocks[city][0] : save.inventory.wood;
+    int& stone = save.nation ? save.stocks[city][1] : save.inventory.stone;
     if (r.opinion < 0) {
       return {false, "Town refuses construction"};
     }
@@ -825,7 +840,7 @@ Action Diplomacy(Save& save, int city, int action) {
     if (built >= 11 && !damaged) {
       return {false, "Wall complete; gate left on the east"};
     }
-    if (save.inventory.wood < 8 || save.inventory.stone < 3) {
+    if (wood < 8 || stone < 3) {
       return {false, "You need 8 wood and 3 stone"};
     }
     float a = (built + 1) * 6.2831853f / 12, b = (built + 2) * 6.2831853f / 12;
@@ -833,8 +848,8 @@ Action Diplomacy(Save& save, int city, int action) {
     for (auto& wall : save.walls) {
       if (wall.city == city && wall.hp == 0) {
         wall.hp = save.technologies.contains("fortification") ? 400 : 200;
-        save.inventory.wood -= 8;
-        save.inventory.stone -= 3;
+        wood -= 8;
+        stone -= 3;
         return {true, "Wall repaired"};
       }
     }
@@ -842,8 +857,8 @@ Action Diplomacy(Save& save, int city, int action) {
         {city, position + Vec{std::cos(a) * 355, std::sin(a) * 355},
          position + Vec{std::cos(b) * 355, std::sin(b) * 355},
          save.technologies.contains("fortification") ? 400 : 200});
-    save.inventory.wood -= 8;
-    save.inventory.stone -= 3;
+    wood -= 8;
+    stone -= 3;
     r.opinion = std::min(100, r.opinion + 2);
     return {true, "Wall segment built"};
   }
@@ -858,10 +873,16 @@ Action Diplomacy(Save& save, int city, int action) {
     save.coins -= 80;
     save.treasury[city] += 80;
     save.inventory.weapons.insert(item.id);
+    if (save.nation) {
+      ++GetCitizen(save, save.controlled_npc)->weapons[item.id];
+    }
     save.weapon_copies[item.id]++;
     save.inventory.weapon_id = item.id;
     return {true,
             "Received: " + item.name + " (" + RarityName(item.rarity) + ")"};
+  }
+  if (action == 8 && save.nation) {
+    return {false, "Use Town projects or Trade orders in the town hall"};
   }
   if (action == 8) {
     if (save.inventory.wood < 5 || save.inventory.fish < 3) {
@@ -1256,13 +1277,18 @@ void Gameplay::Damage(World& world, Save& save, Enemy& enemy, int amount,
   }
   save.inventory.leather =
       std::min(1000000, save.inventory.leather + (enemy.kind ? 0 : 2));
-  save.coins = std::min(10000000, save.coins + (enemy.kind ? 8 : 3));
+  if (!save.nation) {
+    save.coins = std::min(10000000, save.coins + (enemy.kind ? 8 : 3));
+  }
   kills++;
-  notice = enemy.kind ? "Guard defeated: +8 coins"
-                      : "Wolf defeated: +2 leather, +3 coins";
+  notice = save.nation
+               ? (enemy.kind ? "Guard defeated; equipment is not dropped"
+                             : "Wolf defeated: +2 leather")
+           : enemy.kind ? "Guard defeated: +8 coins"
+                        : "Wolf defeated: +2 leather, +3 coins";
   // Persistent defeated IDs make loot deterministic and prevent repeated rolls
   // on reload.
-  if (Hash(enemy.id ^ save.seed) % 100 < 18) {
+  if (!save.nation && Hash(enemy.id ^ save.seed) % 100 < 18) {
     auto& found = WeightedWeapon(Hash(enemy.id));
     save.inventory.weapons.insert(found.id);
     save.weapon_copies[found.id]++;
@@ -1376,9 +1402,12 @@ Action Gameplay::PlaceCampfire(World& world, Save& save) {
   return {true, "Campfire placed — rest nearby to heal"};
 }
 void Gameplay::Tick(World& world, Save& save, float dt, double time) {
+  int defeat_captor = -1;
   EnsureCityState(save);
   InitializeTowns(save);
   TickTowns(save, dt);
+  TickNation(save, dt);
+  SyncNationActors(world, save);
   world.SyncInfrastructure(save);
   TickResidents(save, dt);
   bool sanctuary = false;
@@ -1439,7 +1468,7 @@ void Gameplay::Tick(World& world, Save& save, float dt, double time) {
       bool hostile = e.kind ? save.relations.at(e.city).treaty == Treaty::kWar
                             : !sanctuary;
       auto terrain = TerrainAt(save.player, save.seed);
-      if (save.submerged ||
+      if ((save.nation && !HasControlled(save)) || save.submerged ||
           (!BridgeAt(save, save.player) &&
            (terrain == Terrain::kDeep ||
             (terrain == Terrain::kShallow && Watercraft(save))))) {
@@ -1451,7 +1480,8 @@ void Gameplay::Tick(World& world, Save& save, float dt, double time) {
         for (const auto& npc : world.npcs) {
           auto c = GetCitizen(save, npc.id);
           float d = Length(npc.pos - e.pos);
-          if (c && c->state == "active" && c->job == "guard" && c->trained &&
+          if (c && (!save.nation || c->npc != save.controlled_npc) &&
+              c->state == "active" && c->job == "guard" && c->trained &&
               OwnsCity(save, c->city) && d < std::min(180.f, nearest) &&
               (!e.kind || save.relations[e.city].treaty == Treaty::kWar)) {
             nearest = d;
@@ -1535,6 +1565,13 @@ void Gameplay::Tick(World& world, Save& save, float dt, double time) {
                                                   PlayerOutfit(save).taken)));
             }
             save.health -= amount;
+            if (save.nation && save.health <= 0 && e.kind &&
+                Hash(save.seed ^ e.id ^
+                     static_cast<uint64_t>(save.controlled_npc)) %
+                        100 <
+                    40) {
+              defeat_captor = e.city;
+            }
             damage_taken += amount;
             invulnerable = .65f;
             notice = e.kind ? "A guard hit you!"
@@ -1581,6 +1618,18 @@ void Gameplay::Tick(World& world, Save& save, float dt, double time) {
       }
       e.walk = std::fmod(e.walk + Length(e.pos - e.previous) / 10, 4.f);
     }
+  }
+  if (save.nation && save.health <= 0) {
+    StoreControlled(save);
+    notice = LoseResident(save, save.controlled_npc, defeat_captor >= 0,
+                          defeat_captor)
+                 .message;
+    save.controlled_npc = -1;
+    save.inventory = {};
+    save.health = 100;
+    save.submerged = false;
+    ++respawns;
+    return;
   }
   if (save.health <= 0) {
     int nearest = 0;
@@ -1630,7 +1679,7 @@ void Gameplay::Tick(World& world, Save& save, float dt, double time) {
   bool heal = false;
   int rate = 3;
   for (size_t i = 0; i < Settlements().size(); i++) {
-    if (save.relations[i].treaty != Treaty::kWar &&
+    if (!save.nation && save.relations[i].treaty != Treaty::kWar &&
         Length(Settlements()[i].pos - save.player) < 160) {
       heal = true;
     }

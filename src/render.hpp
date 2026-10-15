@@ -61,6 +61,16 @@ struct Ui {
   size_t pending{};
   size_t visible{};
   size_t animals{};
+  bool government{};
+  bool town_hall{};
+  int gov_tab{};
+  int gov_city{-1};
+  int gov_page{};
+  int gov_amount{1};
+  int gov_good{};
+  uint64_t gov_facility{};
+  std::string gov_status;
+  int request_control{-1};
   bool crafting{};
   bool trading{};
   int selection{};
@@ -100,8 +110,8 @@ struct Ui {
   int resident_weapon{};
   int resident_outfit{};
   bool Blocked() const {
-    return paused || npc >= 0 || crafting || trading || civic || equipment ||
-           cartography || progression || wardrobe || journal;
+    return government || paused || npc >= 0 || crafting || trading || civic ||
+           equipment || cartography || progression || wardrobe || journal;
   }
   Vec map_center;
   float map_range{4000};
@@ -136,6 +146,7 @@ class Renderer {
     audio_.Update(save, game, paused, world);
   }
   void DrawMapJournal(Save& save, Ui& ui);
+  void DrawNationPanel(Save& save, Ui& ui);
   void DrawSavedMap(const Save& save, Rectangle box, int layer = -1);
   void SummaryInput(SummaryView& view, Rectangle box,
                     bool keyboard = true) const;

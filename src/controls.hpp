@@ -39,6 +39,9 @@ enum class InputAction {
   kResidentWeapon,
   kResidentOutfit,
   kResidentAssign,
+  kNation,
+  kResidents,
+  kInventory,
   kCount
 };
 constexpr int kInputActions = static_cast<int>(InputAction::kCount);

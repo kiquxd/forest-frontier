@@ -7,6 +7,7 @@
 
 #include "adventure.hpp"
 #include "geometry.hpp"
+#include "nation.hpp"
 #include "progress.hpp"
 #include "vessels.hpp"
 
@@ -83,7 +84,9 @@ const std::vector<FacilityDef>& FacilityTypes() {
       {"tailor", "Tailor workshop", 20, 8, 20},
       {"school", "School", 35, 20, 40},
       {"shipyard", "Shipyard", 50, 15, 60},
-      {"alchemy", "Alchemy workshop", 20, 15, 25}};
+      {"alchemy", "Alchemy workshop", 20, 15, 25},
+      {"infirmary", "Infirmary", 20, 10, 20},
+      {"hospital", "Hospital", 50, 40, 60}};
   return kTypes;
 }
 void InitializeTowns(Save& save) {
@@ -217,7 +220,7 @@ int RecipeRarity(const Recipe& recipe) {
     return Weapon(recipe.result.substr(7)).rarity;
   }
   if (recipe.result.starts_with("outfit:")) {
-    const auto& outfit = Outfit(recipe.result.substr(7));
+    const auto outfit = Outfit(recipe.result.substr(7));
     return outfit.quest_only ? 2 : outfit.technology.empty() ? 0 : 1;
   }
   if (recipe.result.starts_with("vessel:")) {
@@ -242,6 +245,11 @@ double CraftWait(const Save& save) {
 }
 Action BuildFacility(Save& save, int city, const std::string& kind) {
   InitializeTowns(save);
+  if (!ValidCity(city)) {
+    return {false, "Invalid town"};
+  }
+  int& wood = save.nation ? save.stocks[city][0] : save.inventory.wood;
+  int& stone = save.nation ? save.stocks[city][1] : save.inventory.stone;
   auto it = std::find_if(FacilityTypes().begin(), FacilityTypes().end(),
                          [&](const auto& f) { return f.id == kind; });
   if (!ValidCity(city) || !OwnsCity(save, city) ||
@@ -251,28 +259,42 @@ Action BuildFacility(Save& save, int city, const std::string& kind) {
   if (!HasSkill(save, "construction")) {
     return {false, "Learn Construction first"};
   }
-  if (HasFacility(save, city, kind)) {
+  int count = std::count_if(
+      save.facilities.begin(), save.facilities.end(),
+      [&](const auto& f) { return f.city == city && f.kind == kind; });
+  if (count >= (save.nation ? FacilityLimit(save, city, kind) : 1)) {
     return {false, "This town already has that building"};
+  }
+  if (kind == "hospital" && !save.technologies.contains("hospitals")) {
+    return {false, "Research Hospitals first"};
   }
   Vec point = FacilitySite(save, city);
   if (!std::isfinite(point.x)) {
     return {false, "No safe building site; expand the town first"};
   }
-  if (save.inventory.wood < it->wood || save.inventory.stone < it->stone ||
-      save.coins < it->coins) {
+  if (wood < it->wood || stone < it->stone || save.coins < it->coins) {
     return {false, "Requires wood " + std::to_string(it->wood) + ", stone " +
                        std::to_string(it->stone) + ", coins " +
                        std::to_string(it->coins)};
   }
-  save.inventory.wood -= it->wood;
-  save.inventory.stone -= it->stone;
+  wood -= it->wood;
+  stone -= it->stone;
   save.coins -= it->coins;
-  save.facilities.push_back({city, kind, point});
+  if (save.nation) {
+    save.region_fund += it->coins;
+  }
+  save.facilities.push_back(
+      {city, kind, point, save.nation ? save.next_entity++ : 0});
   RecordHistory(save, "building", "Built " + it->name, city);
   return {true, "Built: " + it->name};
 }
 Action ExpandCity(Save& save, int city) {
   InitializeTowns(save);
+  if (!ValidCity(city)) {
+    return {false, "Invalid town"};
+  }
+  int& wood = save.nation ? save.stocks[city][0] : save.inventory.wood;
+  int& stone = save.nation ? save.stocks[city][1] : save.inventory.stone;
   if (!ValidCity(city) || !OwnsCity(save, city) ||
       !HasSkill(save, "construction")) {
     return {false, "Expansion requires your own town and Construction"};
@@ -289,15 +311,17 @@ Action ExpandCity(Save& save, int city) {
       return {false, "Expansion would overlap another town"};
     }
   }
-  if (save.inventory.wood < level * 15 || save.inventory.stone < level * 10 ||
-      save.coins < level * 25) {
+  if (wood < level * 15 || stone < level * 10 || save.coins < level * 25) {
     return {false, "Expansion requires wood " + std::to_string(level * 15) +
                        ", stone " + std::to_string(level * 10) + ", coins " +
                        std::to_string(level * 25)};
   }
-  save.inventory.wood -= level * 15;
-  save.inventory.stone -= level * 10;
+  wood -= level * 15;
+  stone -= level * 10;
   save.coins -= level * 25;
+  if (save.nation) {
+    save.region_fund += level * 25;
+  }
   save.city_radii[city] += 150;
   RecordHistory(save, "territory", "Expanded town territory", city);
   return {true, "Town radius increased to " +
@@ -377,12 +401,14 @@ Action BuildRoad(Save& save, int from, int to, const std::vector<Vec>& points) {
   if (!quote.ok) {
     return {false, quote.message};
   }
-  if (save.inventory.wood < quote.wood || save.inventory.stone < quote.stone) {
+  int& wood = save.nation ? save.stocks[from][0] : save.inventory.wood;
+  int& stone = save.nation ? save.stocks[from][1] : save.inventory.stone;
+  if (wood < quote.wood || stone < quote.stone) {
     return {false, "Not enough materials: " + quote.message};
   }
   // Commit the entire route only after every condition and cost has passed.
-  save.inventory.wood -= quote.wood;
-  save.inventory.stone -= quote.stone;
+  wood -= quote.wood;
+  stone -= quote.stone;
   save.roads.push_back({from, to, points});
   RecordHistory(
       save, "road",
@@ -391,6 +417,7 @@ Action BuildRoad(Save& save, int from, int to, const std::vector<Vec>& points) {
   return {true, "Complete road built; connected buildings are available"};
 }
 Action LoseResident(Save& save, int npc, bool captured, int captor) {
+  StoreControlled(save);
   auto c = GetCitizen(save, npc);
   if (!c || c->state != "active" || !OwnsCity(save, c->city)) {
     return {false, "Resident is unavailable"};
@@ -405,16 +432,35 @@ Action LoseResident(Save& save, int npc, bool captured, int captor) {
     c->ransom =
         30 + (c->weapon.empty() ? 0 : 20 * (Weapon(c->weapon).rarity + 1));
   } else {
-    RemoveWeapon(save, c->weapon);
-    if (!c->outfit.empty()) {
-      save.outfit_copies[c->outfit] =
-          std::max(0, save.outfit_copies[c->outfit] - 1);
+    if (save.nation) {
+      for (const auto& [id, count] : c->weapons) {
+        save.weapon_copies[id] -= count;
+      }
+      for (const auto& [id, count] : c->clothes) {
+        save.outfit_copies[id] -= count;
+      }
+      c->weapons.clear();
+      c->clothes.clear();
+      c->cargo = {};
+      c->vessels.clear();
+    } else {
+      RemoveWeapon(save, c->weapon);
+      if (!c->outfit.empty()) {
+        save.outfit_copies[c->outfit] =
+            std::max(0, save.outfit_copies[c->outfit] - 1);
+      }
     }
     c->weapon.clear();
     c->outfit.clear();
     c->state = "dead";
     c->trained = false;
     c->job = "idle";
+  }
+  if (save.nation && npc == save.controlled_npc) {
+    save.controlled_npc = -1;
+    save.inventory = {};
+    save.health = 100;
+    save.submerged = false;
   }
   RecordHistory(save, captured ? "capture" : "loss",
                 captured ? "Resident taken captive; equipment held"
@@ -438,6 +484,10 @@ Action RansomResident(Save& save, int npc) {
   c->health = 100;
   c->captor = -1;
   c->ransom = 0;
+  if (save.nation) {
+    c->position = Settlements()[c->city].pos + Vec{120, 140};
+    c->underwater = false;
+  }
   RecordHistory(save, "ransom", "Resident returned with equipment", c->city);
   return {true, "Resident returned with their weapon and clothes"};
 }

@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "input.hpp"
+#include "nation.hpp"
 #include "progress.hpp"
 #include "render.hpp"
 #include "settlement_system.hpp"
@@ -54,7 +55,8 @@ void Renderer::Icon(const std::string& id, Rectangle box, Color tint) const {
 void Renderer::SummaryInput(SummaryView& view, Rectangle box,
                             bool keyboard) const {
   view.keyboard = keyboard;
-  if (keyboard && (MenuLeft() || MenuRight() || IsKeyPressed(KEY_TAB))) {
+  if (keyboard && !view.editable &&
+      (MenuLeft() || MenuRight() || IsKeyPressed(KEY_TAB))) {
     view.tab =
         (view.tab + (MenuLeft() || IsKeyDown(KEY_LEFT_SHIFT) ? 4 : 1)) % 5;
     view.scroll = 0;
@@ -84,10 +86,17 @@ void Renderer::SummaryInput(SummaryView& view, Rectangle box,
 }
 void Renderer::DrawSummary(const Save& save, SummaryView& view, Rectangle box,
                            bool enabled, const std::vector<Npc>* npcs) {
+  const bool state_tree = save.nation && view.editable;
+  if (state_tree) {
+    view.tab = 4;
+    Wrapped("State knowledge · " + ActionKey(InputAction::kNation) +
+                ": towns · " + ActionKey(InputAction::kInventory) + ": cargo",
+            box.x + 8, box.y + 12, box.width - 16, 18, kInk, 1);
+  }
   const char* tabs[] = {"Overview", "World", "Resources", "Settlements",
                         "Skill tree"};
   float tab_width = box.width / 5;
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; !state_tree && i < 5; i++) {
     Rectangle tab{box.x + i * tab_width, box.y, tab_width - 5, 44};
     bool hover = enabled && CheckCollisionPointRec(GetMousePosition(), tab);
     DrawRectangleRounded(tab, .55f, 12,
@@ -304,6 +313,11 @@ void Renderer::DrawSummary(const Save& save, SummaryView& view, Rectangle box,
     for (const auto& [id, q] : save.quests) {
       done += q.completed;
     }
+    if (save.nation) {
+      done = std::count_if(
+          save.city_tasks.begin(), save.city_tasks.end(),
+          [](const auto& t) { return t.completed && t.accepted; });
+    }
     entries = {
         {"town",
          "Known towns: " + std::to_string(discovered) + " / " +
@@ -321,10 +335,17 @@ void Renderer::DrawSummary(const Save& save, SummaryView& view, Rectangle box,
          "Learned skills: " + std::to_string(save.skills.size()) + " / " +
              std::to_string(Skills().size()),
          "Technologies: " + std::to_string(save.technologies.size())},
-        {"person", "Background: " + PlayerCharacter(save).name,
+        {"person",
+         (save.nation ? "Selected resident: " +
+                            ResidentName(save, save.controlled_npc) + " · "
+                      : "Background: ") +
+             PlayerCharacter(save).name,
          "Residents: " + std::to_string(save.citizens.size())},
         {"book", "Completed quests: " + std::to_string(done),
-         "Accepted quests: " + std::to_string(save.quests.size())},
+         save.nation
+             ? "Town projects and orders are managed in the state / town hall "
+               "menu"
+             : "Accepted quests: " + std::to_string(save.quests.size())},
         {"gather_sites", "Gathered sites: " + std::to_string(save.gathered),
          "Crafted items: " + std::to_string(save.crafted) +
              " · fish caught: " + std::to_string(save.caught)},

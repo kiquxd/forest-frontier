@@ -261,9 +261,10 @@ int main() {
       auto character_path = frontier::CreateSaveSlot(folder / "characters",
                                                      hero.id, 123, hero.id);
       auto character_save = frontier::LoadSave(character_path);
-      Check(character_save.character_id == hero.id &&
-                character_save.coins == hero.coins,
-            "Selected background and start bonus persist");
+      Check(
+          character_save.character_id == hero.id &&
+              character_save.coins == hero.coins + 100,
+          "First resident background and funded state starting budget persist");
     }
     Check(frontier::Character("scout").speed > 1 &&
               frontier::Character("scout").taken > 1 &&

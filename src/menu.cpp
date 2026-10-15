@@ -471,7 +471,8 @@ std::optional<std::filesystem::path> MainMenu(MenuOptions& options) {
       float available = std::min(w - 80, 1150.f);
       DrawRectangleRounded({left, top, available, h - top - 85}, .03f, 6,
                            kPanel);
-      renderer.Text("Choose your background", left + 20, top + 12, 26, kGold);
+      renderer.Text("Choose the first resident’s background", left + 20,
+                    top + 12, 26, kGold);
       renderer.Text("LEFT / RIGHT · " + std::to_string(background_choice + 1) +
                         " / " + std::to_string(GetContent().characters.size()),
                     left + available - 285, top + 19, 16, kMuted);

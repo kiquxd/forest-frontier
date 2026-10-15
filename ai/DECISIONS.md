@@ -57,3 +57,17 @@
 ## 2026-10-14 — Explicit settings Apply button
 
 - The shared settings/controls panel uses a prominent top-right Apply button. F5 no longer applies settings and is available for gameplay rebinding. Saving remains atomic; draft settings do not become active before Apply.
+
+
+### Resident-controlled state and city economy (2026-10-15)
+
+This revision supersedes earlier hero/NPC-quest/global-cooldown/passive-job descriptions above. New campaigns and normal legacy play initialize resident control; explicit legacy benchmark fixtures retain their isolated mechanics.
+
+- There is no separate hero. The selected active owned resident supplies the compatibility `Save.player/inventory/health` view; synchronize it before switches/save snapshots. Per-resident bags own counted gear, while state knowledge/maps are shared and goods/product warehouses belong to cities. Never allocate the selected view as an extra equipment owner.
+- State management centralizes residents, stocks, production, projects, trade orders, towns and growth. Town halls reuse the same records. K focuses on knowledge; saved-world summaries retain useful read-only tabs. All management pauses simulation; close it to progress production. Health remains in the live HUD, resource lists move into management.
+- City projects replace NPC quest issuance and never mint coins. Foreign orders reserve actual buyer funds; delivery consumes resident cargo and transfers escrow to the state. Abandonment refunds once. Unaccepted deficits expire. Intro/specialist/survey knowledge projects can reappear after abandonment, so progression is not permanently blocked.
+- Timed physical-workshop queues reserve warehouse inputs/fees, serialize eight jobs per building and run independently across buildings. Rarity delays are 1/5/30/60/120 simulation minutes. Forge cap is max(1, active population / 6); retained buildings are not destroyed on population loss. Peaceful roads gate remote workshop access; closed access suspends jobs. Remote output currently returns without hauling time, explicitly tracked as incomplete.
+- Renewable wood/berry/reed plots, rare paid specialist orders and owned-city goods shipments use saved simulation time only. Plots and shipments are management abstractions, not spawned farms or caravans. Specialist orders do not require roads; own-town transfers do. No autonomous resident orders or distant routing were added.
+- A closed monetary base includes state/city treasuries, the regional fund and reserved payments/commissioning fees. The initial region fund is 5000; up to 100 state coins are transferred from the home treasury while preserving 40. Paid civic activities return fees to the regional market; bounded real surplus purchases fund city budgets. The invariant is checked in TickNation and save validation. This prevents accidental minting, not hoarding; no complete tax/wage policy is claimed.
+- Wanderers/housing/manual relocation and infirmary/hospital treatment provide population/recovery prototypes. Inactive owned residents keep their last position. Death destroys all carried cargo/gear without coin destruction; captivity reserves it until ransom. No hero respawn occurs in the new mode.
+- Save v9 stores the full state and validates counted allocations, active-view consistency, money supply and bounded entity records. Versions 1-8 retain migration backups and progression. The user explicitly requested deletion of the old local development worlds for this overhaul; setup/launch code must never repeat that cleanup automatically.

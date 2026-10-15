@@ -161,24 +161,19 @@ if __name__ == '__main__':
                 ui.click(process, 180, 120 + 4 * 62 + 25)
                 assert process.wait(timeout=10) == 0
 
-                # A ready owned-town fixture verifies remote role/gear allocation through the dashboard.
-                fixture = json.loads(restored.read_text())
-                fixture['technologies'] = list(set(fixture['technologies']) | {'apprenticeship'})
-                fixture['outfit_copies']['forager'] = 1
-                resident = min(fixture['citizens'], key=lambda item: item['npc'])['npc']
+                # A freshly generated progressed world verifies resident selection.
                 dashboard = folder / 'dashboard.json'
-                dashboard.write_text(json.dumps(fixture))
+                subprocess.run([str(ui.root / 'build/nation_tests'), '--fixture', str(dashboard)],
+                               cwd=ui.root, stdout=output, stderr=output, check=True)
+                resident = json.loads(dashboard.read_text())['nation']['controlled']
                 process = subprocess.Popen([str(ui.root / 'build/forest_frontier'), '--play', '--fullscreen', '--save', str(dashboard), '--settings', str(settings), '--log-dir', str(folder / 'dashboard-logs')], cwd=ui.root, stdout=output, stderr=output)
                 ui.ensure_focus(process)
                 time.sleep(.8)
-                ui.key(process, 'k')
-                ui.key(process, 'Left')  # Settlements.
+                ui.key(process, 'u')
                 capture(process, 'menu-settlements.png')
-                # Live Summary bounds: x=44, body y=152; town list is 220 px wide.
-                ui.click(process, 450, 474)
-                ui.key(process, '3')  # Idle -> gatherer.
-                ui.key(process, '5')  # Empty -> forager (content order).
-                ui.key(process, 'Return')
+                width = ui.x.XDisplayWidth(ui.display, 0)
+                ui.click(process, width - 250, 348)  # Select the second resident.
+                ui.key(process, 'u')
                 capture(process, 'menu-resident-assignment.png')
                 ui.key(process, 'Escape')
                 ui.key(process, 'Escape')
@@ -193,8 +188,8 @@ if __name__ == '__main__':
                 ui.key(process, 'Up')
                 ui.key(process, 'Return')
                 ui.wait_for(dashboard.exists, 'Dashboard Save missing')
-                assigned = next(item for item in json.loads(dashboard.read_text())['citizens'] if item['npc'] == resident)
-                assert assigned['job'] == 'gatherer' and assigned['outfit'] == 'forager', assigned
+                selected = json.loads(dashboard.read_text())['nation']['controlled']
+                assert selected != resident, 'State resident selection did not persist'
                 ui.key(process, 'Down')
                 ui.key(process, 'Return')  # Return to main menu.
                 ui.click(process, 180, 120 + 4 * 62 + 25)
@@ -212,6 +207,6 @@ if __name__ == '__main__':
                 assert before[0] - after[0] > 10 and before[1] - after[1] > 10, 'Remapped movement did not reach runtime'
                 ui.click(process, 180, 120 + 4 * 62 + 25)
                 assert process.wait(timeout=10) == 0
-                print('Workflow smoke passed: controls swap/reset, read-only tree, copy/rename/export/import/recovery and owned resident assignment')
+                print('Workflow smoke passed: controls swap/reset, read-only tree, copy/rename/export/import/recovery and owned resident selection')
             finally:
                 stop(process)

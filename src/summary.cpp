@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "nation.hpp"
 #include "vessels.hpp"
 
 namespace frontier {
@@ -12,18 +13,85 @@ std::vector<SummaryEntry> InventorySummary(const Save& save) {
   std::vector<SummaryEntry> rows;
   rows.push_back({"coins", "Coins", "", save.coins});
   for (int g = 0; g < kGoodTypes; g++) {
-    rows.push_back({"good_" + std::to_string(g), GoodName(g), "Resource",
-                    GoodCount(save.inventory, g)});
+    int count = GoodCount(save.inventory, g);
+    if (save.nation) {
+      count = 0;
+      for (int city = 0; city < static_cast<int>(save.stocks.size()); ++city) {
+        if (OwnsCity(save, city)) {
+          count += save.stocks[city][g];
+        }
+      }
+      for (const auto& c : save.citizens) {
+        if (c.state == "active") {
+          count += c.npc == save.controlled_npc ? GoodCount(save.inventory, g)
+                                                : GoodCount(c.cargo, g);
+        }
+      }
+    }
+    rows.push_back(
+        {"good_" + std::to_string(g), GoodName(g),
+         save.nation ? "State warehouses + resident cargo" : "Resource",
+         count});
   }
+  auto stored_count = [&](const std::string& product) {
+    int count = 0;
+    for (int city = 0; city < static_cast<int>(save.city_products.size());
+         ++city) {
+      if (OwnsCity(save, city)) {
+        auto found = save.city_products[city].find(product);
+        if (found != save.city_products[city].end()) {
+          count += found->second;
+        }
+      }
+    }
+    for (const auto& c : save.citizens) {
+      if (c.state != "active" || !OwnsCity(save, c.city)) {
+        continue;
+      }
+      const auto& cargo =
+          c.npc == save.controlled_npc ? save.inventory : c.cargo;
+      if (product == "potion") {
+        count += cargo.potions;
+      } else if (product == "campfire") {
+        count += cargo.campfires;
+      } else if (product == "ammo") {
+        count += cargo.ammo;
+      } else if (product == "repair") {
+        count += cargo.repairs;
+      } else if (product == "axe") {
+        count += cargo.axe;
+      } else if (product == "pickaxe") {
+        count += cargo.pickaxe;
+      } else if (product == "rod") {
+        count += cargo.rod;
+      } else if (product == "boat") {
+        count += cargo.boat;
+      } else if (product == "ship") {
+        count += cargo.ship;
+      } else if (product == "submarine") {
+        count += cargo.submarine;
+      } else if (product == "sonar") {
+        count += cargo.sonar;
+      } else if (product == "oxygen") {
+        count += cargo.oxygen;
+      } else if (product.starts_with("vessel:")) {
+        const auto& vessels =
+            c.npc == save.controlled_npc ? save.vessels : c.vessels;
+        count += vessels.contains(product.substr(7));
+      }
+    }
+    return count;
+  };
   auto add = [&](const char* id, const char* name, int count) {
-    rows.push_back({id, name, "", count});
+    const std::string product = std::string(id) == "arrows" ? "ammo" : id;
+    rows.push_back({id, name, "", save.nation ? stored_count(product) : count});
   };
   add("potion", "Healing potions", save.inventory.potions);
   add("campfire", "Campfires", save.inventory.campfires);
   add("arrows", "Arrows", save.inventory.ammo);
   add("repair", "Repair kits", save.inventory.repairs);
   auto flag = [&](const char* id, const char* name, bool have) {
-    if (have) {
+    if (have || (save.nation && stored_count(id) > 0)) {
       add(id, name, 1);
     }
   };
@@ -36,9 +104,10 @@ std::vector<SummaryEntry> InventorySummary(const Save& save) {
   flag("sonar", "Sonar", save.inventory.sonar);
   flag("oxygen", "Oxygen module", save.inventory.oxygen);
   for (const auto& item : GetContent().weapons) {
-    if (save.inventory.weapons.contains(item.id)) {
+    if (save.nation || save.inventory.weapons.contains(item.id)) {
       auto found = save.weapon_copies.find(item.id);
-      int copies = found == save.weapon_copies.end() ? 1 : found->second;
+      int copies = found == save.weapon_copies.end() ? (save.nation ? 0 : 1)
+                                                     : found->second;
       if (copies > 0) {
         rows.push_back(
             {"weapon_" + item.id, item.name,
@@ -59,11 +128,13 @@ std::vector<SummaryEntry> InventorySummary(const Save& save) {
     }
   }
   for (const auto& v : Vessels()) {
-    if (v.number > 3 && OwnsVessel(save, v.number)) {
+    int count = save.nation ? stored_count("vessel:" + v.id) : 1;
+    if (v.number > 3 &&
+        (save.nation ? count > 0 : OwnsVessel(save, v.number))) {
       rows.push_back({"ship", v.name,
                       "Prestige " + std::to_string(v.prestige) + " · sight " +
                           std::to_string(static_cast<int>(v.view)),
-                      1});
+                      count});
     }
   }
   return rows;
@@ -106,9 +177,7 @@ std::vector<ProgressCard> ProgressCards(const Save& save) {
   for (int i = 0; i < static_cast<int>(Skills().size()); i++) {
     const auto& skill = Skills()[i];
     auto state = GetLessonState(save, i);
-    std::string detail = state.detail +
-                         ". Learn from this tree when ready; town-hall lessons "
-                         "also remain available. ";
+    std::string detail = state.detail + ". Learn from this tree when ready. ";
     if (i == 0) {
       detail += "Unlocks gathering trees, stones, berries and reeds.";
     } else {
@@ -122,8 +191,11 @@ std::vector<ProgressCard> ProgressCards(const Save& save) {
   cards.push_back({"civic_charter",
                    "Civic charter",
                    "civic_charter",
-                   "Quest reward: complete Know your neighbors (discover two "
-                   "new towns after accepting the quest).",
+                   save.nation
+                       ? "Town project: accept the home town survey, then "
+                         "discover two new towns and return."
+                       : "Quest reward: complete Know your neighbors (discover "
+                         "two new towns after accepting the quest).",
                    {},
                    2,
                    5,
@@ -177,6 +249,28 @@ std::vector<ProgressCard> ProgressCards(const Save& save) {
                      row++,
                      learned,
                      ready});
+  }
+  if (save.nation) {
+    cards.push_back({"medical_care",
+                     "Medical care",
+                     "book",
+                     "Complete a town medical-supplies project. Knowledge "
+                     "belongs to the state.",
+                     {},
+                     3,
+                     7,
+                     save.technologies.contains("medical_care"),
+                     false});
+    cards.push_back({"hospitals",
+                     "Hospitals",
+                     "book",
+                     "Research in State > Growth: Medical care, an accessible "
+                     "school and 80 state coins.",
+                     {"medical_care"},
+                     4,
+                     11,
+                     save.technologies.contains("hospitals"),
+                     false});
   }
   return cards;
 }
