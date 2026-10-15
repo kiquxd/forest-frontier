@@ -129,7 +129,7 @@ Remove an item only after its full scope is implemented and validated. Split it 
 
 - [ ] Cartography uses scale-dependent cached raster detail and exploration cells, not an unlimited-resolution geographic model.
 - [ ] Political/economic layers show discovered towns and remembered deposits; complete regional borders, production forecasts and strategic orders await the deferred resident-command/navigation systems.
-- [ ] Road planning is a surface-map mouse interface with at most 64 points and 128 roads. A route must be fully explored and paid for in one operation; alternate keyboard/controller plotting and detailed road editing are absent.
+- [ ] Road planning supports mouse or keyboard plotting, with at most 64 points and 128 roads. A route must be fully explored and paid for in one operation; controller plotting and detailed road editing are absent.
 
 ## Graphics, animation and audio
 
@@ -139,7 +139,7 @@ Remove an item only after its full scope is implemented and validated. Split it 
 
 ## Menus, controls and save management
 
-- [ ] Gamepad support covers basic movement/actions and legacy directional menu navigation, without complete controller mappings/remapping/text entry. State management is mouse-oriented; a complete keyboard-only interface, screen-reader and color customization are absent.
+- [ ] Gamepad support covers basic movement/actions and legacy directional menu navigation, without complete controller mappings/remapping/text entry. Screen-reader support and color customization are absent.
 - [ ] Campaign history retains the most recent 512 significant events. It does not reconstruct older events or provide a complete searchable campaign timeline.
 
 ## Persistence and content identity

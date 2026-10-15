@@ -140,7 +140,10 @@ if __name__ == '__main__':
                 ui.key(process, 'F9')
                 text(process, str(exported))
                 ui.key(process, 'Tab')
+                ui.key(process, 'Tab')
+                ui.key(process, 'Return')
                 text(process, 'imported')
+                ui.key(process, 'Tab')
                 ui.key(process, 'Return')
                 imported = saves / 'imported.json'
                 ui.wait_for(imported.exists, 'UI import failed')

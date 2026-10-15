@@ -29,6 +29,9 @@ struct ProgressCard {
 std::string RecipeIcon(const Recipe& recipe);
 std::vector<SummaryEntry> InventorySummary(const Save& save);
 std::vector<ProgressCard> ProgressCards(const Save& save);
+// Select the nearest card in a grid direction; never change progression.
+int AdjacentProgressCard(const std::vector<ProgressCard>& cards, int selected,
+                         int dx, int dy);
 }  // namespace frontier
 
 #endif  // FOREST_FRONTIER_SRC_SUMMARY_HPP_

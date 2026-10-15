@@ -43,7 +43,7 @@ bool Button(Renderer& renderer, Rectangle box, const std::string& label,
       label, box.x + 16,
       box.y + std::round((box.height - Renderer::TextSize(18)) * .5f),
       box.width - 32, 18, active ? kInk : kMuted, 1);
-  return active && hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+  return UiActivate(box, active, label);
 }
 void EditField(std::string& text, bool& selected, size_t limit,
                bool digits = false) {
@@ -304,6 +304,13 @@ std::optional<std::filesystem::path> MainMenu(MenuOptions& options) {
   };
   SetTargetFPS(options.settings.fps);
   while (!WindowShouldClose()) {
+    BeginUiNavigation("lobby:" + std::to_string(static_cast<int>(page)) + ":" +
+                          operation + ":" + std::to_string(confirm_delete) +
+                          ":" + std::to_string(expanded_summary) + ":" +
+                          std::to_string(settings_panel.controls),
+                      !settings_panel.capturing);
+    SetUiNavigationLayer(!confirm_delete && operation.empty() &&
+                         !expanded_summary);
     float w = static_cast<float>(GetScreenWidth()),
           h = static_cast<float>(GetScreenHeight());
     if (MenuBack() && page != Page::kSettings) {
@@ -483,12 +490,10 @@ std::optional<std::filesystem::path> MainMenu(MenuOptions& options) {
                     16, kMuted);
       Rectangle name_box{left + 20, field_y, field_width, field_height},
           seed_box{left + 40 + field_width, field_y, field_width, field_height};
-      if (CheckCollisionPointRec(GetMousePosition(), name_box) &&
-          IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+      if (UiActivate(name_box)) {
         edit_seed = false;
       }
-      if (CheckCollisionPointRec(GetMousePosition(), seed_box) &&
-          IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+      if (UiActivate(seed_box)) {
         edit_seed = true;
       }
       DrawRectangleRounded(name_box, .1f, 4, {40, 55, 45, 255});
@@ -497,9 +502,7 @@ std::optional<std::filesystem::path> MainMenu(MenuOptions& options) {
                     name_box.y + 7, 18, kInk);
       renderer.Text(seed_text + (edit_seed ? "|" : ""), seed_box.x + 10,
                     seed_box.y + 7, 18, kInk);
-      if (IsKeyPressed(KEY_TAB)) {
-        edit_seed = !edit_seed;
-      }
+
       auto& input = edit_seed ? seed_text : world_name;
       EditField(input, field_selected, edit_seed ? 20u : 48u, edit_seed);
       int count = static_cast<int>(GetContent().characters.size());
@@ -697,6 +700,7 @@ std::optional<std::filesystem::path> MainMenu(MenuOptions& options) {
       page = Page::kHome;
     }
     if (confirm_delete && !slots.empty()) {
+      SetUiNavigationLayer(true);
       DrawRectangle(0, 0, static_cast<int>(w), static_cast<int>(h),
                     {0, 0, 0, 185});
       Rectangle box{(w - 560) * .5f, (h - 230) * .5f, 560, 230};
@@ -726,6 +730,7 @@ std::optional<std::filesystem::path> MainMenu(MenuOptions& options) {
       }
     }
     if (expanded_summary && valid()) {
+      SetUiNavigationLayer(true);
       ConfigureWorld(slots[selected].save->seed);
       DrawRectangle(0, 0, static_cast<int>(w), static_cast<int>(h),
                     {0, 0, 0, 195});
@@ -741,6 +746,7 @@ std::optional<std::filesystem::path> MainMenu(MenuOptions& options) {
       }
     }
     if (!operation.empty()) {
+      SetUiNavigationLayer(true);
       DrawRectangle(0, 0, static_cast<int>(w), static_cast<int>(h),
                     {0, 0, 0, 200});
       Rectangle dialog{(w - std::min(760.f, w - 60)) * .5f, (h - 320) * .5f,
@@ -758,8 +764,7 @@ std::optional<std::filesystem::path> MainMenu(MenuOptions& options) {
       renderer.Wrapped(operation_text + (!operation_name_focus ? "|" : ""),
                        field.x + 10, field.y + 8, field.width - 20, 17, kInk,
                        1);
-      if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
-          CheckCollisionPointRec(GetMousePosition(), field)) {
+      if (UiActivate(field)) {
         operation_name_focus = false;
       }
       if (importing) {
@@ -768,10 +773,8 @@ std::optional<std::filesystem::path> MainMenu(MenuOptions& options) {
         renderer.Wrapped("Name (optional): " + operation_name +
                              (operation_name_focus ? "|" : ""),
                          name.x + 10, name.y + 8, name.width - 20, 17, kInk, 1);
-        if (IsKeyPressed(KEY_TAB) ||
-            (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
-             CheckCollisionPointRec(GetMousePosition(), name))) {
-          operation_name_focus = !operation_name_focus;
+        if (UiActivate(name)) {
+          operation_name_focus = true;
         }
       }
       auto& text = operation_name_focus ? operation_name : operation_text;
@@ -841,6 +844,12 @@ std::optional<std::filesystem::path> MainMenu(MenuOptions& options) {
         operation.clear();
       }
     }
+    DrawRectangle(30, static_cast<int>(h - 32), static_cast<int>(w - 60), 27,
+                  kPanel);
+    renderer.Wrapped(
+        "Arrows: choose · Enter: activate · Tab / Shift+Tab: focus · Esc: back",
+        40, h - 29, w - 80, 16, kMuted, 1);
+    EndUiNavigation();
     if (!notice.empty() && GetTime() < notice_until) {
       DrawRectangle(30, static_cast<int>(h - 32), static_cast<int>(w - 60), 27,
                     kPanel);

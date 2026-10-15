@@ -1,8 +1,11 @@
 #include "summary.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
+#include <limits>
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include "nation.hpp"
@@ -175,17 +178,11 @@ std::vector<ProgressCard> ProgressCards(const Save& save) {
   activity("craft_items", "Craft items", save.crafted, 2);
   activity("catch_fish", "Catch fish", save.caught, 3);
   activity("town_orders", "Town orders", save.orders, 4);
-  const std::vector<std::string> activity_parent = {"",
-                                                    "gathering",
-                                                    "gather_sites",
-                                                    "craft_items",
-                                                    "craft_items",
-                                                    "gather_sites",
-                                                    "catch_fish",
-                                                    "gather_sites",
-                                                    "craft_items",
-                                                    "trading",
-                                                    "town_orders"};
+  const std::vector<std::string> activity_parent = {
+      "",           "gathering",    "gather_sites",
+      "crafting",   "craft_items",  "gather_sites",
+      "catch_fish", "gather_sites", "craft_items",
+      "trading",    "town_orders"};
   const int columns[] = {0, 1, 1, 2, 2, 1, 2, 1, 2, 2, 3},
             rows[] = {0, 0, 1, 1, 2, 3, 3, 4, 4, 0, 4};
   for (int i = 0; i < static_cast<int>(Skills().size()); i++) {
@@ -292,5 +289,31 @@ std::vector<ProgressCard> ProgressCards(const Save& save) {
                      false});
   }
   return cards;
+}
+int AdjacentProgressCard(const std::vector<ProgressCard>& cards, int selected,
+                         int dx, int dy) {
+  if (cards.empty()) {
+    return -1;
+  }
+  selected = std::clamp(selected, 0, static_cast<int>(cards.size()) - 1);
+  int result = selected;
+  auto best = std::tuple{std::numeric_limits<int>::max(),
+                         std::numeric_limits<int>::max(),
+                         std::numeric_limits<int>::max()};
+  const auto& origin = cards[selected];
+  for (int i = 0; i < static_cast<int>(cards.size()); ++i) {
+    const int x = cards[i].column - origin.column;
+    const int y = cards[i].row - origin.row;
+    const int forward = x * dx + y * dy;
+    if (forward <= 0) {
+      continue;
+    }
+    const auto score = std::tuple{std::abs(x * dy - y * dx), forward, i};
+    if (score < best) {
+      best = score;
+      result = i;
+    }
+  }
+  return result;
 }
 }  // namespace frontier

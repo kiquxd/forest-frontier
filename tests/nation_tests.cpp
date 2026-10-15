@@ -49,6 +49,31 @@ int main(int argc, char** argv) {
         save.nation && frontier::HasControlled(save) &&
             save.inventory.wood == 0 && save.stocks[home][0] > 0,
         "New campaign controls a resident with city-owned starting resources");
+    auto starter = save;
+    Check(frontier::TrainSkill(starter, 0).ok,
+          "A new state can learn Gathering before crafting any items");
+    for (uint64_t id = 90000; id < 90005; ++id) {
+      Check(frontier::Harvest(
+                starter, {id, starter.player, frontier::ResourceKind::kTree, 0})
+                .ok,
+            "Five starter gathering sites need no tool");
+    }
+    Check(frontier::TrainSkill(starter, 2).ok && starter.crafted == 0 &&
+              frontier::GetLessonState(starter, 3).ready,
+          "Craftsmanship immediately opens Tools without previous crafts");
+    if (argc == 3 && std::string(argv[1]) == "--starter-fixture") {
+      frontier::WriteSave(argv[2], starter);
+    }
+    Check(
+        frontier::TrainSkill(starter, 3).ok &&
+            frontier::QueueProduction(starter, Recipe("axe"), home).ok &&
+            frontier::TickProduction(starter, 60) == 1 &&
+            starter.city_products[home]["axe"] == 1 && starter.crafted == 1,
+        "A first axe is producible at the initial workbench from city stocks");
+    Check(frontier::QueueProduction(starter, Recipe("campfire"), home).ok &&
+              frontier::TickProduction(starter, 60) == 1 &&
+              frontier::GetLessonState(starter, 4).ready,
+          "Two accessible starter crafts unlock Weaponsmithing practice");
     std::ifstream icon_manifest(std::string(FRONTIER_ROOT) +
                                 "/assets/ui/icons.json");
     auto icon_ids =

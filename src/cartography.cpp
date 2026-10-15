@@ -41,6 +41,10 @@ void Renderer::DrawMap(const Save& save, const Ui& ui, const Camera2D&,
   const bool submerged = ui.map_layer_override < 0
                              ? save.submerged
                              : static_cast<bool>(ui.map_layer_override);
+  // The strategic map records terrain knowledge. Only the minimap dims cells
+  // outside the selected resident's current sight; otherwise visited forest
+  // and town colours become an unexplained patchwork of grey/dark blocks.
+  const bool visibility_tint = show_viewport && !large;
   auto& cache = maps_[large ? 1 : 0];
   Vec desired = large ? ui.map_center
                       : Vec{std::floor(save.player.x / 384) * 384,
@@ -50,6 +54,7 @@ void Renderer::DrawMap(const Save& save, const Ui& ui, const Camera2D&,
   if (cache.seed != save.seed || cache.refresh < 0 ||
       ui.time - cache.refresh > .3 || cache.submerged != submerged ||
       cache.range != range || cache.pixels != kPixels ||
+      cache.visibility_tint != visibility_tint ||
       cache.overlay != ui.map_overlay || Length(cache.center - desired) > 1) {
     if (cache.pixels != kPixels && cache.texture.id) {
       UnloadTexture(cache.texture);
@@ -62,6 +67,7 @@ void Renderer::DrawMap(const Save& save, const Ui& ui, const Camera2D&,
     cache.range = range;
     cache.refresh = ui.time;
     cache.submerged = submerged;
+    cache.visibility_tint = visibility_tint;
     Image image = GenImageColor(kPixels, kPixels, {11, 19, 22, 255});
     auto& explored = submerged ? save.explored_underwater : save.explored;
     auto point = [&](Vec position) {
@@ -192,9 +198,8 @@ void Renderer::DrawMap(const Save& save, const Ui& ui, const Camera2D&,
                   cache.center.y - range + (y + .5f) / kPixels * range * 2};
         if (!ExploredAt(explored, world)) {
           ImageDrawPixel(&image, x, y, {11, 19, 22, 255});
-        } else {
-          bool current = show_viewport && VisibleAt(save, world, submerged);
-          if (!current) {
+        } else if (visibility_tint) {
+          if (!VisibleAt(save, world, submerged)) {
             auto* colors = static_cast<Color*>(image.data);
             auto& color = colors[y * kPixels + x];
             color.r = static_cast<uint8_t>(color.r * .64f);

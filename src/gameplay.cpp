@@ -130,7 +130,7 @@ const std::vector<Skill>& Skills() {
        "Craftsmanship",
        "Gather from 5 resource sites",
        {"gathering"}},
-      {"tools", "Tools", "Craft 2 items", {"crafting"}},
+      {"tools", "Tools", "Learn Craftsmanship", {"crafting"}},
       {"combat", "Weaponsmithing", "Craft 2 items", {"crafting"}},
       {"fishing", "Fishing", "Gather from 10 resource sites", {"gathering"}},
       {"sailing", "Seamanship", "Catch 3 fish", {"fishing"}},
@@ -246,7 +246,9 @@ LessonState GetLessonState(const Save& save, int index) {
   } else if (index == 2 || index == 5 || index == 7) {
     progress = save.gathered;
     target = index == 2 ? 5 : 10;
-  } else if (index == 3 || index == 4 || index == 8) {
+  } else if (index == 3) {
+    progress = HasSkill(save, "crafting");
+  } else if (index == 4 || index == 8) {
     progress = save.crafted;
     target = index == 8 ? 4 : 2;
   } else if (index == 6) {

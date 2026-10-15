@@ -3,6 +3,8 @@
 import argparse
 import importlib.util
 import json
+import os
+import shutil
 from pathlib import Path
 import subprocess
 import tempfile
@@ -18,11 +20,17 @@ if not args.extended:
         folder = Path(folder)
         save = folder / 'world.json'
         with (ui.root / 'logs/world-smoke.log').open('w') as output:
+            subprocess.run([str(ui.root / 'build/nation_tests'), '--fixture', str(save)],
+                           stdout=output, stderr=output, check=True)
             process = subprocess.Popen([
                 str(ui.root / 'build/forest_frontier'), '--play', '--fullscreen',
                 '--settings', str(folder / 'settings.json'), '--save', str(save),
                 '--log-dir', str(folder / 'logs')], cwd=ui.root, stdout=output, stderr=output)
             try:
+                if os.environ.get('SWAYSOCK') and shutil.which('swaymsg'):
+                    time.sleep(.8)
+                    subprocess.run(['swaymsg', f'[pid={process.pid}] focus'], check=True,
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=3)
                 ui.ensure_focus(process)
                 time.sleep(.8)
                 width = ui.x.XDisplayWidth(ui.display, 0)
@@ -61,7 +69,10 @@ with tempfile.TemporaryDirectory(prefix='frontier-world-smoke-') as folder:
             ui.key(process,'Down');ui.key(process,'Down');ui.key(process,'Return');ui.key(process,'Return')
             world=save.parent/'New-world.json';ui.wait_for(world.exists,'New world missing');time.sleep(1)
             ui.key(process,'m');ui.click(process,width*.5,height*.5)
-            workflow.text(process,'Home entry');ui.key(process,'Tab');workflow.text(process,'The nearby town has a forge. Come back with materials.')
+            workflow.text(process,'Home entry')
+            for _ in range(3): ui.key(process,'Tab')
+            ui.key(process,'Return')
+            workflow.text(process,'The nearby town has a forge. Come back with materials.')
             workflow.capture(process,'world-journal-editor.png')
             workflow.shortcut(process,'Control_L','Return');ui.key(process,'Escape')
             workflow.capture(process,'world-map-note.png')

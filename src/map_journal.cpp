@@ -35,12 +35,55 @@ void Renderer::DrawMapJournal(Save& save, Ui& ui) {
   Rectangle map{(w - side) * .5f, (h - side) * .5f, side, side};
   auto button = [&](Rectangle r, const std::string& text,
                     bool selected = false) {
-    bool hover = CheckCollisionPointRec(GetMousePosition(), r);
     DrawRectangleRounded(
         r, .4f, 8, selected ? Color{83, 107, 63, 255} : Color{36, 57, 43, 255});
     Wrapped(text, r.x + 8, r.y + 6, r.width - 16, 16, {231, 231, 204, 255}, 1);
-    return hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    return UiActivate(r, true, text);
   };
+  const bool ctrl = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
+  bool map_click = false;
+  Vector2 map_pointer = GetMousePosition();
+  if (!ui.map_journal) {
+    const Rectangle target{map.x, map.y, map.width,
+                           map.height - (ui.road_edit ? 112 : 0)};
+    const bool keyboard_focus = UiFocusActive();
+    map_click = UiActivate(target);
+    if (keyboard_focus && map_click) {
+      ui.map_keyboard_cursor = true;
+      ClearUiFocus();
+    }
+    if (!UiFocusActive()) {
+      Vec direction{
+          static_cast<float>(IsKeyDown(KEY_RIGHT) - IsKeyDown(KEY_LEFT)),
+          static_cast<float>(IsKeyDown(KEY_DOWN) - IsKeyDown(KEY_UP))};
+      if (Length(direction) > 0) {
+        ui.map_keyboard_cursor = true;
+        ui.map_center =
+            ui.map_center + Normalized(direction) *
+                                (ui.map_range * std::min(GetFrameTime(), .05f));
+      }
+      if (IsKeyPressed(KEY_EQUAL) || IsKeyPressed(KEY_KP_ADD)) {
+        ui.map_range = std::max(900.f, ui.map_range * .8f);
+      }
+      if (IsKeyPressed(KEY_MINUS) || IsKeyPressed(KEY_KP_SUBTRACT)) {
+        ui.map_range = std::min(18000.f, ui.map_range * 1.25f);
+      }
+      if (ui.map_keyboard_cursor && MenuConfirm() && !ctrl) {
+        map_click = true;
+      }
+    }
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
+        CheckCollisionPointRec(GetMousePosition(), target)) {
+      ui.map_keyboard_cursor = false;
+    }
+    if (ui.map_keyboard_cursor) {
+      map_pointer = {map.x + map.width / 2, map.y + map.height / 2};
+      DrawLineEx({map_pointer.x - 10, map_pointer.y},
+                 {map_pointer.x + 10, map_pointer.y}, 2, {245, 209, 127, 255});
+      DrawLineEx({map_pointer.x, map_pointer.y - 10},
+                 {map_pointer.x, map_pointer.y + 10}, 2, {245, 209, 127, 255});
+    }
+  }
   if (!ui.map_journal && !save.submerged &&
       button({map.x + map.width - 390, map.y - 46, 190, 34},
              ui.road_edit ? "Cancel road" : "Plan road", ui.road_edit)) {
@@ -68,17 +111,17 @@ void Renderer::DrawMapJournal(Save& save, Ui& ui) {
       DrawCircleV(project(ui.road_points[i]), 5, {243, 217, 144, 255});
     }
     EndScissorMode();
-    if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) && !ui.road_points.empty()) {
+    if ((IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) ||
+         IsKeyPressed(KEY_BACKSPACE)) &&
+        !ui.road_points.empty()) {
       ui.road_points.pop_back();
       ui.road_to = -1;
       if (ui.road_points.empty()) {
         ui.road_from = -1;
       }
     }
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
-        CheckCollisionPointRec(GetMousePosition(), map) &&
-        GetMousePosition().y < map.y + map.height - 112 && ui.road_to < 0) {
-      auto mouse = GetMousePosition();
+    if (map_click && ui.road_to < 0) {
+      auto mouse = map_pointer;
       Vec point{
           cache.center.x + (mouse.x - map.x) / map.width * cache.range * 2 -
               cache.range,
@@ -90,7 +133,7 @@ void Renderer::DrawMapJournal(Save& save, Ui& ui) {
           ui.road_from = city;
           ui.road_points.push_back(Settlements()[city].pos);
         } else {
-          ui.road_status = "Start by clicking your town";
+          ui.road_status = "Select your town to start the route";
         }
       } else if (city >= 0 && city != ui.road_from &&
                  save.relations[city].discovered) {
@@ -107,14 +150,14 @@ void Renderer::DrawMapJournal(Save& save, Ui& ui) {
     auto quote = QuoteRoad(save, ui.road_from, ui.road_to, ui.road_points);
     Rectangle panel{map.x, map.y + map.height - 112, map.width, 90};
     DrawRectangleRounded(panel, .15f, 8, {18, 34, 25, 250});
-    Wrapped(ui.road_to >= 0 ? quote.message
-                            : "Click your town, add route points, then click "
-                              "the destination town. Right click: undo.",
+    Wrapped(ui.road_to >= 0
+                ? quote.message
+                : "Select your town, then route points and destination. "
+                  "Arrows: cursor · Enter: point · Backspace: undo.",
             panel.x + 10, panel.y + 5, panel.width - 20, 16,
             {236, 220, 183, 255}, 2);
-    if (button({panel.x + 10, panel.y + 51, 215, 32},
-               "Build entire road · Enter") ||
-        IsKeyPressed(KEY_ENTER)) {
+    if (button({panel.x + 10, panel.y + 51, 215, 32}, "Build · Ctrl+Enter") ||
+        (ctrl && IsKeyPressed(KEY_ENTER))) {
       auto result = BuildRoad(save, ui.road_from, ui.road_to, ui.road_points);
       ui.road_status = result.message;
       if (result.ok) {
@@ -141,9 +184,8 @@ void Renderer::DrawMapJournal(Save& save, Ui& ui) {
     ui.note_text = id < 0 ? "" : save.map_notes[id].text;
   };
   if (!ui.map_journal) {
-    if (button({map.x + map.width - 190, map.y - 46, 190, 34},
-               "Journal · Tab") ||
-        IsKeyPressed(KEY_TAB)) {
+    if (button({map.x + map.width - 190, map.y - 46, 190, 34}, "Journal · J") ||
+        IsKeyPressed(KEY_J)) {
       ui.map_journal = true;
       ui.note_edit = false;
       return;
@@ -159,10 +201,9 @@ void Renderer::DrawMapJournal(Save& save, Ui& ui) {
         ui.map_overlay = i;
       }
     }
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
-        CheckCollisionPointRec(GetMousePosition(), map)) {
+    if (map_click) {
       const auto& cache = maps_[1];
-      auto mouse = GetMousePosition();
+      auto mouse = map_pointer;
       Vec point{
           cache.center.x + (mouse.x - map.x) / map.width * cache.range * 2 -
               cache.range,
@@ -238,21 +279,18 @@ void Renderer::DrawMapJournal(Save& save, Ui& ui) {
   }
   Rectangle title{box.x + 20, box.y + 80, box.width - 40, 48},
       body{box.x + 20, box.y + 144, box.width - 40, box.height - 244};
-  if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-    if (CheckCollisionPointRec(GetMousePosition(), title)) {
-      ui.note_body_focus = false;
-    }
-    if (CheckCollisionPointRec(GetMousePosition(), body)) {
-      ui.note_body_focus = true;
-    }
+  const bool title_activated = UiActivate(title);
+  if (title_activated) {
+    ui.note_body_focus = false;
+    ClearUiFocus();
   }
-  if (IsKeyPressed(KEY_TAB)) {
-    ui.note_body_focus = !ui.note_body_focus;
-    ui.note_select_all = false;
+  const bool body_activated = UiActivate(body);
+  if (body_activated) {
+    ui.note_body_focus = true;
+    ClearUiFocus();
   }
   auto& field = ui.note_body_focus ? ui.note_text : ui.note_title;
   size_t cap = ui.note_body_focus ? 2048 : 64;
-  bool ctrl = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
   if (ctrl && IsKeyPressed(KEY_A)) {
     ui.note_select_all = true;
   }
@@ -291,7 +329,8 @@ void Renderer::DrawMapJournal(Save& save, Ui& ui) {
       append(Utf8(code));
     }
   }
-  if (ui.note_body_focus && !ctrl && IsKeyPressed(KEY_ENTER)) {
+  if (ui.note_body_focus && !body_activated && !title_activated &&
+      !UiFocusActive() && !ctrl && IsKeyPressed(KEY_ENTER)) {
     append("\n");
   }
   for (auto r : {title, body}) {
@@ -309,6 +348,12 @@ void Renderer::DrawMapJournal(Save& save, Ui& ui) {
       static_cast<int>(
           std::count(ui.note_text.begin(), ui.note_text.end(), '\n')) +
       2;
+  if (IsKeyPressed(KEY_PAGE_DOWN)) {
+    ui.note_scroll += body.height * .8f;
+  }
+  if (IsKeyPressed(KEY_PAGE_UP)) {
+    ui.note_scroll -= body.height * .8f;
+  }
   ui.note_scroll = std::clamp(
       ui.note_scroll - GetMouseWheelMove() * 45, 0.f,
       std::max(0.f, estimated_lines * (TextSize(17) + 6) - body.height));
@@ -336,11 +381,10 @@ void Renderer::DrawMapJournal(Save& save, Ui& ui) {
     ui.note_edit = false;
     ui.note_error = "Note deleted";
   }
-  Wrapped(
-      ui.note_error.empty()
-          ? "Tab: title/text · Ctrl+A/C/V: select/copy/paste · Enter: new line"
-          : ui.note_error,
-      box.x + 20, box.y + box.height - 32, box.width - 40, 16,
-      {213, 190, 137, 255}, 1);
+  Wrapped(ui.note_error.empty() ? "Tab: focus · Enter: edit / activate · "
+                                  "Ctrl+Enter: save · PgUp/PgDn: scroll"
+                                : ui.note_error,
+          box.x + 20, box.y + box.height - 32, box.width - 40, 16,
+          {213, 190, 137, 255}, 1);
 }
 }  // namespace frontier

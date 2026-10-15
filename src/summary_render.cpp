@@ -55,8 +55,8 @@ void Renderer::Icon(const std::string& id, Rectangle box, Color tint) const {
 void Renderer::SummaryInput(SummaryView& view, Rectangle box,
                             bool keyboard) const {
   view.keyboard = keyboard;
-  if (keyboard && !view.editable &&
-      (MenuLeft() || MenuRight() || IsKeyPressed(KEY_TAB))) {
+  if (keyboard && !view.editable && view.tab != 4 &&
+      (MenuLeft() || MenuRight())) {
     view.tab =
         (view.tab + (MenuLeft() || IsKeyDown(KEY_LEFT_SHIFT) ? 4 : 1)) % 5;
     view.scroll = 0;
@@ -104,7 +104,7 @@ void Renderer::DrawSummary(const Save& save, SummaryView& view, Rectangle box,
                          : hover       ? Color{52, 78, 55, 255}
                                        : Color{33, 51, 42, 255});
     Wrapped(tabs[i], tab.x + 10, tab.y + 10, tab.width - 20, 16, kInk, 1);
-    if (hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+    if (UiActivate(tab, enabled)) {
       view.tab = i;
       view.scroll = view.horizontal = 0;
     }
@@ -119,15 +119,6 @@ void Renderer::DrawSummary(const Save& save, SummaryView& view, Rectangle box,
     auto cards = ProgressCards(save);
     const float card_height = std::max(126.f, 90 + TextSize(16) * 2);
     const float row_step = card_height + 26;
-    if (enabled && view.keyboard && (MenuUp() || MenuDown())) {
-      view.selected_node =
-          (std::max(0, view.selected_node) + static_cast<int>(cards.size()) +
-           (MenuUp() ? -1 : 1)) %
-          static_cast<int>(cards.size());
-      const auto& node = cards[view.selected_node];
-      view.scroll = std::max(0.f, node.row * row_step - 40);
-      view.horizontal = std::max(0.f, node.column * kColumnStep - 40);
-    }
     if (view.selected_node < 0) {
       view.selected_node =
           static_cast<int>(std::find_if(cards.begin(), cards.end(),
@@ -138,7 +129,17 @@ void Renderer::DrawSummary(const Save& save, SummaryView& view, Rectangle box,
     }
     view.selected_node =
         std::clamp(view.selected_node, 0, static_cast<int>(cards.size()) - 1);
-    Wrapped("Light: learned · dark: locked · SHIFT+wheel: pan", body.x, body.y,
+    if (enabled && view.keyboard &&
+        (MenuUp() || MenuDown() || (MenuLeft() || MenuRight()))) {
+      const int dx = MenuRight() ? 1 : MenuLeft() ? -1 : 0;
+      const int dy = MenuDown() ? 1 : MenuUp() ? -1 : 0;
+      view.selected_node =
+          AdjacentProgressCard(cards, view.selected_node, dx, dy);
+      const auto& node = cards[view.selected_node];
+      view.scroll = std::max(0.f, node.row * row_step - 40);
+      view.horizontal = std::max(0.f, node.column * kColumnStep - 40);
+    }
+    Wrapped("Arrows: select · Enter: learn · SHIFT+wheel: pan", body.x, body.y,
             body.width - 12, 16, kMuted, 1);
     Rectangle canvas{body.x, body.y + 30, body.width, body.height - 174};
     int columns = 0, rows = 0;
@@ -237,10 +238,7 @@ void Renderer::DrawSummary(const Save& save, SummaryView& view, Rectangle box,
       if (card.ready && !card.learned) {
         DrawCircleV({cell.x + cell.width - 12, cell.y + 12}, 4, kGold);
       }
-      auto mouse = GetMousePosition();
-      if (enabled && CheckCollisionPointRec(mouse, canvas) &&
-          CheckCollisionPointRec(mouse, cell) &&
-          IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+      if (UiActivate(GetCollisionRec(cell, canvas), enabled, card.id)) {
         view.selected_node = i;
       }
     }
@@ -288,9 +286,7 @@ void Renderer::DrawSummary(const Save& save, SummaryView& view, Rectangle box,
                                : "Visit teacher / complete quest",
               action.x + 10, action.y + 7, action.width - 20, 16, kInk, 1);
       if (enabled && can_unlock && direct &&
-          (MenuConfirm() ||
-           (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
-            CheckCollisionPointRec(GetMousePosition(), action)))) {
+          (MenuConfirm() || UiActivate(action))) {
         view.requested_node = selected.id;
       }
       if (!view.status.empty()) {
@@ -375,8 +371,7 @@ void Renderer::DrawSummary(const Save& save, SummaryView& view, Rectangle box,
     DrawRectangleRounded(layer, .5f, 10, {52, 78, 55, 255});
     Text(view.underwater ? "Seafloor · switch layer" : "Surface · switch layer",
          layer.x + 10, layer.y + 7, 16, kInk);
-    if (enabled && CheckCollisionPointRec(GetMousePosition(), layer) &&
-        IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+    if (UiActivate(layer, enabled)) {
       view.underwater = !view.underwater;
       view.scroll = 0;
     }
@@ -419,11 +414,10 @@ void Renderer::DrawSummary(const Save& save, SummaryView& view, Rectangle box,
       continue;
     }
     const auto& entry = entries[i];
-    if (view.tab == 0 && enabled && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
-        CheckCollisionPointRec(GetMousePosition(),
-                               {body.x, y, body.width - 12, kRowHeight - 5}) &&
+    if (view.tab == 0 &&
         (entry.name == "Recent history" ||
-         entry.name == "Recent campaign history")) {
+         entry.name == "Recent campaign history") &&
+        UiActivate({body.x, y, body.width - 12, kRowHeight - 5}, enabled)) {
       view.history = !view.history;
       view.scroll = 0;
     }
@@ -482,8 +476,7 @@ void Renderer::DrawSettlements(const Save& save, SummaryView& view,
                 ? "Your town"
                 : TreatyName(save.relations[reports[i].city].treaty),
             row.x + 46, row.y + 32, row.width - 52, 16, kMuted, 1);
-    if (enabled && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
-        CheckCollisionPointRec(GetMousePosition(), row)) {
+    if (UiActivate(row, enabled)) {
       view.selected_city = i;
       view.selected_resident = -1;
       view.resident_page = 0;
@@ -543,8 +536,7 @@ void Renderer::DrawSettlements(const Save& save, SummaryView& view,
   auto button = [&](Rectangle box, const std::string& title) {
     DrawRectangleRounded(box, .4f, 8, {49, 76, 52, 255});
     Wrapped(title, box.x + 6, box.y + 5, box.width - 12, 16, kInk, 1);
-    return enabled && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
-           CheckCollisionPointRec(GetMousePosition(), box);
+    return UiActivate(box, enabled);
   };
   if (button(prev, "Previous")) {
     view.resident_page = std::max(0, view.resident_page - 1);
@@ -577,8 +569,7 @@ void Renderer::DrawSettlements(const Save& save, SummaryView& view,
             (resident.outfit.empty() ? "No work clothes"
                                      : Outfit(resident.outfit).name),
         x + 8, y + TextSize(16) + 5, width - 16, 16, kMuted, 1);
-    if (enabled && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
-        CheckCollisionPointRec(GetMousePosition(), row)) {
+    if (UiActivate(row, enabled)) {
       view.selected_resident = resident.npc;
       auto weapons = OwnedWeapons(save), outfits = OwnedOutfits(save);
       outfits.insert(outfits.begin(), "");

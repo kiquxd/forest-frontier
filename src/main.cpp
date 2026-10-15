@@ -771,6 +771,20 @@ int Play(const Options& options) {
                   ? completed.output_tokens * 1000 / completed.generation_ms
                   : 0}});
       }
+      frontier::BeginUiNavigation(
+          ui.settings_open
+              ? "world-settings:" + std::to_string(settings_panel.controls)
+          : ui.paused      ? "pause"
+          : ui.progression ? "knowledge"
+          : ui.government  ? "state:" + std::to_string(ui.gov_tab) + ":" +
+                                 std::to_string(ui.gov_page)
+          : ui.map_journal ? "map-journal:" + std::to_string(ui.note_edit)
+          : ui.road_edit   ? "roads"
+          : ui.cartography ? "map"
+          : ui.npc >= 0    ? "conversation"
+          : ui.Blocked()   ? "equipment-menu"
+                           : "world",
+          !ui.settings_open || !settings_panel.capturing);
       const bool discovery_was_open = !ui.discovered_towns.empty();
       const bool production_typing =
           ui.government && ui.gov_tab == 2 && ui.production_search_focus;
@@ -951,9 +965,7 @@ int Play(const Options& options) {
                       {"npc", ui.summary.selected_resident},
                       {"ok", result.ok}});
         }
-        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
-            CheckCollisionPointRec(GetMousePosition(),
-                                   frontier::Renderer::ProgressCloseButton())) {
+        if (frontier::UiActivate(frontier::Renderer::ProgressCloseButton())) {
           ui.progression = false;
           ui.summary.requested_node.clear();
           ui.summary.requested_assignment = false;
@@ -968,13 +980,10 @@ int Play(const Options& options) {
           ui.pause_selection = (ui.pause_selection + 1) % 4;
         }
         bool activate = frontier::MenuConfirm();
-        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-          for (int i = 0; i < 4; ++i) {
-            if (CheckCollisionPointRec(GetMousePosition(),
-                                       frontier::Renderer::PauseButton(i))) {
-              ui.pause_selection = i;
-              activate = true;
-            }
+        for (int i = 0; i < 4; ++i) {
+          if (frontier::UiActivate(frontier::Renderer::PauseButton(i))) {
+            ui.pause_selection = i;
+            activate = true;
           }
         }
         if (activate) {
@@ -1321,7 +1330,7 @@ int Play(const Options& options) {
               std::clamp(ui.selection - static_cast<int>(GetMouseWheelMove()),
                          0, rows - 1);
           page = ui.selection / page_size * page_size;
-          bool perform = IsKeyPressed(KEY_ENTER),
+          bool perform = frontier::MenuConfirm(),
                buy = !IsKeyDown(KEY_LEFT_SHIFT);
           if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             auto box = frontier::Renderer::MenuBounds(shown);
@@ -1719,7 +1728,8 @@ int Play(const Options& options) {
         } else if (ui.cartography) {
           hint_action(frontier::InputAction::kMap, "Close map");
           ui.actions.push_back({"Click", "Write / open note"});
-          ui.actions.push_back({"Tab", "Journal"});
+          ui.actions.push_back({"J", "Journal"});
+          ui.actions.push_back({"Tab", "Focus buttons"});
           ui.actions.push_back({"Middle mouse", "Pan"});
           ui.actions.push_back({"Wheel", "Zoom"});
           ui.actions.push_back({"1 / 2 / 3", "Map layers"});
@@ -1852,9 +1862,12 @@ int Play(const Options& options) {
       double update_ms = frontier::ElapsedMilliseconds(update_start);
       auto render_start = frontier::Clock::now();
       if (ui.road_edit) {
-        ui.actions = {{"Click", "Town / waypoint"},   {"Right click", "Undo"},
-                      {"Enter", "Build entire road"}, {"Esc", "Cancel plan"},
-                      {"Middle mouse", "Pan"},        {"Wheel", "Zoom"}};
+        ui.actions = {{"Click", "Town / waypoint"},
+                      {"Backspace", "Undo"},
+                      {"Ctrl+Enter", "Build entire road"},
+                      {"Esc", "Cancel plan"},
+                      {"Middle mouse", "Pan"},
+                      {"Wheel", "Zoom"}};
         ui.hint =
             "Construction requires an explored route and the full material "
             "cost.";
@@ -1869,6 +1882,8 @@ int Play(const Options& options) {
         }
         if (ui.government) {
           ui.actions = {{"Esc", "Close management"},
+                        {"Arrows", "Switch tab"},
+                        {"Tab / Shift+Tab", "Focus buttons"},
                         {"N", "State"},
                         {"U", "Residents"},
                         {"Y", "Cargo / resources"}};
@@ -1897,6 +1912,7 @@ int Play(const Options& options) {
         ui.debug = live_settings.debug;
         desired_zoom = live_settings.zoom;
       }
+      frontier::EndUiNavigation();
       double submit_ms = frontier::ElapsedMilliseconds(render_start);
       auto present_start = frontier::Clock::now();
       EndDrawing();

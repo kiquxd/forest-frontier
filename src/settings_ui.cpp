@@ -17,7 +17,7 @@ bool SettingButton(Renderer& renderer, Rectangle box, const std::string& text,
       selected || hover ? Color{78, 103, 65, 255} : Color{31, 49, 40, 255});
   renderer.Wrapped(text, box.x + 12, box.y + 10, box.width - 24, 17,
                    {232, 237, 218, 255}, 1);
-  return hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+  return UiActivate(box, true, text.substr(0, text.find(':')));
 }
 }  // namespace
 bool DrawSettingsPanel(Renderer& renderer, SettingsPanel& panel,
@@ -26,8 +26,16 @@ bool DrawSettingsPanel(Renderer& renderer, SettingsPanel& panel,
         h = static_cast<float>(GetScreenHeight());
   Rectangle box{40, 110, w - 80, h - 185};
   DrawRectangleRounded(box, .03f, 8, {19, 33, 28, 255});
+  SetUiNavigationLayer(panel.pending_key < 0 && !panel.capturing);
   renderer.Text(panel.controls ? "Controls" : "Settings", 60, 123, 26,
                 {232, 193, 117, 255});
+  if (!panel.controls &&
+      SettingButton(renderer, {w - 460, box.y + 8, 200, 44},
+                    panel.draft.music_mode == 4 ? "Music: Off" : "Music: On")) {
+    panel.draft.music_mode = panel.draft.music_mode == 4 ? 0 : 4;
+    panel.notice = "Music changed; Apply to save.";
+  }
+  bool capture_started = false;
   if (panel.controls) {
     int rows = std::max(1, static_cast<int>((box.height - 140) / 48));
     if (!panel.capturing && panel.pending_key < 0) {
@@ -43,11 +51,18 @@ bool DrawSettingsPanel(Renderer& renderer, SettingsPanel& panel,
       }
       if (MenuConfirm()) {
         panel.capturing = true;
+        capture_started = true;
       }
       if (IsKeyPressed(KEY_DELETE) && panel.binding_slot) {
         SetBinding(panel.draft.bindings,
                    static_cast<InputAction>(panel.binding_row), 1, 0, false);
       }
+    }
+    if (IsKeyPressed(KEY_PAGE_DOWN)) {
+      panel.binding_row = std::min(kInputActions - 1, panel.binding_row + rows);
+    }
+    if (IsKeyPressed(KEY_PAGE_UP)) {
+      panel.binding_row = std::max(0, panel.binding_row - rows);
     }
     int first = panel.binding_row / rows * rows;
     float key_width = std::min(220.f, box.width * .24f);
@@ -68,6 +83,7 @@ bool DrawSettingsPanel(Renderer& renderer, SettingsPanel& panel,
           panel.binding_row = i;
           panel.binding_slot = slot;
           panel.capturing = true;
+          capture_started = true;
         }
       }
     }
@@ -77,7 +93,7 @@ bool DrawSettingsPanel(Renderer& renderer, SettingsPanel& panel,
           "reserved for menus.",
           60, box.y + box.height - 65, box.width - 40, 17, {239, 199, 118, 255},
           2);
-      int key = GetKeyPressed();
+      int key = capture_started ? 0 : GetKeyPressed();
       if (key == KEY_ESCAPE) {
         panel.capturing = false;
       } else if (key) {
@@ -105,6 +121,7 @@ bool DrawSettingsPanel(Renderer& renderer, SettingsPanel& panel,
           2);
     }
     if (panel.pending_key >= 0) {
+      SetUiNavigationLayer(true);
       DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), {0, 0, 0, 190});
       Rectangle dialog{w * .5f - 280, h * .5f - 120, 560, 240};
       DrawRectangleRounded(dialog, .1f, 10, {24, 42, 33, 255});
@@ -166,8 +183,25 @@ bool DrawSettingsPanel(Renderer& renderer, SettingsPanel& panel,
     if (MenuDown()) {
       panel.selection = (panel.selection + 1) % 11;
     }
-    int rows = std::max(1, static_cast<int>((box.height - 60) / 48));
+    int rows = std::max(1, static_cast<int>((box.height - 105) / 48));
+    if (CheckCollisionPointRec(GetMousePosition(), box)) {
+      if (GetMouseWheelMove() < 0) {
+        panel.selection = std::min(10, panel.selection + rows);
+      } else if (GetMouseWheelMove() > 0) {
+        panel.selection = std::max(0, panel.selection - rows);
+      }
+    }
+    if (IsKeyPressed(KEY_PAGE_DOWN)) {
+      panel.selection = std::min(10, panel.selection + rows);
+    }
+    if (IsKeyPressed(KEY_PAGE_UP)) {
+      panel.selection = std::max(0, panel.selection - rows);
+    }
     int first = panel.selection / rows * rows;
+    renderer.Text("Page " + std::to_string(first / rows + 1) + " / " +
+                      std::to_string((11 + rows - 1) / rows) +
+                      " · PgUp/PgDn · Tab: focus · Enter: activate",
+                  60, box.y + box.height - 38, 16, {165, 187, 157, 255});
     for (int i = first; i < std::min(first + rows, 11); ++i) {
       if (SettingButton(renderer,
                         {60, box.y + 50 + (i - first) * 48,

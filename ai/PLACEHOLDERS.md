@@ -114,7 +114,7 @@ Sources: [gameplay.cpp](../src/gameplay.cpp), [world.cpp](../src/world.cpp), [ad
 
 ## Skills, research and technology exchange
 
-**Working:** Skills, technologies, recipes and explored maps belong to the state and survive resident switching/death. K opens the existing dependency tree without a duplicate skill list. Eleven base skills and seven resident research nodes use authoritative activity/population/equipment/town/trust checks. Skill prerequisites are authoritative and transitive: activity counts cannot bypass earlier skills; tree edges use the same definitions. Resident research checks its full prerequisite branch, and specialist projects/teaching require the Craftsmanship branch. Already earned save flags are preserved. Specialist knowledge is available through town projects or paid teaching. Medical care projects unlock hospital research with an accessible school and 80 state coins.
+**Working:** Skills, technologies, recipes and explored maps belong to the state and survive resident switching/death. K opens the existing dependency tree without a duplicate skill list. Eleven base skills and seven resident research nodes use authoritative activity/population/equipment/town/trust checks. Tools opens immediately after Craftsmanship; the first axe needs no previous crafts, while Weaponsmithing still requires two completed crafts. Skill prerequisites are authoritative and transitive: activity counts cannot bypass earlier skills; tree edges use the same definitions. Resident research checks its full prerequisite branch, and specialist projects/teaching require the Craftsmanship branch. Already earned save flags are preserved. Specialist knowledge is available through town projects or paid teaching. Medical care projects unlock hospital research with an accessible school and 80 state coins.
 
 **Incomplete:**
 
@@ -208,13 +208,13 @@ Sources: [gameplay.cpp](../src/gameplay.cpp), [render.cpp](../src/render.cpp).
 
 ## Map and exploration
 
-**Working:** exploration independent of window/zoom, fixed world-space sight ranges, forest-limited sight and building/wall occlusion. Current visibility and explored memory are separate; older exploration stays intact. Newly identified towns open an Esc-dismissed discovery card with their name, type, rarity, population, state relations, specialty resources, knowledge and infrastructure; multiple discoveries appear in sequence, and known towns are not announced again after reload. Maps adapt raster detail to scale, preserve partially explored lakes/towns, provide terrain/politics/economy views, retain up to 4096 known deposits after chunks unload, and remember up to 128 titled surface/seafloor notes. Clicking a marker opens its journal entry; notes can be edited/deleted and viewed through Journal/Tab.
+**Working:** exploration independent of window/zoom, fixed world-space sight ranges, forest-limited sight and building/wall occlusion. Current visibility and explored memory are separate; older exploration stays intact. Large/live/saved maps keep stable terrain colors across explored areas; only the minimap dims explored cells outside current sight. Unexplored cells remain dark. Newly identified towns open an Esc-dismissed discovery card with their name, type, rarity, population, state relations, specialty resources, knowledge and infrastructure; multiple discoveries appear in sequence, and known towns are not announced again after reload. Maps adapt raster detail to scale, preserve partially explored lakes/towns, provide terrain/politics/economy views, retain up to 4096 known deposits after chunks unload, and remember up to 128 titled surface/seafloor notes. Clicking a marker opens its journal entry; notes can be edited/deleted and viewed through Journal/J.
 
 **Incomplete:**
 
 - Cartography uses scale-dependent cached raster detail and exploration cells, not an unlimited-resolution geographic model.
 - Political/economic layers show discovered towns and remembered deposits; complete regional borders, production forecasts and strategic orders await the deferred resident-command/navigation systems.
-- Road planning is a surface-map mouse interface with at most 64 points and 128 roads. A route must be fully explored and paid for in one operation; alternate keyboard/controller plotting and detailed road editing are absent.
+- Road planning supports mouse or keyboard plotting, with at most 64 points and 128 roads. A route must be fully explored and paid for in one operation; controller plotting and detailed road editing are absent.
 
 
 ## Graphics, animation and audio
@@ -230,11 +230,11 @@ Sources: [gameplay.cpp](../src/gameplay.cpp), [render.cpp](../src/render.cpp).
 
 ## Menus, controls and save management
 
-**Working:** Esc handles Resume/Save/Save & return/Settings; K shows only state knowledge in live resident-control play. N opens State with Residents, Resources, Production, Projects, Orders, Towns and Growth; U selects residents, Y opens cargo/warehouses, C production and L projects. P opens a nearby town hall using the same boards. Management pauses world simulation while production continues. Persistent HUD shows selected-resident health and relevant underwater gauges, with stocks accessible by button. Lobby summaries remain read-only, retain overview/world/resources/towns/tree and never duplicate a skill list. Existing atomic file workflows, remapping, settings Apply and contextual footer remain.
+**Working:** Esc handles Resume/Save/Save & return/Settings; K shows only state knowledge in live resident-control play. N opens State with Residents, Resources, Production, Projects, Orders, Towns and Growth; U selects residents, Y opens cargo/warehouses, C production and L projects. P opens a nearby town hall using the same boards. Management pauses world simulation while production continues. Menus expose keyboard focus through Tab/Shift+Tab, arrows and Enter, including warehouse transfers, queue actions, settings and saved-world operations; disabled production actions can receive focus to reveal their requirements. Tree arrows select neighboring cells in all four directions. Persistent HUD shows selected-resident health and relevant underwater gauges, with stocks accessible by button. Lobby summaries remain read-only, retain overview/world/resources/towns/tree and never duplicate a skill list. Existing atomic file workflows, remapping, settings Apply and contextual footer remain.
 
 **Incomplete:**
 
-- Gamepad support covers basic movement/actions and legacy directional menu navigation, without complete controller mappings/remapping/text entry. State management is mouse-oriented; a complete keyboard-only interface, screen-reader and color customization are absent.
+- Gamepad support covers basic movement/actions and legacy directional menu navigation, without complete controller mappings/remapping/text entry. Screen-reader support and color customization are absent.
 - Campaign history retains the most recent 512 significant events. It does not reconstruct older events or provide a complete searchable campaign timeline.
 
 ## Persistence and content identity

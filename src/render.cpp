@@ -1553,8 +1553,7 @@ void Renderer::DrawUi(const World& world, Save& save, Ui& ui,
       Wrapped("Surrender to " + Settlements()[patron].name +
                   " · 30 coins + tribute",
               surrender.x + 10, surrender.y + 8, 300, 17, kInk, 2);
-      if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
-          CheckCollisionPointRec(GetMousePosition(), surrender)) {
+      if (UiActivate(surrender)) {
         int local = CityAt(save, save.player);
         ui.pending_notice =
             SurrenderTown(save, OwnsCity(save, local) ? local : save.home_city,
@@ -2028,9 +2027,11 @@ void Renderer::DrawUi(const World& world, Save& save, Ui& ui,
     Text(save.submerged ? "Seafloor map" : "Map of the explored world", map.x,
          map.y - 38, 24, kGold);
     DrawMap(save, ui, camera, map, true);
-    Text("Wheel: zoom · Middle drag: pan · Click: note · Tab: journal · " +
-             ActionKey(InputAction::kMap) + " / Esc: close",
-         map.x, map.y + map.height + 16, 16, kMuted);
+    Text(
+        "Arrows: cursor · +/-: zoom · Enter: note · J: journal · Tab: focus "
+        "· " +
+            ActionKey(InputAction::kMap) + " / Esc: close",
+        map.x, map.y + map.height + 16, 16, kMuted);
   }
   if (ui.cartography) {
     DrawMapJournal(save, ui);
@@ -2047,7 +2048,8 @@ void Renderer::DrawUi(const World& world, Save& save, Ui& ui,
     Wrapped(
         ActionKey(InputAction::kProgress) +
             (save.nation
-                 ? " / Esc: close · up/down: select knowledge · Enter: learn"
+                 ? " / Esc: close · arrows: select · Enter: learn · Tab: focus "
+                   "buttons"
                  : " / Esc: close · arrows: tabs · up/down: tree or towns · "
                    "Enter: action"),
         44, h - 53, w - 88, 16, kMuted, 1);

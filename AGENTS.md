@@ -34,6 +34,7 @@ Follow the [Google C++ Style Guide](https://google.github.io/styleguide/cppguide
 - State skills/recipes/technologies/exploration are shared; warehouses are per city and cargo/gear/health/position are per resident. Legacy root player/inventory fields are a compatibility view of the selected resident, never a second actor or duplicated inventory; synchronize before switching and writing saves.
 - Preserve the closed money ledger across state/city/regional accounts and reserved fees/order payments. No project or passive-job coin minting. Canceling an order refunds its actual escrow once; never pay own-city projects from the state treasury to itself.
 - Normal setup/launch must never delete saves. The user explicitly requested a one-time deletion of old workspace worlds for the resident-control overhaul; future test worlds stay isolated under temporary directories.
+- New and changed menu controls must support keyboard focus through the shared `UiActivate` navigation layer, with visible focus and hints. Keep native arrow/Enter navigation, Tab/Shift+Tab widget traversal, modal input isolation and stable action identities; Enter must never activate both a focused control and a default action. Map keyboard plotting must use the same authoritative road/note actions as the mouse.
 - Default to windowed mode. Fullscreen must be explicitly selected; respect the tiling window manager.
 
 ## Validation

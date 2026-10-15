@@ -91,6 +91,7 @@ struct Ui {
   bool settings_open{};
   std::vector<std::pair<std::string, std::string>> actions;
   bool map_journal{};
+  bool map_keyboard_cursor{};
   bool road_edit{};
   int road_from{-1};
   int road_to{-1};
@@ -208,6 +209,7 @@ class Renderer {
     float range{};
     double refresh{-1};
     bool submerged{};
+    bool visibility_tint{};
     uint64_t seed{};
   };
   std::array<MapCache, 2> maps_{};

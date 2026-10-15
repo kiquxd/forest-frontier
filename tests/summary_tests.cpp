@@ -74,6 +74,40 @@ int main() {
             "Every craft item resolves to an actual PNG atlas entry");
     }
     auto cards = frontier::ProgressCards(save);
+    const auto find_card = [&](const std::string& id) {
+      return static_cast<int>(
+          std::find_if(cards.begin(), cards.end(),
+                       [&](const auto& c) { return c.id == id; }) -
+          cards.begin());
+    };
+    const int gathering = find_card("gathering");
+    Check(
+        cards[frontier::AdjacentProgressCard(cards, gathering, 1, 0)].id ==
+                "trading" &&
+            cards[frontier::AdjacentProgressCard(cards, gathering, 0, 1)].id ==
+                "gather_sites" &&
+            frontier::AdjacentProgressCard(cards, gathering, -1, 0) ==
+                gathering,
+        "Tree arrows follow nearby grid nodes and stop at an edge");
+    std::set<int> reached{gathering};
+    std::vector<int> pending{gathering};
+    for (size_t index = 0; index < pending.size(); ++index) {
+      for (auto [dx, dy] :
+           std::vector<std::pair<int, int>>{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+        const int next =
+            frontier::AdjacentProgressCard(cards, pending[index], dx, dy);
+        if (reached.insert(next).second) {
+          pending.push_back(next);
+        }
+      }
+    }
+    Check(reached.size() == cards.size(),
+          "Every knowledge/activity node is reachable with arrows");
+    Check(std::find(cards[find_card("tools")].dependencies.begin(),
+                    cards[find_card("tools")].dependencies.end(),
+                    "craft_items") ==
+              cards[find_card("tools")].dependencies.end(),
+          "Tools tree does not imply a previous-crafting activity requirement");
     std::set<std::string> ids;
     std::set<std::pair<int, int>> cells;
     for (const auto& card : cards) {

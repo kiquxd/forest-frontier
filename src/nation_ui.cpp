@@ -29,6 +29,7 @@ struct NationRow {
   std::string tooltip{};
   std::vector<ProductionRequirement> requirements{};
   double progress{-1};
+  std::string id{};
 };
 std::string Duration(double seconds) {
   int total = static_cast<int>(std::ceil(std::max(0.0, seconds)));
@@ -64,7 +65,7 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
   Rectangle box{30, 66, w - 60, h - 126};
   DrawRectangleRounded(box, .035f, 10, {19, 34, 27, 255});
   auto button = [&](Rectangle r, const std::string& title, bool enabled = true,
-                    bool selected = false) {
+                    bool selected = false, const std::string& id = "") {
     bool hover = CheckCollisionPointRec(GetMousePosition(), r);
     DrawRectangleRounded(r, .3f, 8,
                          !enabled            ? Color{28, 40, 33, 255}
@@ -72,7 +73,7 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
                                              : Color{39, 62, 44, 255});
     Wrapped(title, r.x + 9, r.y + 7, r.width - 18, 15,
             enabled ? Color{231, 231, 205, 255} : Color{128, 146, 127, 255}, 1);
-    return enabled && hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    return UiActivate(r, enabled, id.empty() ? title : id);
   };
   Text(ui.town_hall ? "Town hall · projects, orders and management"
                     : "State · residents and city economy",
@@ -120,17 +121,37 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
   const std::vector<std::string> tabs = {"Residents", "Resources", "Production",
                                          "Projects",  "Orders",    "Towns",
                                          "Growth"};
-  float tab_width = (w - 100) / tabs.size();
+  if (!ui.production_search_focus && (MenuLeft() || MenuRight())) {
+    const int direction = MenuLeft() || IsKeyDown(KEY_LEFT_SHIFT) ? -1 : 1;
+    ui.gov_tab =
+        (ui.gov_tab + direction + static_cast<int>(tabs.size())) % tabs.size();
+    ui.gov_page = 0;
+    ui.gov_status.clear();
+    ui.production_search_focus = false;
+  }
+  float minimum_tab_width = 0;
+  for (const auto& title : tabs) {
+    minimum_tab_width = std::max(minimum_tab_width, Measure(title, 15) + 30);
+  }
+  const int columns =
+      std::clamp(static_cast<int>((w - 100) / minimum_tab_width), 1,
+                 static_cast<int>(tabs.size()));
+  const float tab_width = (w - 100) / columns;
+  const float tab_height = TextSize(15) + 18;
+  const int tab_rows = (static_cast<int>(tabs.size()) + columns - 1) / columns;
   for (int i = 0; i < static_cast<int>(tabs.size()); ++i) {
-    if (button({50 + i * tab_width, 195, tab_width - 5, 36}, tabs[i], true,
-               ui.gov_tab == i)) {
+    if (button(
+            {50 + (i % columns) * tab_width,
+             195 + (i / columns) * (tab_height + 5), tab_width - 5, tab_height},
+            tabs[i], true, ui.gov_tab == i)) {
       ui.gov_tab = i;
       ui.gov_page = 0;
       ui.gov_status.clear();
       ui.production_search_focus = false;
     }
   }
-  Rectangle body{50, 244, w - 100, h - 380};
+  const float body_top = 195 + tab_rows * (tab_height + 5) + 10;
+  Rectangle body{50, body_top, w - 100, h - body_top - 136};
   auto lowercase = [](std::string value) {
     for (char& ch : value) {
       ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
@@ -142,6 +163,11 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
     const bool inside = CheckCollisionPointRec(GetMousePosition(), search);
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
       ui.production_search_focus = inside;
+    }
+    const bool search_activated = UiActivate(search);
+    if (search_activated) {
+      ui.production_search_focus = true;
+      ClearUiFocus();
     }
     const auto before = ui.production_search;
     if (ui.production_search_focus) {
@@ -158,7 +184,7 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
           !ui.production_search.empty()) {
         ui.production_search.pop_back();
       }
-      if (IsKeyPressed(KEY_ENTER)) {
+      if (!search_activated && IsKeyPressed(KEY_ENTER)) {
         ui.production_search_focus = false;
       }
     }
@@ -378,6 +404,7 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
            "returns to city resources.",
            {},
            progress.fraction});
+      rows.back().id = "job:" + std::to_string(job.id);
     }
     int matches = 0;
     for (int i = 0; i < static_cast<int>(Recipes().size()); ++i) {
@@ -409,6 +436,7 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
            ready,
            tooltip,
            status.requirements});
+      rows.back().id = "recipe:" + recipe.id;
     }
     if (!matches) {
       rows.push_back({"No matching items", "Try another item name or Clear."});
@@ -701,8 +729,10 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
     DrawRectangleRounded({body.x, y, body.width, step - 6}, .12f, 8,
                          {29, 48, 36, 255});
     if (!row.tooltip.empty() &&
-        CheckCollisionPointRec(GetMousePosition(),
-                               {body.x, y, body.width, step - 6})) {
+        (CheckCollisionPointRec(GetMousePosition(),
+                                {body.x, y, body.width, step - 6}) ||
+         UiFocused({body.x + body.width - (row.secondary ? 260.f : 132.f),
+                    y + 14, 120, 36}))) {
       tooltip = row.tooltip;
     }
     const float icon_size = row.requirements.empty() ? 32.f : 40.f;
@@ -752,7 +782,7 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
       }
     }
     if (row.primary && button({body.x + body.width - actions, y + 14, 120, 36},
-                              row.first, row.enabled)) {
+                              row.first, row.enabled, false, row.id)) {
       row.primary();
     }
     if (row.secondary &&
@@ -771,8 +801,8 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
   Text(std::to_string(ui.gov_page + 1) + " / " + std::to_string(pages), 320,
        bottom + 6, 16, {177, 194, 161, 255});
   Wrapped(ui.gov_status.empty()
-              ? "State knowledge is shared. Residents keep individual cargo "
-                "and positions. Production runs live. Esc closes management."
+              ? "Arrows: tabs · Tab / Shift+Tab: focus · Enter: activate · "
+                "PgUp/PgDn: pages · Esc: close"
               : ui.gov_status,
           50, h - 77, w - 100, 16, {238, 202, 133, 255}, 1);
   if (!tooltip.empty()) {
@@ -798,7 +828,8 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
       lines.back() = "...";
     }
     const float height = lines.size() * line_height + 24;
-    const auto mouse = GetMousePosition();
+    const auto mouse = UiFocusActive() ? Vector2{body.x, body.y + body.height}
+                                       : GetMousePosition();
     const float x = std::clamp(mouse.x + 18, 20.f, w - width - 20);
     const float y = std::clamp(mouse.y + 18, 20.f, h - height - 20);
     DrawRectangleRounded({x, y, width, height}, .05f, 8, {12, 23, 19, 255});

@@ -16,11 +16,13 @@ Choose a state trait: **Balance, Craft, Exploration, Trade or Defense**. Its mov
 
 Press **U** to choose any living, free resident of your towns, then move with **WASD / arrows**. Every resident keeps their own position, health, cargo, gear and vessel modes. Switching does not teleport the previous resident. Skills, technologies, recipes, exploration and activity milestones belong to the state and remain shared.
 
-You begin without learned skills, tools or weapons. **K** opens the knowledge tree: learn **Gathering** free, gather sites, unlock **Craftsmanship**, then queue tools and equipment. Starting goods are in your town warehouse; **Y** transfers cargo on town territory. The state trait remains shared when you switch residents or the founding resident dies.
+You begin without learned skills, tools or weapons. **K** opens the knowledge tree: learn **Gathering** free, gather sites, unlock **Craftsmanship**, learn **Tools** immediately, then queue your first **Axe** at the starting workbench. No prior crafts are needed for Tools. Weaponsmithing requires two completed crafts, which can be an axe and a campfire. Starting goods are in your town warehouse; **Y** transfers cargo on town territory. The state trait remains shared when you switch residents or the founding resident dies.
 
 Skill branches must be learned in order, in addition to their practice requirements: **Gathering → Craftsmanship → Tools → Construction → Engineering**, **Craftsmanship → Weaponsmithing**, **Gathering → Fishing → Seamanship**, **Gathering → Herbalism** and **Gathering → Trading → Diplomacy**. Engineering also requires Trading. A later node cannot skip an unlearned ancestor; existing earned skills in older saves are retained.
 
 ### State and town management
+
+Menus can be operated without a mouse. **Arrows** choose main-menu options, state tabs or knowledge-tree cells; **Enter** activates/learns. **Tab / Shift+Tab** enters and cycles visible widget focus; arrows then move that focus and Enter activates the outlined button or field. **Page Up/Down** changes list pages, and **Esc** closes the current window. This covers production/search, resources/transfers, growth, boards, settings and saved-world operations. In State, **C** opens Production and **Y** Resources when not typing a search.
 
 **N** opens State with seven tabs: **Residents, Resources, Production, Projects, Orders, Towns and Growth**. It shows town treasuries, population/capacity, relations, specialty knowledge and deliveries. **P** opens a nearby hall with the same town boards. Management, the knowledge tree and Esc pause freeze world simulation. Production keeps running and refreshes live, including while the window is inactive or minimized.
 
@@ -66,7 +68,7 @@ Progress through raft, canoe, rowboat, skiff, cutter, sailing ship, brigantine, 
 
 Discovering a town opens a summary card with its name, population, specialties, knowledge, infrastructure and attitude toward your state. **Esc** dismisses it without opening pause. Multiple discoveries appear in sequence. The world pauses while workshop production continues; already known towns are not announced again after loading.
 
-**M** shows terrain/politics/economy layers (**1/2/3**), explored towns and remembered deposits. Click an explored location or note marker to edit a titled journal entry; **Tab / Journal** opens the list, **Ctrl+Enter** saves. Middle-drag pans and wheel zooms. Notes are manual and saved, up to 128 per world.
+**M** shows terrain/politics/economy layers (**1/2/3**), explored towns and remembered deposits. Click an explored location or note marker to edit a titled journal entry; **J / Journal** opens the list, **Ctrl+Enter** saves. Arrows move a centre cursor, **+/-** zoom and **Enter** creates/opens a note there; middle-drag and wheel remain available. In road planning, Enter adds a point, Backspace undoes it and Ctrl+Enter builds the validated whole route. Notes are manual and saved, up to 128 per world.
 
 Buildings have detailed facade variants and fade when obscuring the controlled resident. Water has animated ripples, foam and wakes; vessels show hulls, rigging and cabins. Settings provides **Automatic / Forest / Harbor / Depths / Off** music, separate music/effects volumes and three original synthesized loops. Audio-device failure permits silent play. Regenerate assets with `python3 scripts/generate-audio.py`; see [audio assets](assets/audio/README.md).
 
@@ -78,7 +80,7 @@ Saved-world **F2** expands summary; **F6/F7** rename/copy, **F8/F9** export/impo
 
 Saves are atomic **v11**, with v1–v10 loading/migration backups and no automatic progression reset. Residents, warehouses, queues, plots, tasks, escrow, shipments, arrivals and money accounts persist. Production runtime and world simulation time are saved separately; neither includes offline elapsed time. Production pauses when you return to the lobby or close the application. Normal installation/launch never deletes saves.
 
-Settings works in the lobby and pause: window/fullscreen, frame cap, zoom, HUD, text scale, tree contrast, audio and primary/alternate bindings. Use the visible **Apply** button. New actions preserve older custom bindings and receive free keys if defaults conflict. The bottom action bar uses actual bindings and nearby available actions on a dark background. The upper-left title and health panels fit their contents and adapt to text scale; management shortcuts stay in the bottom action bar.
+Settings works in the lobby and pause: window/fullscreen, frame cap, zoom, HUD, text scale, tree contrast, audio and primary/alternate bindings. A visible **Music: On/Off** toggle is always at the top; detailed tracks/volumes are also reachable with Page Up/Down or wheel. Use **Apply** to save changes, including Music Off during a live world. New actions preserve older custom bindings and receive free keys if defaults conflict. The bottom action bar uses actual bindings and nearby available actions on a dark background. The upper-left title and health panels fit their contents and adapt to text scale; management shortcuts stay in the bottom action bar.
 
 ### Controls
 
@@ -100,7 +102,10 @@ Defaults can be changed in Settings.
 | V / R / G / J | Vessel / Dive-surface / Sonar / Repair |
 | M; 1/2/3 in map | Map; Terrain/Politics/Economy |
 | Wheel / Middle-drag | Zoom/scroll; map/tree pan |
-| Tab in map; Ctrl+Enter in notes | Journal; save note |
+| J in map; Ctrl+Enter in notes | Journal; save note |
+| Tab / Shift+Tab; Enter | Focus UI controls; activate the focused control |
+| Arrows; +/-; Enter on map | Move map cursor; zoom; note/road waypoint |
+| Backspace; Ctrl+Enter in road planning | Undo point; build the complete route |
 | Esc | Close panel, otherwise pause/resume |
 | F3 / F11 | Performance HUD / Explicit fullscreen |
 
@@ -212,7 +217,7 @@ The mechanics below are working prototypes or incomplete systems. Menus, unlocks
 
 #### Skills, research and technology exchange
 
-**Working:** Skills, technologies, recipes and explored maps belong to the state and survive resident switching/death. K opens the existing dependency tree without a duplicate skill list. Eleven base skills and seven resident research nodes use authoritative activity/population/equipment/town/trust checks. Skill prerequisites are authoritative and transitive: activity counts cannot bypass earlier skills; tree edges use the same definitions. Resident research checks its full prerequisite branch, and specialist projects/teaching require the Craftsmanship branch. Already earned save flags are preserved. Specialist knowledge is available through town projects or paid teaching. Medical care projects unlock hospital research with an accessible school and 80 state coins.
+**Working:** Skills, technologies, recipes and explored maps belong to the state and survive resident switching/death. K opens the existing dependency tree without a duplicate skill list. Eleven base skills and seven resident research nodes use authoritative activity/population/equipment/town/trust checks. Tools opens immediately after Craftsmanship; the first axe needs no previous crafts, while Weaponsmithing still requires two completed crafts. Skill prerequisites are authoritative and transitive: activity counts cannot bypass earlier skills; tree edges use the same definitions. Resident research checks its full prerequisite branch, and specialist projects/teaching require the Craftsmanship branch. Already earned save flags are preserved. Specialist knowledge is available through town projects or paid teaching. Medical care projects unlock hospital research with an accessible school and 80 state coins.
 
 **Incomplete:**
 
@@ -304,13 +309,13 @@ The mechanics below are working prototypes or incomplete systems. Menus, unlocks
 
 #### Map and exploration
 
-**Working:** exploration independent of window/zoom, fixed world-space sight ranges, forest-limited sight and building/wall occlusion. Current visibility and explored memory are separate; older exploration stays intact. Newly identified towns open an Esc-dismissed discovery card with their name, type, rarity, population, state relations, specialty resources, knowledge and infrastructure; multiple discoveries appear in sequence, and known towns are not announced again after reload. Maps adapt raster detail to scale, preserve partially explored lakes/towns, provide terrain/politics/economy views, retain up to 4096 known deposits after chunks unload, and remember up to 128 titled surface/seafloor notes. Clicking a marker opens its journal entry; notes can be edited/deleted and viewed through Journal/Tab.
+**Working:** exploration independent of window/zoom, fixed world-space sight ranges, forest-limited sight and building/wall occlusion. Current visibility and explored memory are separate; older exploration stays intact. Large/live/saved maps keep stable terrain colors across explored areas; only the minimap dims explored cells outside current sight. Unexplored cells remain dark. Newly identified towns open an Esc-dismissed discovery card with their name, type, rarity, population, state relations, specialty resources, knowledge and infrastructure; multiple discoveries appear in sequence, and known towns are not announced again after reload. Maps adapt raster detail to scale, preserve partially explored lakes/towns, provide terrain/politics/economy views, retain up to 4096 known deposits after chunks unload, and remember up to 128 titled surface/seafloor notes. Clicking a marker opens its journal entry; notes can be edited/deleted and viewed through Journal/J.
 
 **Incomplete:**
 
 - Cartography uses scale-dependent cached raster detail and exploration cells, not an unlimited-resolution geographic model.
 - Political/economic layers show discovered towns and remembered deposits; complete regional borders, production forecasts and strategic orders await the deferred resident-command/navigation systems.
-- Road planning is a surface-map mouse interface with at most 64 points and 128 roads. A route must be fully explored and paid for in one operation; alternate keyboard/controller plotting and detailed road editing are absent.
+- Road planning supports mouse or keyboard plotting, with at most 64 points and 128 roads. A route must be fully explored and paid for in one operation; controller plotting and detailed road editing are absent.
 
 
 #### Graphics, animation and audio
@@ -326,11 +331,11 @@ The mechanics below are working prototypes or incomplete systems. Menus, unlocks
 
 #### Menus, controls and save management
 
-**Working:** Esc handles Resume/Save/Save & return/Settings; K shows only state knowledge in live resident-control play. N opens State with Residents, Resources, Production, Projects, Orders, Towns and Growth; U selects residents, Y opens cargo/warehouses, C production and L projects. P opens a nearby town hall using the same boards. Management pauses world simulation while production continues. Persistent HUD shows selected-resident health and relevant underwater gauges, with stocks accessible by button. Lobby summaries remain read-only, retain overview/world/resources/towns/tree and never duplicate a skill list. Existing atomic file workflows, remapping, settings Apply and contextual footer remain.
+**Working:** Esc handles Resume/Save/Save & return/Settings; K shows only state knowledge in live resident-control play. N opens State with Residents, Resources, Production, Projects, Orders, Towns and Growth; U selects residents, Y opens cargo/warehouses, C production and L projects. P opens a nearby town hall using the same boards. Management pauses world simulation while production continues. Menus expose keyboard focus through Tab/Shift+Tab, arrows and Enter, including warehouse transfers, queue actions, settings and saved-world operations; disabled production actions can receive focus to reveal their requirements. Tree arrows select neighboring cells in all four directions. Persistent HUD shows selected-resident health and relevant underwater gauges, with stocks accessible by button. Lobby summaries remain read-only, retain overview/world/resources/towns/tree and never duplicate a skill list. Existing atomic file workflows, remapping, settings Apply and contextual footer remain.
 
 **Incomplete:**
 
-- Gamepad support covers basic movement/actions and legacy directional menu navigation, without complete controller mappings/remapping/text entry. State management is mouse-oriented; a complete keyboard-only interface, screen-reader and color customization are absent.
+- Gamepad support covers basic movement/actions and legacy directional menu navigation, without complete controller mappings/remapping/text entry. Screen-reader support and color customization are absent.
 - Campaign history retains the most recent 512 significant events. It does not reconstruct older events or provide a complete searchable campaign timeline.
 
 #### Persistence and content identity
@@ -528,6 +533,7 @@ python3 scripts/production-smoke.py  # Catalogue, requirements, search and queue
 python3 scripts/production-clock-smoke.py  # Live/background production clock
 python3 scripts/discovery-smoke.py  # Town summary, Escape priority and reload
 python3 scripts/state-trait-smoke.py  # Trait selection, small window and large text
+python3 scripts/keyboard-smoke.py  # Keyboard-only starter/tree/state/audio/map/save flow
 # Optional extended workflows:
 python3 scripts/world-smoke.py --extended
 python3 scripts/menu-smoke.py
