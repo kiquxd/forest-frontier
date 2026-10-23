@@ -7,6 +7,7 @@
 #include <unordered_set>
 
 #include "adventure.hpp"
+#include "freight.hpp"
 #include "progress.hpp"
 #include "settlement_system.hpp"
 #include "vessels.hpp"
@@ -61,6 +62,11 @@ int Incoming(const Save& save, int city, int good) {
   for (const auto& shipment : save.shipments) {
     if (shipment.to == city && shipment.good == good) {
       amount += shipment.quantity;
+    }
+  }
+  for (const auto& cart : save.freight_carts) {
+    if (cart.quantity > 0 && cart.to == city && cart.good == good) {
+      amount += cart.quantity;
     }
   }
   for (const auto& task : save.city_tasks) {
@@ -261,6 +267,7 @@ Action SelectResident(Save& save, int npc) {
   if (!c || c->state != "active" || !OwnsCity(save, c->city)) {
     return {false, "Choose a living, free resident of your state"};
   }
+  c->order = {};
   LoadControlled(save, *c);
   save.visible_surface.clear();
   save.visible_underwater.clear();
@@ -288,8 +295,10 @@ void SyncNationActors(World& world, const Save& save) {
     if (c.npc >= 0 && c.npc < static_cast<int>(world.npcs.size())) {
       auto& npc = world.npcs[c.npc];
       npc.settlement = c.city;
-      npc.pos = npc.previous =
-          c.npc == save.controlled_npc ? save.player : c.position;
+      Vec next = c.npc == save.controlled_npc ? save.player : c.position;
+      npc.previous = npc.pos;
+      npc.walk += Length(next - npc.pos) / 10;
+      npc.pos = next;
       npc.home = c.position;
     }
   }
@@ -593,7 +602,7 @@ Action CancelProduction(Save& save, uint64_t id) {
   }
   return {true, "Job cancelled; reserved materials and fee returned"};
 }
-Action PlantResource(Save& save, int city, int good) {
+Action CheckPlantResource(const Save& save, int city, int good) {
   if (!OwnsCity(save, city) || (good != 0 && good != 2 && good != 3)) {
     return {false, "Choose a forest, food or reed plot in your town"};
   }
@@ -603,6 +612,13 @@ Action PlantResource(Save& save, int city, int good) {
   int limit = 3 + static_cast<int>((CityRadius(save, city) - 350) / 150) * 2;
   if (plots >= limit) {
     return {false, "Expand town territory to grow more plots"};
+  }
+  return {true, "Planting site available"};
+}
+Action PlantResource(Save& save, int city, int good) {
+  auto quote = CheckPlantResource(save, city, good);
+  if (!quote.ok) {
+    return quote;
   }
   if (save.stocks[city][0] < 2 || save.stocks[city][2] < 2) {
     return {false, "Planting needs 2 wood and 2 berries from the warehouse"};
@@ -622,6 +638,10 @@ Action HarvestPlot(Save& save, int index) {
     return {false, "Plot is not ready"};
   }
   auto p = save.plots[index];
+  if (p.resource.id) {
+    return {false,
+            "Gather planted resources on site with F or a resident order"};
+  }
   int amount = p.good == 0 ? 20 : 12;
   if (save.stocks[p.city][p.good] > 1000000 - amount) {
     return {false, "Warehouse full"};
@@ -671,23 +691,9 @@ Action OrderRareGoods(Save& save, int from, int to, int good, int quantity) {
       "Specialist order paid; goods are produced for the scheduled delivery"};
 }
 Action ShipGoods(Save& save, int from, int to, int good, int quantity) {
-  if (!OwnsCity(save, from) || !OwnsCity(save, to) || from == to ||
-      !ConnectedCities(save, from, to) || good < 0 || good >= kGoodTypes ||
-      quantity < 1 || quantity > 1000000 || save.shipments.size() >= 256) {
-    return {false,
-            "Warehouse transfer requires two owned towns connected by a "
-            "peaceful road"};
-  }
-  if (save.stocks[from][good] < quantity) {
-    return {false, "Insufficient source stock"};
-  }
-  save.stocks[from][good] -= quantity;
-  save.shipments.push_back(
-      {save.next_entity++, from, to, good, quantity,
-       save.game_time + 30 +
-           Length(Settlements()[from].pos - Settlements()[to].pos) / 80});
-  return {true, "Cargo reserved for inter-town delivery"};
+  return DispatchFreight(save, from, to, good, quantity);
 }
+
 void RefreshCityTasks(Save& save) {
   for (int city = 0; city < static_cast<int>(save.stocks.size()); ++city) {
     if (!save.relations[city].discovered) {
@@ -959,6 +965,7 @@ Action MoveResident(Save& save, int npc, int city) {
   }
   save.stocks[city][2] -= 5;
   c->city = city;
+  c->order = {};
   RecordHistory(save, "migration", "Resident moved home town", city);
   return {true, "Home town changed without teleporting the resident"};
 }

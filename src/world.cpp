@@ -346,7 +346,7 @@ Save LoadSave(const std::filesystem::path& path) {
   nlohmann::json json;
   f >> json;
   int version = json.at("version").get<int>();
-  if (version < 1 || version > 11) {
+  if (version < 1 || version > 14) {
     throw std::runtime_error("Unsupported save version");
   }
   if (version >= 9) {
@@ -830,6 +830,36 @@ Save LoadSave(const std::filesystem::path& path) {
         !json.at("nation").contains("state_trait")) {
       throw std::runtime_error("State trait missing from save");
     }
+    if (version >= 12 && save.nation) {
+      for (const auto& row : json.at("nation").at("residents")) {
+        if (!row.contains("order")) {
+          throw std::runtime_error("Resident order missing from save");
+        }
+      }
+    }
+    if (version >= 12 && save.nation) {
+      for (const auto& row : json.at("nation").at("plots")) {
+        if (!row.contains("resource_id") || !row.contains("position")) {
+          throw std::runtime_error("Planting location missing from save");
+        }
+      }
+    }
+    if (version >= 13 && save.nation &&
+        !json.at("nation").contains("freight_carts")) {
+      throw std::runtime_error("Road freight missing from save");
+    }
+    if (version >= 14 && save.nation) {
+      for (const auto& row : json.at("nation").at("residents")) {
+        if (!row.at("order").contains("next_update")) {
+          throw std::runtime_error("Worker schedule missing from save");
+        }
+      }
+      for (const auto& row : json.at("nation").at("freight_carts")) {
+        if (!row.contains("next_update")) {
+          throw std::runtime_error("Freight schedule missing from save");
+        }
+      }
+    }
     ReadNation(json.at("nation"), save);
   }
   return save;
@@ -886,7 +916,7 @@ void WriteSave(const std::filesystem::path& path, const Save& source) {
                      {"b", {w.b.x, w.b.y}},
                      {"hp", w.hp}});
   }
-  nlohmann::json json = {{"version", 11},
+  nlohmann::json json = {{"version", 14},
                          {"seed", save.seed},
                          {"player", {save.player.x, save.player.y}},
                          {"wood", save.inventory.wood},
@@ -1015,7 +1045,7 @@ void WriteSave(const std::filesystem::path& path, const Save& source) {
     int old_version = previous.is_object() ? previous.value("version", 0) : 0;
     auto backup = path;
     backup += ".v" + std::to_string(old_version) + ".bak";
-    if (old_version > 0 && old_version < 11 &&
+    if (old_version > 0 && old_version < 14 &&
         !std::filesystem::exists(backup)) {
       std::filesystem::copy_file(path, backup);
     }
@@ -1051,21 +1081,38 @@ World::~World() {
 }
 void World::Request(Vec player, int radius) {
   radius = std::clamp(radius, 1, 5);
-  Coord center = ChunkAt(player);
-  std::vector<Coord> needed;
   std::lock_guard lock(mutex_);
-  desired_.clear();
-  for (int y = -radius; y <= radius; y++) {
-    for (int x = -radius; x <= radius; x++) {
-      Coord coord{center.x + x, center.y + y};
-      desired_.insert(coord);
-      if (!chunks.contains(coord) && !pending_.contains(coord)) {
-        needed.push_back(coord);
-      }
+  view_center_ = ChunkAt(player);
+  view_initialized_ = true;
+  view_desired_.clear();
+  for (int y = -radius; y <= radius; ++y) {
+    for (int x = -radius; x <= radius; ++x) {
+      view_desired_.insert({view_center_.x + x, view_center_.y + y});
     }
   }
-  // Drop stale jobs before queueing nearest-first work. Queue is bounded by
-  // view radius.
+  ReconcileRequests();
+}
+void World::RequestWork(const std::unordered_set<Coord, CoordHash>& requested) {
+  if (requested.size() > kMaxWorkChunks) {
+    throw std::runtime_error("Work terrain cache limit exceeded");
+  }
+  std::lock_guard lock(mutex_);
+  if (requested == work_desired_) {
+    return;
+  }
+  work_desired_ = requested;
+  ReconcileRequests();
+}
+bool World::ActiveAt(Vec position) const {
+  Coord coord = ChunkAt(position);
+  return chunks.contains(coord) &&
+         (!view_initialized_ || view_desired_.contains(coord));
+}
+void World::ReconcileRequests() {
+  // Called on the owning thread with mutex_ held. Only generation's desired
+  // set and queues are shared with the worker; chunks remain main-thread data.
+  desired_ = view_desired_;
+  desired_.insert(work_desired_.begin(), work_desired_.end());
   std::erase_if(jobs_, [&](Coord coord) {
     if (desired_.contains(coord)) {
       return false;
@@ -1080,16 +1127,26 @@ void World::Request(Vec player, int radius) {
     pending_.erase(chunk.coord);
     return true;
   });
-  std::sort(needed.begin(), needed.end(), [&](Coord a, Coord b) {
-    return (a.x - center.x) * (a.x - center.x) +
-               (a.y - center.y) * (a.y - center.y) <
-           (b.x - center.x) * (b.x - center.x) +
-               (b.y - center.y) * (b.y - center.y);
-  });
-  for (Coord coord : needed) {
-    jobs_.push_back(coord);
-    pending_.insert(coord);
+  for (Coord coord : desired_) {
+    if (!chunks.contains(coord) && !pending_.contains(coord)) {
+      jobs_.push_back(coord);
+      pending_.insert(coord);
+    }
   }
+  auto priority = [&](Coord a, Coord b) {
+    const bool visible_a = view_desired_.contains(a);
+    const bool visible_b = view_desired_.contains(b);
+    if (visible_a != visible_b) {
+      return visible_a;
+    }
+    auto distance = [&](Coord c) {
+      int64_t x = c.x - view_center_.x, y = c.y - view_center_.y;
+      return x * x + y * y;
+    };
+    auto da = distance(a), db = distance(b);
+    return da != db ? da < db : a.x != b.x ? a.x < b.x : a.y < b.y;
+  };
+  std::sort(jobs_.begin(), jobs_.end(), priority);
   std::erase_if(
       chunks, [&](const auto& pair) { return !desired_.contains(pair.first); });
   wake_.notify_one();
@@ -1121,8 +1178,14 @@ int World::Integrate(int budget) {
   std::lock_guard lock(mutex_);
   int count = 0;
   while (!ready_.empty() && count < budget) {
-    Chunk chunk = std::move(ready_.front());
-    ready_.pop_front();
+    auto next = std::find_if(ready_.begin(), ready_.end(), [&](const auto& c) {
+      return view_desired_.contains(c.coord);
+    });
+    if (next == ready_.end()) {
+      next = ready_.begin();
+    }
+    Chunk chunk = std::move(*next);
+    ready_.erase(next);
     pending_.erase(chunk.coord);
     generated_ms += chunk.generation_ms;
     max_generation_ms = std::max(max_generation_ms, chunk.generation_ms);
@@ -1147,7 +1210,7 @@ void World::Tick(float dt, const Save& save, double time) {
     if (save.nation && GetCitizen(save, npc.id)) {
       continue;
     }
-    if (Length(npc.home - player) < 2200) {
+    if (ActiveAt(npc.pos) && Length(npc.home - player) < 2200) {
       npc.previous = npc.pos;
       if (!ResidentActive(save, npc.id)) {
         npc.pos = npc.previous = npc.home;
@@ -1184,14 +1247,15 @@ void World::Tick(float dt, const Save& save, double time) {
   // Local disc contacts affect positions, not schedules or destinations.
   for (size_t i = 0; i < npcs.size(); i++) {
     if (npcs[i].ruler || (save.nation && npcs[i].id == save.controlled_npc) ||
-        !ResidentActive(save, npcs[i].id) ||
+        !ResidentActive(save, npcs[i].id) || !ActiveAt(npcs[i].pos) ||
         Length(npcs[i].pos - save.player) > 1800) {
       continue;
     }
     for (size_t j = i + 1; j < npcs.size(); j++) {
       auto& a = npcs[i];
       auto& b = npcs[j];
-      if (b.ruler || (save.nation && b.id == save.controlled_npc) ||
+      if (!ActiveAt(b.pos) || b.ruler ||
+          (save.nation && b.id == save.controlled_npc) ||
           !ResidentActive(save, b.id)) {
         continue;
       }
@@ -1211,6 +1275,10 @@ void World::Tick(float dt, const Save& save, double time) {
     }
   }
   for (auto& [coord, c] : chunks) {
+    if (!ActiveAt(
+            {(coord.x + .5f) * kChunkSize, (coord.y + .5f) * kChunkSize})) {
+      continue;
+    }
     for (auto& a : c.animals) {
       if (Length(a.home - player) < 1100) {
         a.previous = a.pos;
@@ -1260,7 +1328,16 @@ const Resource* World::Nearest(Vec position,
 const Resource* World::Nearest(Vec position, const Save& save,
                                float reach) const {
   if (!save.submerged) {
-    return Nearest(position, save.harvested, reach);
+    const Resource* found = Nearest(position, save.harvested, reach);
+    float best = found ? Length(found->pos - position) : reach;
+    for (const auto& plot : save.plots) {
+      if (plot.resource.id && plot.ready && OwnsCity(save, plot.city) &&
+          Length(plot.resource.pos - position) < best) {
+        found = &plot.resource;
+        best = Length(found->pos - position);
+      }
+    }
+    return found;
   }
   const Resource* found = nullptr;
   float best = reach;
@@ -1306,8 +1383,9 @@ void World::BeginConversation(int id, const Save& save) {
   npc.previous = npc.pos;
   npc.walk = 0;
 }
-bool World::Clear(Vec position, const Save& save, float radius,
-                  bool boat) const {
+bool World::Clear(Vec position, const Save& save, float radius, bool boat,
+                  bool surface) const {
+  const bool submerged = save.submerged && !surface;
   int lx = static_cast<int>(std::floor((position.x - radius) / kTileSize)),
       hx = static_cast<int>(std::floor((position.x + radius) / kTileSize));
   int ly = static_cast<int>(std::floor((position.y - radius) / kTileSize)),
@@ -1327,17 +1405,17 @@ bool World::Clear(Vec position, const Save& save, float radius,
       }
       int tx = x - coord.x * kChunkTiles, ty = y - coord.y * kChunkTiles;
       auto terrain = it->second.tiles[ty * kChunkTiles + tx].terrain;
-      if (save.submerged && terrain != Terrain::kDeep &&
+      if (submerged && terrain != Terrain::kDeep &&
           terrain != Terrain::kShallow) {
         return false;
       }
-      if (!save.submerged && !boat && terrain == Terrain::kDeep &&
+      if (!submerged && !boat && terrain == Terrain::kDeep &&
           !RoadAt(save, position, radius)) {
         return false;
       }
     }
   }
-  if (save.submerged) {
+  if (submerged) {
     return true;
   }
   auto close = [&](Vec q, float r) {
@@ -1446,8 +1524,9 @@ void World::ResolvePlayerContacts(Save& save) {
     }
   }
 }
-bool World::SightBlocked(Vec start, Vec end, const Save& save) const {
-  if (save.submerged) {
+bool World::SightBlocked(Vec start, Vec end, const Save& save,
+                         bool surface) const {
+  if (save.submerged && !surface) {
     return false;
   }
   for (const auto& b : buildings) {
@@ -1471,25 +1550,29 @@ bool World::SightBlocked(Vec start, Vec end, const Save& save) const {
   return false;
 }
 Vec World::Move(Vec position, Vec displacement, const Save& save, float radius,
-                bool boat) const {
+                bool boat, bool surface) const {
   int steps =
       std::clamp(static_cast<int>(std::ceil(Length(displacement) / 6)), 1, 256);
   Vec step = displacement * (1.f / steps);
   for (int i = 0; i < steps; i++) {
-    if (Clear(position + step, save, radius, boat)) {
+    if (Clear(position + step, save, radius, boat, surface)) {
       position = position + step;
     } else {
-      if (Clear(position + Vec{step.x, 0}, save, radius, boat)) {
+      if (Clear(position + Vec{step.x, 0}, save, radius, boat, surface)) {
         position.x += step.x;
       }
-      if (Clear(position + Vec{0, step.y}, save, radius, boat)) {
+      if (Clear(position + Vec{0, step.y}, save, radius, boat, surface)) {
         position.y += step.y;
       }
     }
   }
   return position;
 }
-std::vector<Vec> World::Path(Vec start, Vec goal, const Save& save) const {
+std::vector<Vec> World::Path(Vec start, Vec goal, const Save& save,
+                             bool land_only) const {
+  const bool boat =
+      !land_only && (save.inventory.boat || save.inventory.ship ||
+                     save.inventory.submarine || !save.vessels.empty());
   // Short plans keep work bounded; a distant goal is approached in successive
   // segments.
   if (Length(goal - start) > 900) {
@@ -1503,19 +1586,14 @@ std::vector<Vec> World::Path(Vec start, Vec goal, const Save& save) const {
     return Vec{(coord.x + .5f) * kTileSize, (coord.y + .5f) * kTileSize};
   };
   Coord from = cell(start), to = cell(goal);
-  if (!Clear(center(to), save, 12,
-             (save.inventory.boat || save.inventory.ship ||
-              save.inventory.submarine || !save.vessels.empty()))) {
+  if (!Clear(center(to), save, 12, boat, land_only)) {
     float best = 1e9;
     Coord candidate = from;
     for (int y = -5; y <= 5; y++) {
       for (int x = -5; x <= 5; x++) {
         Coord coord{to.x + x, to.y + y};
         float d = Length(center(coord) - goal);
-        if (d < best &&
-            Clear(center(coord), save, 12,
-                  (save.inventory.boat || save.inventory.ship ||
-                   save.inventory.submarine || !save.vessels.empty()))) {
+        if (d < best && Clear(center(coord), save, 12, boat, land_only)) {
           best = d;
           candidate = coord;
         }
@@ -1563,18 +1641,14 @@ std::vector<Vec> World::Path(Vec start, Vec goal, const Save& save) const {
         if (std::abs(next.x - from.x) > 32 || std::abs(next.y - from.y) > 32) {
           continue;
         }
-        if (!Clear(center(next), save, 12,
-                   (save.inventory.boat || save.inventory.ship ||
-                    save.inventory.submarine || !save.vessels.empty()))) {
+        if (!Clear(center(next), save, 12, boat, land_only)) {
           continue;
         }
         if (x && y &&
-            (!Clear(center({coord.x + x, coord.y}), save, 12,
-                    (save.inventory.boat || save.inventory.ship ||
-                     save.inventory.submarine)) ||
-             !Clear(center({coord.x, coord.y + y}), save, 12,
-                    (save.inventory.boat || save.inventory.ship ||
-                     save.inventory.submarine || !save.vessels.empty())))) {
+            (!Clear(center({coord.x + x, coord.y}), save, 12, boat,
+                    land_only) ||
+             !Clear(center({coord.x, coord.y + y}), save, 12, boat,
+                    land_only))) {
           continue;
         }
         float weight =

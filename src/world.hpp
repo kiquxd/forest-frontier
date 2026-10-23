@@ -201,6 +201,20 @@ struct Citizen {
   float air{100};
   int hull{100};
   int vehicle{};
+  struct Order {
+    std::string kind = "idle";
+    int good{};
+    std::string phase = "seek";
+    std::string status = "Idle";
+    uint64_t target{};
+    bool planted{};
+    Vec destination{};
+    float progress{};
+    // Routes are a disposable cache; rebuild against current geometry on load.
+    std::vector<Vec> route;
+    float retry{};
+    double next_update{-1};
+  } order{};
 };
 struct HistoryEntry {
   std::string kind;
@@ -253,6 +267,8 @@ struct GrowingPlot {
   int good;
   double due;
   bool ready{};
+  // Zero ID preserves legacy abstract management plots without relocating them.
+  Resource resource{};
 };
 struct CityTask {
   uint64_t id;
@@ -275,6 +291,31 @@ struct Shipment {
   int good;
   int quantity;
   double due;
+};
+struct FreightWaypoint {
+  Vec position;
+  // Segment ending here follows this built road, or a local town connector.
+  int road{-1};
+  int city{-1};
+};
+struct FreightCart {
+  uint64_t id{};
+  int city{};
+  Vec position{};
+  Vec previous{};
+  Vec facing{1, 0};
+  int from{};
+  int to{};
+  int good{};
+  int quantity{};
+  bool returning{};
+  std::string status = "Ready";
+  std::vector<FreightWaypoint> route;
+  size_t waypoint{};
+  // Current local connector cache is rebuilt after loading.
+  std::vector<Vec> local_route;
+  float retry{};
+  double next_update{-1};
 };
 struct Traveler {
   int npc;
@@ -353,6 +394,7 @@ struct Save {
   std::vector<GrowingPlot> plots;
   std::vector<CityTask> city_tasks;
   std::vector<Shipment> shipments;
+  std::vector<FreightCart> freight_carts;
   std::vector<Traveler> travelers;
 };
 Save LoadSave(const std::filesystem::path& path);
@@ -367,6 +409,10 @@ class World {
   World(const World&) = delete;
   World& operator=(const World&) = delete;
   void Request(Vec player, int radius);
+  // CPU-only service terrain does not activate ambient NPCs or combat.
+  static constexpr size_t kMaxWorkChunks = 512;
+  void RequestWork(const std::unordered_set<Coord, CoordHash>& requested);
+  bool ActiveAt(Vec position) const;
   int Integrate(int budget = 3);
   size_t Pending() const;
   void Tick(float dt, const Save& save, double time);
@@ -377,13 +423,15 @@ class World {
   void BeginConversation(int id, const Save& save);
   int talking_npc{-1};
   bool Clear(Vec position, const Save& save, float radius = 12,
-             bool boat = false) const;
+             bool boat = false, bool surface = false) const;
   void ResolvePlayerContacts(Save& save);
   void SyncInfrastructure(const Save& save);
-  bool SightBlocked(Vec start, Vec end, const Save& save) const;
+  bool SightBlocked(Vec start, Vec end, const Save& save,
+                    bool surface = false) const;
   Vec Move(Vec position, Vec displacement, const Save& save, float radius = 12,
-           bool boat = false) const;
-  std::vector<Vec> Path(Vec start, Vec goal, const Save& save) const;
+           bool boat = false, bool surface = false) const;
+  std::vector<Vec> Path(Vec start, Vec goal, const Save& save,
+                        bool land_only = false) const;
   std::unordered_map<Coord, Chunk, CoordHash> chunks;
   std::vector<Npc> npcs;
   std::vector<Building> buildings;
@@ -393,6 +441,7 @@ class World {
 
  private:
   void Run();
+  void ReconcileRequests();
   uint64_t seed_;
   mutable std::mutex mutex_;
   std::condition_variable wake_;
@@ -400,6 +449,10 @@ class World {
   std::deque<Coord> jobs_;
   std::deque<Chunk> ready_;
   std::unordered_set<Coord, CoordHash> desired_;
+  std::unordered_set<Coord, CoordHash> view_desired_;
+  std::unordered_set<Coord, CoordHash> work_desired_;
+  Coord view_center_{};
+  bool view_initialized_{};
   std::unordered_set<Coord, CoordHash> pending_;
   std::thread worker_;
 };

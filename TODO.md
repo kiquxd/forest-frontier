@@ -21,21 +21,21 @@ Remove an item only after its full scope is implemented and validated. Split it 
 ## Population and settlement management
 
 - [ ] There are no births, dismissal, household simulation, food upkeep, wages or happiness. Wanderers are generated at towns, without physically traveling there.
-- [ ] Resident search, comparison tools, bulk selection and group commands are absent. Selection controls one resident at a time; inactive residents retain their last position.
+- [ ] Resident search, comparison tools, bulk selection and group commands are absent. Selection controls one resident at a time; residents without work orders retain their last position.
 - [ ] Housing is a capacity upgrade, not a freely placed residential building. Town layouts do not grow new residential districts in response to population changes.
 - [ ] Wanderer history is bounded to 128 arrivals per campaign; declined/departed arrival recycling is not implemented.
 
 ## Resident work and production
 
 - [ ] Workshop production is a timed management abstraction: no worker attendance, physical material transport, individual productivity, automatic priorities or operating costs.
-- [ ] Roles/equipment and research remain prerequisites/prototypes; residents do not receive autonomous job orders, gather on their own or produce specialized scholar/engineer output.
+- [ ] Resident orders remain local to explored home-town land, with terrain loaded independently of the camera. Mining other rare materials, underwater work, foreign workers, task priorities and specialized scholar/engineer output remain absent.
 - [ ] Connected workshop output returns directly to its source warehouse when complete, without travel time or a hauling actor.
 - [ ] Foreign towns have bounded abstract resource replenishment, not a full resident production simulation. There is no offline production catch-up.
 
 ## Trade, rare resources and town economy
 
 - [ ] Prices are fixed rules, not supply-and-demand calculations. NPCs share town markets rather than individual inventories and budgets.
-- [ ] Shipments are scheduled abstractions, without caravans, moving haulers, interception or transport losses. Specialist delivery does not require a built road.
+- [ ] Road freight carts have no assigned resident drivers, animal care, wear, traffic separation/loading queues, interception/combat or transport losses. They wait for required service terrain and blocked roads; there is no automatic road repair/rerouting. Specialist deliveries and timer shipments from older saves remain abstract; specialist delivery does not require a built road.
 - [ ] Rare specialist orders create commissioned goods without simulating their production inputs. Foreign basic-stock replenishment and regional surplus purchases are abstract; there is no autonomous foreign economy.
 - [ ] Closed money accounting prevents minting, not hoarding. There is no taxation, wage, maintenance or automatic redistribution policy guaranteeing liquidity for every town or preventing wealth concentration.
 - [ ] General trading covers resource goods, not a complete market for crafted weapons and clothing. Inter-town shipments carry goods, not equipment copies.
@@ -117,7 +117,7 @@ Remove an item only after its full scope is implemented and validated. Split it 
 - [ ] Lakes/coastline use predefined large-scale shapes with seeded variation, not general continent/biome generation.
 - [ ] Settlements occupy a finite seeded region around fixed landmarks. Distant exploration generates terrain, not an endlessly expanding settlement network.
 - [ ] Player roads/bridges are manually plotted complete routes, without maintenance, demolition, traffic capacity or territorial right-of-way negotiations. Local town paths remain generated scenery; inter-town roads are not generated automatically.
-- [ ] Wild harvested sites stay depleted. Renewable plots are timer records in management, without individually placed/rendered trees/fields, forestry workers or renewable mineral extraction.
+- [ ] Wild harvested sites stay depleted. New planted sites use automatically selected town-edge locations and simple shared, nonblocking sprites; manual placement, fertility/seasons and renewable mineral extraction are absent. Growth-menu plots, including older saves, remain abstract management timers.
 - [ ] Animals wander/flee locally, without breeding, food chains or persistent population simulation.
 - [ ] Terrain is flat, without caves, elevation or physical geology. Weather, seasons and a day/night simulation are absent.
 
@@ -155,12 +155,13 @@ Remove an item only after its full scope is implemented and validated. Split it 
 
 ## Release and distribution
 
-- [ ] Windows/macOS packaging, platform validation and a complete distribution workflow are not established by the Linux build.
-- [ ] Linux source setup is available and tested, but there is no standalone relocatable package: assets/content/default writable paths remain bound to the checkout at build time. System packages must be installed separately.
+- [ ] macOS arm64 gameplay/window/audio validation remains manual; Windows support, macOS app packaging/signing and a complete distribution workflow are not established. The optional model server is not validated on macOS.
+- [ ] Linux and macOS arm64 source setup are available, but there is no standalone relocatable package: assets/content/default writable paths remain bound to the checkout at build time. System packages must be installed separately.
 - [ ] Downloads use HTTPS, curl success and a GGUF header check for the model, without pinned checksums or complete model validation. The model/font URLs track upstream main, and existing dependency files/source checkouts are reused rather than reverified against a lock manifest.
 
 ## Navigation and autonomous movement (deferred)
 
-- [ ] Full destination orders and route planning are deferred until command systems exist for owned and foreign residents/professions, caravans and armies; current direct selection and job/equipment assignments do not satisfy this prerequisite.
-- [ ] Navigation searches a bounded area of loaded terrain and approaches distant goals in short segments, rather than planning full world routes for caravans/armies.
-- [ ] There is no hierarchical routing or complete handling of distant blocked/unloaded destinations.
+- [ ] Unrestricted distant destinations, autonomous road discovery and armies remain deferred pending broader owned/foreign resident and profession command systems. Worker orders stay local; freight follows existing explicit roads, with service terrain loaded independently of the camera.
+- [ ] Collision-aware local connectors use bounded loaded-terrain searches. Freight selects a deterministic existing-road graph route, without general off-road or hierarchical world routing.
+- [ ] There is no hierarchical routing or automatic handling of distant blocked destinations.
+- [ ] Off-camera work/freight use a bounded cache of 512 service chunks and at most 256 queued events per simulation step. Excess demand can delay work; missing terrain causes preparation waits without free catch-up output. Work and freight pause in menus and closed worlds; offline progression is absent.

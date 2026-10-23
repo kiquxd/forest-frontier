@@ -52,6 +52,7 @@ ProductionProgress GetProductionProgress(const Save& save,
 // Active-world runtime only, supplied from steady_clock by the application.
 // This is separate from paused simulation updates and never uses offline time.
 int TickProduction(Save& save, double elapsed_seconds);
+Action CheckPlantResource(const Save& save, int city, int good);
 Action PlantResource(Save& save, int city, int good);
 Action HarvestPlot(Save& save, int index);
 Action OrderRareGoods(Save& save, int from, int to, int good, int quantity);

@@ -20,6 +20,10 @@
 #include <utility>
 #include <vector>
 
+#ifdef __APPLE__
+#include <sys/sysctl.h>
+#endif
+
 #include "adventure.hpp"
 #include "atlas_notes.hpp"
 #include "dialogue.hpp"
@@ -271,6 +275,14 @@ std::string NpcPrompt(const frontier::Npc& npc, const frontier::Save& save) {
          "skills; those changes happen through gameplay buttons.";
 }
 std::string CpuName() {
+#ifdef __APPLE__
+  std::array<char, 256> name{};
+  size_t size = name.size();
+  if (sysctlbyname("machdep.cpu.brand_string", name.data(), &size, nullptr,
+                   0) == 0) {
+    return name.data();
+  }
+#else
   std::ifstream f("/proc/cpuinfo");
   std::string line;
   while (std::getline(f, line)) {
@@ -278,6 +290,7 @@ std::string CpuName() {
       return line.substr(line.find(':') + 2);
     }
   }
+#endif
   return "unknown";
 }
 frontier::Action FixtureCraft(frontier::Save& save, int recipe) {
@@ -637,6 +650,9 @@ int Play(const Options& options) {
           {"gathered", save.gathered},
           {"crafted", save.crafted},
           {"game_time", save.game_time},
+          {"work_events", game.WorkStats().events},
+          {"work_overdue", game.WorkStats().overdue},
+          {"work_terrain_chunks", game.WorkStats().terrain_chunks},
           {"craft_wait", frontier::CraftWait(save)},
           {"activity_buildings", save.facilities.size()},
           {"built_roads", save.roads.size()},
@@ -777,7 +793,7 @@ int Play(const Options& options) {
           : ui.paused      ? "pause"
           : ui.progression ? "knowledge"
           : ui.government  ? "state:" + std::to_string(ui.gov_tab) + ":" +
-                                 std::to_string(ui.gov_page)
+                                std::to_string(ui.gov_page)
           : ui.map_journal ? "map-journal:" + std::to_string(ui.note_edit)
           : ui.road_edit   ? "roads"
           : ui.cartography ? "map"

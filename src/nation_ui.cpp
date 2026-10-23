@@ -8,10 +8,12 @@
 #include <string>
 #include <vector>
 
+#include "freight.hpp"
 #include "input.hpp"
 #include "nation.hpp"
 #include "progress.hpp"
 #include "render.hpp"
+#include "resident_orders.hpp"
 #include "settlement_system.hpp"
 #include "summary.hpp"
 
@@ -108,7 +110,10 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
   }
   if (button({w - 270, 122, 220, 34},
              "Transfer batch: " + std::to_string(ui.gov_amount))) {
-    ui.gov_amount = ui.gov_amount == 1 ? 5 : ui.gov_amount == 5 ? 10 : 1;
+    ui.gov_amount = ui.gov_amount == 1    ? 5
+                    : ui.gov_amount == 5  ? 10
+                    : ui.gov_amount == 10 ? 40
+                                          : 1;
   }
   Wrapped("State treasury " + std::to_string(save.coins) + " · Town treasury " +
               std::to_string(save.treasury[city]) + " · Residents " +
@@ -216,6 +221,24 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
   std::vector<NationRow> rows;
   auto act = [&](const Action& result) { ui.gov_status = result.message; };
   if (ui.gov_tab == 0) {
+    const auto& commands = WorkOrders();
+    rows.push_back({"Work order: " + commands[ui.resident_order_choice].name,
+                    "Local explored land only. Orders repeat; switch away from "
+                    "the selected resident to let them work.",
+                    "book", "Next order",
+                    [&] {
+                      ui.resident_order_choice =
+                          (ui.resident_order_choice + 1) %
+                          static_cast<int>(commands.size());
+                    },
+                    "Previous",
+                    [&] {
+                      ui.resident_order_choice =
+                          (ui.resident_order_choice +
+                           static_cast<int>(commands.size()) - 1) %
+                          static_cast<int>(commands.size());
+                    }});
+    rows.back().id = "resident-order-choice";
     for (const auto& c : save.citizens) {
       if (!OwnsCity(save, c.city)) {
         continue;
@@ -242,6 +265,37 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
                act(TreatResident(save, npc));
              })
                                  : std::function<void()>{}});
+      rows.back().id = "resident-control:" + std::to_string(npc);
+      if (c.state == "active") {
+        rows.push_back(
+            {ResidentName(save, npc) + " · " +
+                 (c.order.kind == "idle"
+                      ? "Idle"
+                      : (c.order.kind == "gather" ? "Gather " : "Plant ") +
+                            std::string(GoodName(c.order.good))),
+             "Cargo: fish " + std::to_string(c.cargo.fish) + ", ore " +
+                 std::to_string(GoodCount(c.cargo, 6)) + ", wood " +
+                 std::to_string(c.cargo.wood) + ", stone " +
+                 std::to_string(c.cargo.stone) + ", berries " +
+                 std::to_string(c.cargo.berries) + ", reeds " +
+                 std::to_string(c.cargo.reeds),
+             "person", "Order",
+             [&, npc] {
+               const auto& command = WorkOrders()[ui.resident_order_choice];
+               act(OrderResident(save, npc, command.kind, command.good));
+             },
+             "Cancel",
+             c.order.kind != "idle" ? std::function<void()>([&, npc] {
+               act(CancelResidentOrder(save, npc));
+             })
+                                    : std::function<void()>{}});
+        rows.back().tooltip =
+            ResidentOrderLabel(c) + "\n" + rows.back().detail +
+            "\nOrder assigns: " + commands[ui.resident_order_choice].name;
+        rows.back().detail = c.order.status;
+        rows.back().id = "resident-order:" + std::to_string(npc) + ":" +
+                         std::to_string(ui.resident_order_choice);
+      }
     }
   } else if (ui.gov_tab == 1) {
     bool owned = OwnsCity(save, city);
@@ -565,8 +619,8 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
             {"Transfer from " + Settlements()[from].name,
              "Selected material: " + std::string(GoodName(ui.gov_good)) +
                  " · batch " + std::to_string(ui.gov_amount) +
-                 " · requires a built road",
-             "chest", "Ship",
+                 " · source needs a ready cart and a peaceful built road",
+             "chest", "Send cart",
              [&, from] {
                act(ShipGoods(save, from, city, ui.gov_good, ui.gov_amount));
              },
@@ -578,17 +632,50 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
           if (good < 6) {
             continue;
           }
-          rows.push_back(
-              {"Order " + std::string(GoodName(good)) + " from " +
-                   Settlements()[from].name,
-               "Price " + std::to_string(BuyPrice(from, good)) +
-                   " each · batch " + std::to_string(ui.gov_amount) +
-                   " · specialist knowledge and trust 20",
-               "good_" + std::to_string(good), "Order", [&, from, good] {
-                 act(OrderRareGoods(save, from, city, good, ui.gov_amount));
-               }});
+          rows.push_back({"Order " + std::string(GoodName(good)) + " from " +
+                              Settlements()[from].name,
+                          "Price " + std::to_string(BuyPrice(from, good)) +
+                              " each · batch " +
+                              std::to_string(std::min(ui.gov_amount, 10)) +
+                              " · specialist knowledge and trust 20",
+                          "good_" + std::to_string(good), "Order",
+                          [&, from, good] {
+                            act(OrderRareGoods(save, from, city, good,
+                                               std::min(ui.gov_amount, 10)));
+                          }});
         }
       }
+    }
+    if (OwnsCity(save, city)) {
+      rows.push_back({"Road freight cart",
+                      "Construction branch · city wood 20, stone 5, leather 4 "
+                      "· capacity 40 goods",
+                      "chest", "Build cart",
+                      [&] { act(BuildFreightCart(save, city)); }});
+      rows.back().id = "build-freight:" + std::to_string(city);
+    }
+    for (const auto& cart : save.freight_carts) {
+      if (cart.city != city && cart.to != city && cart.from != city) {
+        continue;
+      }
+      const auto id = cart.id;
+      rows.push_back(
+          {"Cart " + std::to_string(id) +
+               (cart.quantity ? " · " + std::string(GoodName(cart.good)) +
+                                    " ×" + std::to_string(cart.quantity)
+                              : " · ready in " + Settlements()[cart.city].name),
+           cart.status + " · " +
+               std::to_string(static_cast<int>(cart.position.x)) + ", " +
+               std::to_string(static_cast<int>(cart.position.y)),
+           "chest", "Return",
+           !cart.route.empty() && !cart.returning
+               ? std::function<void()>(
+                     [&, id] { act(ReturnFreight(save, id)); })
+               : std::function<void()>{}});
+      rows.back().id = "return-freight:" + std::to_string(id);
+      rows.back().tooltip =
+          "Cargo stays in this cart until it reaches a warehouse. Return "
+          "carries remaining cargo back; it never refunds remotely.";
     }
     for (const auto& s : save.shipments) {
       rows.push_back({"Incoming: " + std::string(GoodName(s.good)) + " ×" +
@@ -643,10 +730,12 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
         }
         rows.push_back(
             {std::string(GoodName(p.good)) + " plot",
-             p.ready ? "Ready to harvest; goods go to city resources"
+             p.ready ? (p.resource.id
+                            ? "Ready on site: gather with F or a resident order"
+                            : "Ready to harvest; goods go to city resources")
                      : "Ready in " + Duration(p.due - save.game_time),
              "good_" + std::to_string(p.good), "Harvest",
-             p.ready
+             p.ready && !p.resource.id
                  ? std::function<void()>([&, i] { act(HarvestPlot(save, i)); })
                  : std::function<void()>{}});
       }
@@ -786,7 +875,8 @@ void Renderer::DrawNationPanel(Save& save, Ui& ui) {
       row.primary();
     }
     if (row.secondary &&
-        button({body.x + body.width - 126, y + 14, 120, 36}, row.second)) {
+        button({body.x + body.width - 126, y + 14, 120, 36}, row.second, true,
+               false, row.id.empty() ? "" : row.id + ":secondary")) {
       row.secondary();
     }
     y += step;

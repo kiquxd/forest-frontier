@@ -31,6 +31,48 @@ namespace {
 Vector2 ToVector2(Vec position) {
   return {position.x, position.y};
 }
+void DrawFreightCart(const FreightCart& cart, Vec position) {
+  Vec forward = Normalized(cart.facing);
+  Vec side{-forward.y, forward.x};
+  auto point = [&](float along, float across, float height = 0) {
+    return ToVector2(position + Project(forward * along + side * across) -
+                     Vec{0, height});
+  };
+  auto ellipse = [](Vector2 centre, float width, float height, Color color) {
+    DrawEllipse(static_cast<int>(centre.x), static_cast<int>(centre.y), width,
+                height, color);
+  };
+  ellipse(point(0, 0), 23, 9, {12, 19, 17, 100});
+  for (float across : {-18.f, 18.f}) {
+    for (float along : {-13.f, 13.f}) {
+      auto wheel = point(along, across, 3);
+      DrawCircleV(wheel, 5, {35, 29, 23, 255});
+      DrawCircleLines(static_cast<int>(wheel.x), static_cast<int>(wheel.y), 4,
+                      {169, 126, 70, 255});
+    }
+  }
+  const std::array<Vector2, 4> bed = {point(-24, -15, 10), point(24, -15, 10),
+                                      point(24, 15, 10), point(-24, 15, 10)};
+  DrawTriangle(bed[0], bed[2], bed[1], {126, 85, 46, 255});
+  DrawTriangle(bed[0], bed[3], bed[2], {126, 85, 46, 255});
+  for (size_t i = 0; i < bed.size(); ++i) {
+    DrawLineEx(bed[i], bed[(i + 1) % bed.size()], 3, {195, 151, 86, 255});
+  }
+  if (cart.quantity > 0) {
+    for (float along : {-12.f, 7.f}) {
+      ellipse(point(along, 0, 16), 7, 5, {190, 176, 118, 255});
+      DrawLineEx(point(along, -4, 16), point(along, 4, 16), 1,
+                 {100, 85, 49, 255});
+    }
+  }
+  // One draft animal indicates this transport's abstraction; no roster
+  // resident is cloned or silently removed to provide a driver.
+  DrawLineEx(point(24, -9, 9), point(41, -9, 9), 2, {126, 85, 46, 255});
+  DrawLineEx(point(24, 9, 9), point(41, 9, 9), 2, {126, 85, 46, 255});
+  ellipse(point(44, 0, 10), 10, 6, {148, 143, 123, 255});
+  DrawCircleV(point(56, 0, 10), 5, {121, 119, 103, 255});
+  DrawLineEx(point(55, -8, 13), point(58, 8, 13), 2, {216, 207, 175, 255});
+}
 }  // namespace
 
 Renderer::Renderer() {
@@ -664,6 +706,23 @@ size_t Renderer::DrawWorld(const World& world, const Save& save,
       }
     }
   }
+  if (!save.submerged) {
+    for (const auto& plot : save.plots) {
+      if (!plot.resource.id ||
+          !world.chunks.contains(ChunkAt(plot.resource.pos))) {
+        continue;
+      }
+      Vec position = Project(plot.resource.pos);
+      if (Visible(position, camera)) {
+        const int sprite = plot.ready ? (plot.good == 0   ? 8
+                                         : plot.good == 2 ? 12
+                                                          : 23)
+                                      : 12;
+        items_.push_back(
+            {position, sprite, plot.ready ? WHITE : Color{138, 183, 112, 190}});
+      }
+    }
+  }
   // Draw decoration after all terrain sprites to keep the atlas batch intact.
   for (const auto& tile : ground_details_) {
     Vec position = tile.position;
@@ -820,6 +879,18 @@ size_t Renderer::DrawWorld(const World& world, const Save& save,
                           : WHITE,
                       Project(game.facing).x < 0});
   }
+  if (!save.submerged) {
+    for (int i = 0; i < static_cast<int>(save.freight_carts.size()); ++i) {
+      const auto& cart = save.freight_carts[i];
+      Vec position =
+          Project(cart.previous + (cart.position - cart.previous) * alpha);
+      if (world.chunks.contains(ChunkAt(cart.position)) &&
+          ExploredAt(save.explored, cart.position) &&
+          Visible(position, camera)) {
+        items_.push_back({position, -1, WHITE, false, -1, i});
+      }
+    }
+  }
   if (highlighted) {
     auto position = Project(highlighted->pos);
     DrawEllipse(static_cast<int>(position.x), static_cast<int>(position.y), 20,
@@ -830,10 +901,17 @@ size_t Renderer::DrawWorld(const World& world, const Save& save,
   std::sort(items_.begin(), items_.end(),
             [](auto& a, auto& b) { return a.pos.y < b.pos.y; });
   for (auto& item : items_) {
+    if (item.freight >= 0) {
+      DrawFreightCart(save.freight_carts[item.freight], item.pos);
+      continue;
+    }
     Sprite(item.sprite, item.pos, item.tint, item.flip);
     if (item.worker >= 0) {
       auto resident = GetCitizen(save, item.worker);
-      if (resident && resident->trained && resident->job != "idle") {
+      if (resident && ((resident->trained && resident->job != "idle") ||
+                       (resident->order.kind != "idle" &&
+                        (resident->order.status == "Gathering" ||
+                         resident->order.status == "Planting")))) {
         float phase = std::sin(time * 5 + item.worker);
         auto hand = ToVector2(item.pos + Vec{14, -28 + phase * 3});
         DrawLineEx({item.pos.x + 9, item.pos.y - 31}, hand, 4,
@@ -1920,12 +1998,12 @@ void Renderer::DrawUi(const World& world, Save& save, Ui& ui,
         ui.crafting  ? Recipes()[ui.selection].effect
         : ui.trading ? "Coins " + std::to_string(save.coins) + " · Treasury " +
                            std::to_string(save.treasury[ui.merchant])
-        : ui.civic   ? "Town technology: " +
-                           std::string(TechnologyName(
-                               GetContent()
-                                   .towns[Settlements()[ui.merchant].type]
-                                   .technology))
-                     : "Choose a weapon; bows and crossbows consume arrows";
+        : ui.civic ? "Town technology: " +
+                         std::string(TechnologyName(
+                             GetContent()
+                                 .towns[Settlements()[ui.merchant].type]
+                                 .technology))
+                   : "Choose a weapon; bows and crossbows consume arrows";
     if (ui.civic && ui.selection >= 10 &&
         ui.selection < 10 + static_cast<int>(Skills().size())) {
       detail = GetLessonState(save, ui.selection - 10).detail;

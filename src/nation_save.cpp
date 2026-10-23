@@ -1,8 +1,10 @@
 #include <cmath>
 #include <stdexcept>
 #include <unordered_set>
+#include <utility>
 
 #include "adventure.hpp"
+#include "freight.hpp"
 #include "nation.hpp"
 #include "settlement_system.hpp"
 #include "vessels.hpp"
@@ -98,17 +100,28 @@ nlohmann::json WriteNation(const Save& save) {
   j["housing"] = save.housing;
   j["residents"] = Json::array();
   for (const auto& c : save.citizens) {
-    j["residents"].push_back({{"npc", c.npc},
-                              {"position", {c.position.x, c.position.y}},
-                              {"cargo", PackInventory(c.cargo)},
-                              {"background", c.background},
-                              {"weapons", c.weapons},
-                              {"clothes", c.clothes},
-                              {"vessels", c.vessels},
-                              {"underwater", c.underwater},
-                              {"air", c.air},
-                              {"hull", c.hull},
-                              {"vehicle", c.vehicle}});
+    j["residents"].push_back(
+        {{"npc", c.npc},
+         {"position", {c.position.x, c.position.y}},
+         {"cargo", PackInventory(c.cargo)},
+         {"background", c.background},
+         {"weapons", c.weapons},
+         {"clothes", c.clothes},
+         {"vessels", c.vessels},
+         {"underwater", c.underwater},
+         {"air", c.air},
+         {"hull", c.hull},
+         {"vehicle", c.vehicle},
+         {"order",
+          {{"kind", c.order.kind},
+           {"good", c.order.good},
+           {"phase", c.order.phase},
+           {"status", c.order.status},
+           {"target", c.order.target},
+           {"planted", c.order.planted},
+           {"destination", {c.order.destination.x, c.order.destination.y}},
+           {"progress", c.order.progress},
+           {"next_update", c.order.next_update}}}});
   }
   j["production"] = Json::array();
   for (const auto& job : save.production) {
@@ -126,7 +139,9 @@ nlohmann::json WriteNation(const Save& save) {
     j["plots"].push_back({{"city", p.city},
                           {"good", p.good},
                           {"due", p.due},
-                          {"ready", p.ready}});
+                          {"ready", p.ready},
+                          {"resource_id", p.resource.id},
+                          {"position", {p.resource.pos.x, p.resource.pos.y}}});
   }
   j["tasks"] = Json::array();
   for (const auto& t : save.city_tasks) {
@@ -151,6 +166,29 @@ nlohmann::json WriteNation(const Save& save) {
                               {"good", s.good},
                               {"quantity", s.quantity},
                               {"due", s.due}});
+  }
+  j["freight_carts"] = Json::array();
+  for (const auto& cart : save.freight_carts) {
+    Json route = Json::array();
+    for (const auto& point : cart.route) {
+      route.push_back({{"position", {point.position.x, point.position.y}},
+                       {"road", point.road},
+                       {"city", point.city}});
+    }
+    j["freight_carts"].push_back(
+        {{"id", cart.id},
+         {"city", cart.city},
+         {"position", {cart.position.x, cart.position.y}},
+         {"facing", {cart.facing.x, cart.facing.y}},
+         {"from", cart.from},
+         {"to", cart.to},
+         {"good", cart.good},
+         {"quantity", cart.quantity},
+         {"returning", cart.returning},
+         {"status", cart.status},
+         {"route", route},
+         {"waypoint", cart.waypoint},
+         {"next_update", cart.next_update}});
   }
   j["travelers"] = Json::array();
   for (const auto& t : save.travelers) {
@@ -246,6 +284,42 @@ void ReadNation(const nlohmann::json& j, Save& save) {
     c->air = row.at("air");
     c->hull = row.at("hull");
     c->vehicle = row.at("vehicle");
+    if (row.contains("order")) {
+      const auto& order = row.at("order");
+      c->order.kind = order.at("kind");
+      c->order.good = order.at("good");
+      c->order.phase = order.at("phase");
+      c->order.status = order.at("status");
+      c->order.target = order.at("target");
+      c->order.planted = order.at("planted");
+      c->order.destination = Position(order.at("destination"));
+      c->order.progress = order.at("progress");
+      c->order.next_update = order.value("next_update", -1.0);
+      Require(std::isfinite(c->order.next_update) &&
+                  (c->order.next_update == -1 ||
+                   (c->order.next_update >= 0 &&
+                    c->order.next_update <= save.game_time + 60)),
+              "Invalid worker update deadline");
+      Require((c->order.kind == "idle" || c->order.kind == "gather" ||
+               c->order.kind == "plant") &&
+                  ((c->order.good >= 0 && c->order.good <= 4) ||
+                   c->order.good == 6) &&
+                  (c->order.kind != "plant" || c->order.good == 0 ||
+                   c->order.good == 2 || c->order.good == 3) &&
+                  (c->order.phase == "seek" || c->order.phase == "travel" ||
+                   c->order.phase == "work" || c->order.phase == "deliver" ||
+                   c->order.phase == "supply") &&
+                  (c->order.kind == "gather" || c->order.phase != "deliver") &&
+                  (c->order.kind == "plant" || c->order.phase != "supply") &&
+                  c->order.status.size() <= 160 &&
+                  std::isfinite(c->order.progress) && c->order.progress >= 0 &&
+                  c->order.progress <= 10 &&
+                  (c->order.kind == "idle" || c->state == "active"),
+              "Invalid resident order");
+      // Cached routes are deliberately absent; current geometry is
+      // authoritative.
+    }
+
     Require(std::isfinite(c->air) && c->air >= 0 && c->air <= 200 &&
                 c->hull >= 0 && c->hull <= 100 && c->vehicle >= 0 &&
                 c->vehicle <= 9,
@@ -311,6 +385,17 @@ void ReadNation(const nlohmann::json& j, Save& save) {
     Require(city_ok(p.city) && (p.good == 0 || p.good == 2 || p.good == 3) &&
                 deadline(p.due),
             "Invalid growing plot");
+    p.resource.id = row.value("resource_id", uint64_t{0});
+    if (p.resource.id) {
+      entity(p.resource.id);
+      p.resource.pos = Position(row.at("position"));
+      p.resource.kind = p.good == 0   ? ResourceKind::kTree
+                        : p.good == 2 ? ResourceKind::kBerry
+                                      : ResourceKind::kReed;
+      Require(Length(p.resource.pos - Settlements()[p.city].pos) <=
+                  CityRadius(save, p.city),
+              "Planted resource outside town");
+    }
     save.plots.push_back(p);
   }
   Require(j.at("tasks").is_array() && j.at("tasks").size() <= 2048,
@@ -348,6 +433,74 @@ void ReadNation(const nlohmann::json& j, Save& save) {
                 s.quantity <= 1000000 && deadline(s.due),
             "Invalid shipment");
     save.shipments.push_back(s);
+  }
+  if (j.contains("freight_carts")) {
+    const auto& carts = j.at("freight_carts");
+    Require(carts.is_array() && carts.size() <= 64, "Too many freight carts");
+    for (const auto& row : carts) {
+      FreightCart cart;
+      cart.id = row.at("id");
+      entity(cart.id);
+      cart.city = row.at("city");
+      cart.position = cart.previous = Position(row.at("position"));
+      cart.facing = Position(row.at("facing"));
+      cart.from = row.at("from");
+      cart.to = row.at("to");
+      cart.good = row.at("good");
+      cart.quantity = row.at("quantity");
+      cart.returning = row.at("returning");
+      cart.status = row.at("status");
+      cart.waypoint = row.at("waypoint");
+      cart.next_update = row.value("next_update", -1.0);
+      Require(std::isfinite(cart.next_update) &&
+                  (cart.next_update == -1 ||
+                   (cart.next_update >= 0 &&
+                    cart.next_update <= save.game_time + 60)),
+              "Invalid freight update deadline");
+      Require(city_ok(cart.city) && city_ok(cart.from) && city_ok(cart.to) &&
+                  cart.good >= 0 && cart.good < kGoodTypes &&
+                  cart.quantity >= 0 && cart.quantity <= kFreightCapacity &&
+                  cart.status.size() <= 160 && Length(cart.facing) <= 1.01f &&
+                  row.at("route").is_array() &&
+                  row.at("route").size() <= kMaxFreightWaypoints,
+              "Invalid freight cart");
+      for (const auto& point : row.at("route")) {
+        cart.route.push_back({Position(point.at("position")), point.at("road"),
+                              point.at("city")});
+        Require(cart.route.back().road >= -1 && cart.route.back().city >= -1,
+                "Invalid freight access mode");
+      }
+      if (cart.route.empty()) {
+        Require(cart.quantity == 0 && cart.waypoint == 0 && !cart.returning &&
+                    Length(cart.position - FreightDepot(cart.city)) <= 8,
+                "Parked cart has cargo or is away from its depot");
+      } else {
+        Require(
+            cart.route.size() >= 2 && cart.quantity > 0 && cart.waypoint >= 1 &&
+                cart.waypoint <= cart.route.size() &&
+                Length(cart.route.back().position - FreightDepot(cart.to)) <= 8,
+            "Invalid freight trip");
+        Require(cart.returning ? cart.to == cart.from
+                               : cart.from != cart.to &&
+                                     Length(cart.route.front().position -
+                                            FreightDepot(cart.from)) <= 8,
+                "Freight origin does not match its trip");
+        for (size_t i = 1; i < cart.route.size(); ++i) {
+          Require(FreightSegmentValid(save, cart.route[i - 1].position,
+                                      cart.route[i], true),
+                  "Freight route leaves built roads or its town connector");
+        }
+        if (cart.waypoint < cart.route.size()) {
+          Require(FreightSegmentValid(save, cart.position,
+                                      cart.route[cart.waypoint], true),
+                  "Freight cart is outside its current route segment");
+        } else {
+          Require(Length(cart.position - cart.route.back().position) <= 8,
+                  "Unloading cart is away from its destination");
+        }
+      }
+      save.freight_carts.push_back(std::move(cart));
+    }
   }
   Require(j.at("travelers").is_array() && j.at("travelers").size() <= 128,
           "Too many travelers");

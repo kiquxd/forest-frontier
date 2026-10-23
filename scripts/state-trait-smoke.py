@@ -48,7 +48,7 @@ with tempfile.TemporaryDirectory(prefix='frontier-state-trait-') as temporary:
                     ui.wait_for(save.exists, 'New world was not created')
                     data = json.loads(save.read_text())
                     assert data['nation']['state_trait'] == 'warden'
-                    assert data['version'] == 11
+                    assert data['version'] == 14
             finally:
                 workflow.stop(process)
         print('State traits passed: all five choices, 900x650, enlarged text/scroll and saved state-wide choice.')

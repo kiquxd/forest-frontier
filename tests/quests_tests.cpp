@@ -298,7 +298,8 @@ int main() {
       frontier::WriteSave(character_path, migrated);
       Check(std::filesystem::exists(character_path.string() + ".v10.bak") &&
                 frontier::LoadSave(character_path).state_trait == hero.id,
-            "v11 roundtrip retains the shared trait and original v10 backup");
+            "Latest save roundtrip retains the shared trait and original v10 "
+            "backup");
     }
     Check(frontier::Character("scout").speed > 1 &&
               frontier::Character("scout").taken > 1 &&

@@ -113,7 +113,8 @@ void Capture(const std::filesystem::path& path) {
 }
 std::string UpdatedAt(std::filesystem::file_time_type value) {
   auto time = std::chrono::system_clock::to_time_t(
-      std::chrono::file_clock::to_sys(value));
+      std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+          std::chrono::file_clock::to_sys(value)));
   std::tm local{};
   localtime_r(&time, &local);
   std::ostringstream out;

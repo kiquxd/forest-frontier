@@ -2,6 +2,10 @@
 
 #include <unistd.h>
 
+#ifdef __APPLE__
+#include <mach/mach.h>
+#endif
+
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -101,12 +105,23 @@ void Perf::Flush(nlohmann::json context) {
       idle_frames.empty()
           ? nlohmann::json(nullptr)
           : nlohmann::json(Round3(Percentile(idle_frames, .95)));
+#ifdef __APPLE__
+  mach_task_basic_info_data_t info{};
+  mach_msg_type_number_t count_info = MACH_TASK_BASIC_INFO_COUNT;
+  if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO,
+                reinterpret_cast<task_info_t>(&info),
+                &count_info) == KERN_SUCCESS) {
+    context["game_rss_mb"] =
+        Round3(static_cast<double>(info.resident_size) / (1024 * 1024));
+  }
+#else
   std::ifstream mem("/proc/self/statm");
   long pages = 0, resident = 0;
   if (mem >> pages >> resident) {
     context["game_rss_mb"] = Round3(static_cast<double>(resident) *
                                     sysconf(_SC_PAGESIZE) / (1024 * 1024));
   }
+#endif
   Event(std::move(context));
   samples_.clear();
 }

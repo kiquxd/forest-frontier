@@ -10,8 +10,10 @@
 
 #include "adventure.hpp"
 #include "atlas_notes.hpp"
+#include "freight.hpp"
 #include "nation.hpp"
 #include "progress.hpp"
+#include "resident_orders.hpp"
 #include "settlement_system.hpp"
 #include "vessels.hpp"
 
@@ -1080,19 +1082,31 @@ float HarvestDuration(const Resource& resource, const Inventory& inventory) {
   return .7f;
 }
 Action Harvest(Save& save, const Resource& resource) {
+  return HarvestInto(save, save.inventory, save.submerged, resource);
+}
+Action HarvestInto(Save& save, Inventory& cargo, bool submerged,
+                   const Resource& resource) {
   if (!HasSkill(save, "gathering")) {
     return {false, "First gathering lesson: P at a town hall entrance"};
+  }
+  auto plot =
+      std::find_if(save.plots.begin(), save.plots.end(), [&](const auto& p) {
+        return p.resource.id != 0 && p.resource.id == resource.id;
+      });
+  const bool planted = plot != save.plots.end();
+  if (planted && (!plot->ready || submerged || !OwnsCity(save, plot->city))) {
+    return {false, "This planted resource is not ready or accessible"};
   }
   if (save.harvested.contains(resource.id)) {
     return {false, "Already gathered"};
   }
-  if (resource.kind == ResourceKind::kFish && !save.inventory.rod) {
+  if (resource.kind == ResourceKind::kFish && !cargo.rod) {
     return {false, "Fishing requires a crafted rod"};
   }
   if ((resource.kind == ResourceKind::kCrystal ||
        resource.kind == ResourceKind::kPearl ||
        resource.kind == ResourceKind::kSalvage) &&
-      !save.submerged) {
+      !submerged) {
     return {false, "Dive in a submarine to harvest this resource"};
   }
   int good = ResourceGood(resource.kind);
@@ -1100,18 +1114,24 @@ Action Harvest(Save& save, const Resource& resource) {
     return {false, "Town technology required: " +
                        std::string(TechnologyName(MaterialTech(good)))};
   }
-  if (resource.kind == ResourceKind::kOre && !save.inventory.pickaxe) {
+  if (resource.kind == ResourceKind::kOre && !cargo.pickaxe) {
     return {false, "Pickaxe required"};
   }
-  int amount = good == 0 ? 3 : good <= 3 ? 2 : 1;
-  if (GoodCount(save.inventory, good) > 1000000 - amount) {
+  int amount = planted     ? (good == 0 ? 20 : 12)
+               : good == 0 ? 3
+               : good <= 3 ? 2
+                           : 1;
+  if (GoodCount(cargo, good) > 1000000 - amount) {
     return {false, "Inventory full"};
   }
-  GoodCount(save.inventory, good) += amount;
+  GoodCount(cargo, good) += amount;
   save.known_goods[good] = true;
   save.harvested.insert(resource.id);
+  if (planted) {
+    save.plots.erase(plot);
+  }
   save.gathered++;
-  if (resource.kind == ResourceKind::kFish) {
+  if (good == 4) {
     save.caught++;
   }
   return {true, "+" + std::to_string(amount) + " " + GoodName(good)};
@@ -1358,7 +1378,9 @@ void Gameplay::Combat(World& world, Save& save, float dt) {
       for (int y = -1; y <= 1; y++) {
         for (int x = -1; x <= 1; x++) {
           auto it = world.chunks.find({center.x + x, center.y + y});
-          if (it == world.chunks.end()) {
+          if (it == world.chunks.end() ||
+              !world.ActiveAt({(it->first.x + .5f) * kChunkSize,
+                               (it->first.y + .5f) * kChunkSize})) {
             continue;
           }
           for (auto& enemy : it->second.enemies) {
@@ -1405,7 +1427,9 @@ void Gameplay::Combat(World& world, Save& save, float dt) {
       for (int y = -1; y <= 1 && arrow.life > 0; y++) {
         for (int x = -1; x <= 1 && arrow.life > 0; x++) {
           auto it = world.chunks.find({coord.x + x, coord.y + y});
-          if (it == world.chunks.end()) {
+          if (it == world.chunks.end() ||
+              !world.ActiveAt({(it->first.x + .5f) * kChunkSize,
+                               (it->first.y + .5f) * kChunkSize})) {
             continue;
           }
           for (auto& enemy : it->second.enemies) {
@@ -1454,13 +1478,15 @@ void Gameplay::Tick(World& world, Save& save, float dt, double time) {
   TickNation(save, dt);
   SyncNationActors(world, save);
   world.SyncInfrastructure(save);
+  work_scheduler_.Tick(world, save, dt);
+  SyncNationActors(world, save);
   TickResidents(save, dt);
   bool sanctuary = false;
   defender_clock_ += dt;
   if (defender_clock_ >= 1.5f) {
     defender_clock_ = std::fmod(defender_clock_, 1.5f);
     for (auto& npc : world.npcs) {
-      if (Length(npc.pos - save.player) < 1500) {
+      if (world.ActiveAt(npc.pos) && Length(npc.pos - save.player) < 1500) {
         auto defender = GetCitizen(save, npc.id);
         if (!defender || defender->state != "active" ||
             defender->job != "guard" || !defender->trained ||
@@ -1469,6 +1495,10 @@ void Gameplay::Tick(World& world, Save& save, float dt, double time) {
         }
         bool struck = false;
         for (auto& [coord, chunk] : world.chunks) {
+          if (!world.ActiveAt({(coord.x + .5f) * kChunkSize,
+                               (coord.y + .5f) * kChunkSize})) {
+            continue;
+          }
           for (auto& enemy : chunk.enemies) {
             if ((!enemy.kind ||
                  save.relations[enemy.city].treaty == Treaty::kWar) &&
@@ -1500,6 +1530,10 @@ void Gameplay::Tick(World& world, Save& save, float dt, double time) {
     }
   }
   for (auto& [coord, chunk] : world.chunks) {
+    if (!world.ActiveAt(
+            {(coord.x + .5f) * kChunkSize, (coord.y + .5f) * kChunkSize})) {
+      continue;
+    }
     for (auto& e : chunk.enemies) {
       if (save.defeated.contains(e.id)) {
         continue;
@@ -1526,7 +1560,8 @@ void Gameplay::Tick(World& world, Save& save, float dt, double time) {
           auto c = GetCitizen(save, npc.id);
           float d = Length(npc.pos - e.pos);
           if (c && (!save.nation || c->npc != save.controlled_npc) &&
-              c->state == "active" && c->job == "guard" && c->trained &&
+              c->state == "active" &&
+              (save.nation || (c->job == "guard" && c->trained)) &&
               OwnsCity(save, c->city) && d < std::min(180.f, nearest) &&
               (!e.kind || save.relations[e.city].treaty == Treaty::kWar)) {
             nearest = d;

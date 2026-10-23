@@ -39,29 +39,29 @@ Sources: [gameplay.cpp](../src/gameplay.cpp), [adventure.cpp](../src/adventure.c
 **Incomplete:**
 
 - There are no births, dismissal, household simulation, food upkeep, wages or happiness. Wanderers are generated at towns, without physically traveling there.
-- Resident search, comparison tools, bulk selection and group commands are absent. Selection controls one resident at a time; inactive residents retain their last position.
+- Resident search, comparison tools, bulk selection and group commands are absent. Selection controls one resident at a time; residents without work orders retain their last position.
 - Housing is a capacity upgrade, not a freely placed residential building. Town layouts do not grow new residential districts in response to population changes.
 - Wanderer history is bounded to 128 arrivals per campaign; declined/departed arrival recycling is not implemented.
 
 ## Resident work and production
 
-**Working:** Production uses per-building FIFO queues, up to eight jobs per workshop, with reserved warehouse inputs and commissioning fees. Separate buildings operate in parallel. Forge construction is capped at max(1, floor(active town population / 6)); existing forges are retained after population loss. Jobs take 1/5/30/60/120 active-world minutes by rarity. A persisted production clock accumulates std::chrono::steady_clock elapsed time while the world is open, including management, Esc/settings, inactivity and minimized windows. Live FIFO rows show countdowns, progress bars and waiting/access/storage states. Simulation pauses do not stop production; returning to the lobby closes the world and suspends it. Output returns to the source city warehouse; cancellation refunds reserved inputs/fees once. Lost peaceful access suspends the queue. Old passive resident stock/coin generation is disabled in resident-control campaigns. The full recipe catalogue remains visible with case-insensitive name search, item PNGs and resource/skill/technology/building requirement PNGs. Missing counts or unlocks are muted, hovering explains them, and the same read-only quote controls both UI readiness and queue validation.
+**Working:** Production uses per-building FIFO queues, up to eight jobs per workshop, with reserved warehouse inputs and commissioning fees. Separate buildings operate in parallel. Forge construction is capped at max(1, floor(active town population / 6)); existing forges are retained after population loss. Jobs take 1/5/30/60/120 active-world minutes by rarity. A persisted production clock accumulates std::chrono::steady_clock elapsed time while the world is open, including management, Esc/settings, inactivity and minimized windows. Live FIFO rows show countdowns, progress bars and waiting/access/storage states. Simulation pauses do not stop production; returning to the lobby closes the world and suspends it. Output returns to the source city warehouse; cancellation refunds reserved inputs/fees once. Lost peaceful access suspends the queue. Old passive resident stock/coin generation is disabled in resident-control campaigns. Residents can receive repeating local gather/plant orders, including fishing with their own rod and the complete Fishing branch, and iron-ore mining with their own pickaxe, the complete Tools branch and Ironworking. These use actor-specific tools/cargo, shared state traits, manual cancellation, danger/conversation pauses, real warehouse returns and no passive resource or coin minting. Planters first fetch missing wood/berries from their warehouse into cargo, carry them to the site, and consume them only on successful planting; cancellation preserves carried supplies. Taking manual control cancels that resident's order; death/capture also cancels it. Resident orders continue outside the camera using separately requested service terrain; they pause with simulation or while required terrain is being prepared. The full recipe catalogue remains visible with case-insensitive name search, item PNGs and resource/skill/technology/building requirement PNGs. Missing counts or unlocks are muted, hovering explains them, and the same read-only quote controls both UI readiness and queue validation.
 
 **Incomplete:**
 
 - Workshop production is a timed management abstraction: no worker attendance, physical material transport, individual productivity, automatic priorities or operating costs.
-- Roles/equipment and research remain prerequisites/prototypes; residents do not receive autonomous job orders, gather on their own or produce specialized scholar/engineer output.
+- Resident orders remain local to explored home-town land, with terrain loaded independently of the camera. Mining other rare materials, underwater work, foreign workers, task priorities and specialized scholar/engineer output remain absent.
 - Connected workshop output returns directly to its source warehouse when complete, without travel time or a hauling actor.
 - Foreign towns have bounded abstract resource replenishment, not a full resident production simulation. There is no offline production catch-up.
 
 ## Trade, rare resources and town economy
 
-**Working:** Each town has its own goods warehouse, product stock and treasury; state skills and treasury are shared. Transfer cargo locally, send timed goods shipments between road-connected owned towns, or order specialist goods for coins with knowledge/trust gates. Foreign deficit orders reserve the buyer's payment and pay only on physical delivery by a resident. State/city/regional funds, production fees and order escrow conserve the campaign money supply. Own-town market sales are replaced by warehouse transfers; own projects do not pay coins. A regional fund buys bounded surpluses and receives research/construction/treatment fees; foreign buyers keep a protected reserve.
+**Working:** Each town has its own goods warehouse, product stock and treasury; state skills and treasury are shared. Transfer cargo locally, build counted road freight carts and send real goods between road-connected owned towns, or order specialist goods for coins with knowledge/trust gates. New internal transfers use physical carts; old timer shipments keep their saved behavior. A cart costs 20 city wood, 5 stone and 4 leather after the complete Construction branch, carries up to 40 goods, follows existing road polylines/bridges and uses bounded local connectors around town halls. Cargo is reserved once at dispatch and unloaded only on arrival; full storage retains the remainder and Return physically carries it back. Hostile endpoints/transit, nearby active-area threats and obstructions suspend travel. A main-thread event queue requests service terrain for off-camera workers and upcoming freight road sections without activating distant combat or ordinary NPC movement. No resident driver or equipment copy is allocated to a cart. Foreign deficit orders reserve the buyer's payment and pay only on physical delivery by a resident. State/city/regional funds, production fees and order escrow conserve the campaign money supply. Own-town market sales are replaced by warehouse transfers; own projects do not pay coins. A regional fund buys bounded surpluses and receives research/construction/treatment fees; foreign buyers keep a protected reserve.
 
 **Incomplete:**
 
 - Prices are fixed rules, not supply-and-demand calculations. NPCs share town markets rather than individual inventories and budgets.
-- Shipments are scheduled abstractions, without caravans, moving haulers, interception or transport losses. Specialist delivery does not require a built road.
+- Road freight carts have no assigned resident drivers, animal care, wear, traffic separation/loading queues, interception/combat or transport losses. They wait for required service terrain and blocked roads; there is no automatic road repair/rerouting. Specialist deliveries and timer shipments from older saves remain abstract; specialist delivery does not require a built road.
 - Rare specialist orders create commissioned goods without simulating their production inputs. Foreign basic-stock replenishment and regional surplus purchases are abstract; there is no autonomous foreign economy.
 - Closed money accounting prevents minting, not hoarding. There is no taxation, wage, maintenance or automatic redistribution policy guaranteeing liquidity for every town or preventing wealth concentration.
 - General trading covers resource goods, not a complete market for crafted weapons and clothing. Inter-town shipments carry goods, not equipment copies.
@@ -92,7 +92,7 @@ Sources: [gameplay.cpp](../src/gameplay.cpp), [world.cpp](../src/world.cpp), [ad
 
 ## NPC behavior and services
 
-**Working:** Weighted NPC types have authored introductions/lore and deterministic trade/specialist services. Conversation keeps the speaker nearby. NPCs no longer issue quests in resident-control campaigns; town boards own projects/orders. Owned residents keep their controlled positions instead of wandering away; selected residents are not drawn twice.
+**Working:** Weighted NPC types have authored introductions/lore and deterministic trade/specialist services. Conversation keeps the speaker nearby. NPCs no longer issue quests in resident-control campaigns; town boards own projects/orders. Owned residents without orders stay where they were left, while workers follow explicit local orders; selected residents are not drawn twice.
 
 **Incomplete:**
 
@@ -186,14 +186,14 @@ Sources: [gameplay.cpp](../src/gameplay.cpp), [render.cpp](../src/render.cpp).
 
 ## World generation, biomes and resources
 
-**Working:** Streamed deterministic chunks, forest/shore/shallow/deep water, weighted town/NPC rarity and surface/underwater resources. Owned towns can plant renewable wood, berries and reeds: trees mature in 10 simulation minutes, berry/reed plots in 3. Manual harvest delivers 20 wood or 12 berries/reeds to the town warehouse; replanting consumes wood/berries. Territory expansion increases plot capacity.
+**Working:** Streamed deterministic chunks, forest/shore/shallow/deep water, weighted town/NPC rarity and surface/underwater resources. Owned towns can plant renewable wood, berries and reeds: trees mature in 10 simulation minutes, berry/reed plots in 3. Resident planting creates persisted world locations with a growing marker and mature resource sprite. Harvesting on site with F or a gather order yields 20 wood or 12 berries/reeds into that resident's cargo; workers then carry it to the warehouse. Each resident planting consumes 2 carried wood and 2 berries at completion, after a physical warehouse pickup when needed. Territory expansion increases plot capacity. Growth-menu plots retain their timer/remote-harvest behavior, including existing plots from older saves.
 
 **Incomplete:**
 
 - Lakes/coastline use predefined large-scale shapes with seeded variation, not general continent/biome generation.
 - Settlements occupy a finite seeded region around fixed landmarks. Distant exploration generates terrain, not an endlessly expanding settlement network.
 - Player roads/bridges are manually plotted complete routes, without maintenance, demolition, traffic capacity or territorial right-of-way negotiations. Local town paths remain generated scenery; inter-town roads are not generated automatically.
-- Wild harvested sites stay depleted. Renewable plots are timer records in management, without individually placed/rendered trees/fields, forestry workers or renewable mineral extraction.
+- Wild harvested sites stay depleted. New planted sites use automatically selected town-edge locations and simple shared, nonblocking sprites; manual placement, fertility/seasons and renewable mineral extraction are absent. Growth-menu plots, including older saves, remain abstract management timers.
 - Animals wander/flee locally, without breeding, food chains or persistent population simulation.
 - Terrain is flat, without caves, elevation or physical geology. Weather, seasons and a day/night simulation are absent.
 
@@ -239,7 +239,7 @@ Sources: [gameplay.cpp](../src/gameplay.cpp), [render.cpp](../src/render.cpp).
 
 ## Persistence and content identity
 
-**Working:** Atomic v11 saves contain resident positions/cargo/gear/health/vessels, city product stocks/housing, queues/plots/shipments, boards/escrow, arrivals and the money ledger alongside shared exploration/progression and existing roads/treaties. Versions 1-10 load with migration backups; older state choices are recovered from resident backgrounds, including a deceased founder, without re-awarding coins; v9 queue deadlines retain their exact remaining time when migrated to the separate production clock; legacy loose goods move to the home warehouse and legacy equipment to the first resident without resetting knowledge. Inactive controlled residents keep positions across reload; dead residents remain tombstones. A failed autosave keeps the current session alive, shows a warning and logs the error; automatic retries are spaced by 30 seconds, and manual Save remains available.
+**Working:** Atomic v14 saves contain persisted work/freight event deadlines, counted freight carts/cargo/road routes/progress/returns, resident orders/progress/targets/carried planting supplies, planted-resource locations, resident positions/cargo/gear/health/vessels, city product stocks/housing, queues/plots/shipments, boards/escrow, arrivals and the money ledger alongside shared exploration/progression and existing roads/treaties. Versions 1-13 load with migration backups; older orders/carts start scheduling from the saved simulation time without offline credit; pre-v12 orders default to idle, old plots stay abstract and old timer shipments retain their remaining delivery time; v12 saves receive no free carts; older state choices are recovered from resident backgrounds, including a deceased founder, without re-awarding coins; v9 queue deadlines retain their exact remaining time when migrated to the separate production clock; legacy loose goods move to the home warehouse and legacy equipment to the first resident without resetting knowledge. Resident positions and orders persist across reload; routes rebuild against current geometry; dead residents remain tombstones. A failed autosave keeps the current session alive, shows a warning and logs the error; automatic retries are spaced by 30 seconds, and manual Save remains available.
 
 **Incomplete:**
 
@@ -259,25 +259,26 @@ Sources: [dialogue.cpp](../src/dialogue.cpp), [main.cpp](../src/main.cpp).
 
 ## Release and distribution
 
-**Working:** Linux source setup downloads dependencies, builds the game and optional model server, and runs automated tests. The repository includes installation and launch instructions.
+**Working:** Linux source setup downloads dependencies, builds the game and optional model server, and runs automated tests. Native macOS arm64 setup builds the game and raylib in a separate directory and runs automated tests without opening a game window. The repository includes installation and launch instructions.
 
 **Incomplete:**
 
-- Windows/macOS packaging, platform validation and a complete distribution workflow are not established by the Linux build.
-- Linux source setup is available and tested, but there is no standalone relocatable package: assets/content/default writable paths remain bound to the checkout at build time. System packages must be installed separately.
+- macOS arm64 gameplay/window/audio validation remains manual; Windows support, macOS app packaging/signing and a complete distribution workflow are not established. The optional model server is not validated on macOS.
+- Linux and macOS arm64 source setup are available, but there is no standalone relocatable package: assets/content/default writable paths remain bound to the checkout at build time. System packages must be installed separately.
 - Downloads use HTTPS, curl success and a GGUF header check for the model, without pinned checksums or complete model validation. The model/font URLs track upstream main, and existing dependency files/source checkouts are reused rather than reverified against a lock manifest.
 
 Sources: [perf.cpp](../src/perf.cpp), [PROGRESS.md](PROGRESS.md), [README.md](../README.md).
 
 ## Navigation and autonomous movement (deferred)
 
-**Working:** the existing bounded debug/benchmark auto-route remains available. Long-distance agent simulation is deferred behind resident command systems.
+**Working:** owned residents follow bounded local gather/plant routes, avoid blocked/unsafe/unknown routes and carry harvests/planting supplies between sites and the home-town hall entrance. Freight carts traverse existing player-road polylines between owned endpoints, including peaceful foreign transit towns; local city connectors avoid building geometry. The existing debug/benchmark auto-route remains available. Work and freight continue away from the player through a main-thread event queue and separately streamed service terrain. Ordinary NPC movement, animals and combat remain limited to the player's active area; service loading never reveals unexplored terrain. General off-road agent routing stays deferred.
 
 **Incomplete / prerequisites:**
 
-- Full destination orders and route planning are deferred until command systems exist for owned and foreign residents/professions, caravans and armies; current direct selection and job/equipment assignments do not satisfy this prerequisite.
-- Navigation searches a bounded area of loaded terrain and approaches distant goals in short segments, rather than planning full world routes for caravans/armies.
-- There is no hierarchical routing or complete handling of distant blocked/unloaded destinations.
+- Unrestricted distant destinations, autonomous road discovery and armies remain deferred pending broader owned/foreign resident and profession command systems. Worker orders stay local; freight follows existing explicit roads, with service terrain loaded independently of the camera.
+- Collision-aware local connectors use bounded loaded-terrain searches. Freight selects a deterministic existing-road graph route, without general off-road or hierarchical world routing.
+- There is no hierarchical routing or automatic handling of distant blocked destinations.
+- Off-camera work/freight use a bounded cache of 512 service chunks and at most 256 queued events per simulation step. Excess demand can delay work; missing terrain causes preparation waits without free catch-up output. Work and freight pause in menus and closed worlds; offline progression is absent.
 
 ## Intentional choices, not unfinished mechanics
 

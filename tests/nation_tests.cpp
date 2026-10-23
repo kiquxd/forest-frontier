@@ -348,13 +348,13 @@ int main(int argc, char** argv) {
     auto loaded = frontier::LoadSave(path);
     frontier::ConfigureWorld(loaded.seed);
     frontier::InitializeAdventure(loaded);
-    Check(
-        loaded.controlled_npc == first &&
-            loaded.city_products == save.city_products &&
-            loaded.travelers.size() == save.travelers.size() &&
-            frontier::MoneySupply(loaded) == total,
-        "v11 roundtrip preserves resident cargo, new arrivals, warehouses and "
-        "money");
+    Check(loaded.controlled_npc == first &&
+              loaded.city_products == save.city_products &&
+              loaded.travelers.size() == save.travelers.size() &&
+              frontier::MoneySupply(loaded) == total,
+          "Latest save roundtrip preserves resident cargo, new arrivals, "
+          "warehouses and "
+          "money");
     // Advance simulated deadlines directly; these checks never idle in real
     // time.
     auto advanced = loaded;
@@ -444,8 +444,12 @@ int main(int argc, char** argv) {
                               {frontier::Settlements()[home].pos,
                                frontier::Settlements()[foreign].pos}});
     int destination_stock = advanced.stocks[foreign][1];
-    Check(frontier::ShipGoods(advanced, home, foreign, 1, 5).ok,
-          "Road-connected warehouses can reserve a shipment");
+    Check(!frontier::ShipGoods(advanced, home, foreign, 1, 5).ok,
+          "A road alone cannot dispatch freight without a physical cart");
+    // Existing v12 timer shipments keep their original delivery semantics.
+    advanced.stocks[home][1] -= 5;
+    advanced.shipments.push_back(
+        {advanced.next_entity++, home, foreign, 1, 5, advanced.game_time + 30});
     advanced.relations[foreign].treaty = frontier::Treaty::kWar;
     Advance(advanced, 1000);
     Check(advanced.stocks[foreign][1] == destination_stock &&

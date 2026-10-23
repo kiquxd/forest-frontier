@@ -426,6 +426,7 @@ Action LoseResident(Save& save, int npc, bool captured, int captor) {
     return {false, "Invalid captor"};
   }
   c->health = 0;
+  c->order = {};
   if (captured) {
     c->state = "captive";
     c->captor = captor;

@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "work_scheduler.hpp"
 #include "world.hpp"
 
 namespace frontier {
@@ -66,6 +67,9 @@ Action Trade(Save& save, int settlement, int good, bool buy);
 Action Consume(Save& save, bool potion);
 float HarvestDuration(const Resource& resource, const Inventory& inventory);
 Action Harvest(Save& save, const Resource& resource);
+// Same authoritative requirements and progression, with explicit actor cargo.
+Action HarvestInto(Save& save, Inventory& cargo, bool submerged,
+                   const Resource& resource);
 
 class Gameplay {
  public:
@@ -105,6 +109,9 @@ class Gameplay {
   const WeaponDef& SwingingWeapon() const {
     return attack_weapon_;
   }
+  const WorkScheduler::Stats& WorkStats() const {
+    return work_scheduler_.LastStep();
+  }
   bool moving{};
   int attacks{};
   int kills{};
@@ -115,6 +122,7 @@ class Gameplay {
   std::string notice;
 
  private:
+  WorkScheduler work_scheduler_;
   bool hit_resolved_{true};
   WeaponDef attack_weapon_;
   void Damage(World& world, Save& save, Enemy& enemy, int amount,

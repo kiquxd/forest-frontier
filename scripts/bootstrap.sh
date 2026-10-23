@@ -10,12 +10,24 @@ if (($#)); then echo 'Unexpected argument; see --help.' >&2; exit 2; fi
 source "$project_dir/scripts/setup-common.sh"
 validate_build_jobs
 require_programs cmake ctest curl tar "${CXX:-c++}" python3
+build_dir=${FRONTIER_BUILD_DIR:-build}
+cmake_options=(-DCMAKE_BUILD_TYPE=Release)
+if [[ "$(uname -s)" == Darwin && "$(uname -m)" == arm64 ]]; then
+  build_dir=${FRONTIER_BUILD_DIR:-build-macos-arm64}
+  cmake_options+=(-DCMAKE_OSX_ARCHITECTURES=arm64)
+fi
 cd -- "$project_dir"
 mkdir -p third_party assets models logs saves
 if [[ "$(uname -s)" == Linux && "$(uname -m)" == x86_64 ]]; then
   if [[ ! -f third_party/raylib-5.5_linux_amd64/lib/libraylib.a ]]; then
     fetch https://github.com/raysan5/raylib/releases/download/5.5/raylib-5.5_linux_amd64.tar.gz third_party/raylib.tar.gz
     tar -xzf third_party/raylib.tar.gz -C third_party
+  fi
+elif [[ "$(uname -s)" == Darwin ]]; then
+  require_programs "${CC:-cc}"
+  if [[ ! -f third_party/raylib-5.5/CMakeLists.txt ]]; then
+    fetch https://github.com/raysan5/raylib/archive/refs/tags/5.5.tar.gz third_party/raylib-5.5-source.tar.gz
+    tar -xzf third_party/raylib-5.5-source.tar.gz -C third_party
   fi
 else
   echo 'Install raylib >=5 using your package manager; the bundled binary targets Linux x86_64.'
@@ -30,6 +42,6 @@ if [[ ! -s assets/NotoSans.ttf ]]; then
   fi
 fi
 fetch https://raw.githubusercontent.com/google/fonts/main/ofl/notosans/OFL.txt assets/FONT-LICENSE.txt
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j "$BUILD_JOBS"
-ctest --test-dir build --output-on-failure
+cmake -S . -B "$build_dir" "${cmake_options[@]}"
+cmake --build "$build_dir" -j "$BUILD_JOBS"
+ctest --test-dir "$build_dir" --output-on-failure

@@ -74,6 +74,7 @@ struct Ui {
   std::string production_search;
   bool production_search_focus{};
   int request_control{-1};
+  int resident_order_choice{};
   bool crafting{};
   bool trading{};
   int selection{};
@@ -187,6 +188,7 @@ class Renderer {
     Color tint;
     bool flip{};
     int worker{-1};
+    int freight{-1};
   };
   std::vector<Item> items_;
   struct GroundDetail {

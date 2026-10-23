@@ -23,7 +23,8 @@ Environment:
   LLAMA_SERVER         llama-server executable (see run-model.sh).
   LLM_MODEL            Model file (default: models/Qwen3-1.7B-Q4_K_M.gguf).
   LLM_STARTUP_TIMEOUT  Readiness timeout in seconds (default: 120).
-  GAME_BINARY          Game executable (default: build/forest_frontier).
+  GAME_BINARY          Game executable (default: build/forest_frontier;
+                       build-macos-arm64/forest_frontier on Apple Silicon).
 
 Relative model/game paths are resolved from the calling directory. No automatic
 downloads or builds. Normal gameplay uses authored NPC interactions; model
@@ -34,7 +35,11 @@ EOF
 caller_dir=$PWD
 project_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 model=${LLM_MODEL:-$project_dir/models/Qwen3-1.7B-Q4_K_M.gguf}
-game=${GAME_BINARY:-$project_dir/build/forest_frontier}
+default_build=build
+if [[ "$(uname -s)" == Darwin && "$(uname -m)" == arm64 ]]; then
+  default_build=build-macos-arm64
+fi
+game=${GAME_BINARY:-$project_dir/$default_build/forest_frontier}
 startup_timeout=${LLM_STARTUP_TIMEOUT:-120}
 port=${LLM_PORT:-8080}
 no_model=false
